@@ -62,7 +62,11 @@ int main(int /*argc*/, char** /*argv*/) {
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
 
-    GLFWwindow* window = glfwCreateWindow(960, 720, "SRS", nullptr, nullptr);
+#ifndef STUDDUP_VERSION
+#define STUDDUP_VERSION "dev"
+#endif
+
+    GLFWwindow* window = glfwCreateWindow(960, 720, "studdup v" STUDDUP_VERSION, nullptr, nullptr);
     if (!window) {
         std::fprintf(stderr, "Failed to create GLFW window\n");
         glfwTerminate();

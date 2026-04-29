@@ -1,11 +1,16 @@
 cmake_minimum_required(VERSION 3.16)
-project(srs-app CXX C)
+
+file(READ "${CMAKE_SOURCE_DIR}/version.txt" STUDDUP_VERSION)
+string(STRIP "${STUDDUP_VERSION}" STUDDUP_VERSION)
+
+project(studdup VERSION ${STUDDUP_VERSION} LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 include(FetchContent)
+set(FETCHCONTENT_QUIET OFF)
 
 # ---------------------------------------------------------------------------
 # Dependencies
@@ -48,11 +53,10 @@ target_include_directories(imgui PUBLIC
 )
 target_link_libraries(imgui PUBLIC glfw)
 
-# SQLite3 amalgamation
+# SQLite3 amalgamation (3.46.0, 2024 release)
 FetchContent_Declare(
     sqlite_amalg
-    URL      https://www.sqlite.org/2024/sqlite-amalgamation-3460100.zip
-    URL_HASH SHA256=77823cb110929c2bcb0f5d48e4833b5c59a8a6e40cdea3936b99e199dbbe5784
+    URL https://www.sqlite.org/2024/sqlite-amalgamation-3460000.zip
 )
 FetchContent_MakeAvailable(sqlite_amalg)
 
@@ -66,10 +70,10 @@ endif()
 find_package(OpenGL REQUIRED)
 
 # ---------------------------------------------------------------------------
-# srs-app executable
+# studdup executable
 # ---------------------------------------------------------------------------
 
-add_executable(srs-app
+add_executable(studdup
     src/main.cpp
     src/Date.cpp
     src/Scheduler.cpp
@@ -81,9 +85,13 @@ add_executable(srs-app
     src/ui/HelpView.cpp
 )
 
-target_include_directories(srs-app PRIVATE src)
+target_include_directories(studdup PRIVATE src)
 
-target_link_libraries(srs-app PRIVATE
+target_compile_definitions(studdup PRIVATE
+    STUDDUP_VERSION="${STUDDUP_VERSION}"
+)
+
+target_link_libraries(studdup PRIVATE
     imgui
     glfw
     sqlite3
@@ -92,13 +100,13 @@ target_link_libraries(srs-app PRIVATE
 
 if (WIN32)
     # Hide console window on Release builds; keep it on Debug for diagnostics
-    set_target_properties(srs-app PROPERTIES
+    set_target_properties(studdup PROPERTIES
         WIN32_EXECUTABLE $<CONFIG:Release>
     )
 endif()
 
 if (MSVC)
-    target_compile_options(srs-app PRIVATE /W4 /permissive-)
+    target_compile_options(studdup PRIVATE /W4 /permissive-)
 else()
-    target_compile_options(srs-app PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(studdup PRIVATE -Wall -Wextra -Wpedantic)
 endif()
