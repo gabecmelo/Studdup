@@ -61,9 +61,19 @@ void drawNewCardModal(App& app) {
                                ImGuiInputTextFlags_EnterReturnsTrue);
 
     ImGui::Spacing();
-    ImGui::TextDisabled("When do you want to start studying?");
-    ImGui::RadioButton("Study today   (Day 0, due today)", &app.newCardForm.stageChoice, 0);
-    ImGui::RadioButton("Study tomorrow (Day 0, due tomorrow)", &app.newCardForm.stageChoice, 1);
+    if (app.isDevMode()) {
+        ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 200, 0, 255));
+        ImGui::TextUnformatted("[DEV] Starting stage — all injected as due today");
+        ImGui::PopStyleColor();
+        static const char* kDevLabels[] = {"Day 0", "Day 1", "Day 2",
+                                           "Day 5", "Day 15", "Day 30"};
+        for (int i = 0; i < 6; ++i)
+            ImGui::RadioButton(kDevLabels[i], &app.newCardForm.stageChoice, i);
+    } else {
+        ImGui::TextDisabled("When do you want to start studying?");
+        ImGui::RadioButton("Study today   (Day 0, due today)", &app.newCardForm.stageChoice, 0);
+        ImGui::RadioButton("Study tomorrow (Day 0, due tomorrow)", &app.newCardForm.stageChoice, 1);
+    }
 
     if (app.newCardForm.showError) {
         ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 120, 120, 255));

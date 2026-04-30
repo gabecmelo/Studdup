@@ -41,6 +41,10 @@ void App::onWindowFocusChanged() {
     refreshToday();
 }
 
+void App::toggleDevMode() {
+    devMode_ = !devMode_;
+}
+
 const Card* App::findActive(int64_t id) const {
     auto it =
         std::find_if(active_.begin(), active_.end(), [id](const Card& c) { return c.id == id; });
@@ -139,8 +143,6 @@ void App::submitNewCard() {
     c.title = newCardForm.title;
     c.contentLink = newCardForm.contentLink;
     c.reviewLink = newCardForm.reviewLink;
-    c.currentStage = Stage::Day0;
-    c.startDate = (newCardForm.stageChoice == 0) ? today_ : today_.addDays(1);
     c.createdAt = today_;
     c.archived = false;
 
@@ -149,8 +151,20 @@ void App::submitNewCard() {
         return;
     }
 
+    if (devMode_) {
+        static const Stage kStages[] = {Stage::Day0,  Stage::Day1, Stage::Day2,
+                                        Stage::Day5, Stage::Day15, Stage::Day30};
+        const int idx    = std::max(0, std::min(newCardForm.stageChoice, 5));
+        c.currentStage   = kStages[idx];
+        // Anchor startDate so dueDate == today regardless of stage
+        c.startDate = today_.addDays(-static_cast<int>(c.currentStage));
+    } else {
+        c.currentStage = Stage::Day0;
+        c.startDate    = (newCardForm.stageChoice == 0) ? today_ : today_.addDays(1);
+    }
+
     c.id = db_.insertCard(c);
-    db_.recordEvent(c.id, "created", Stage::Day0, Stage::Day0, today_);
+    db_.recordEvent(c.id, "created", c.currentStage, c.currentStage, today_);
     reloadActive();
     closeModal();
 }
@@ -296,6 +310,14 @@ void App::renderFrame() {
         requestOpenHelp();
     ImGui::SameLine();
     ImGui::TextDisabled("Today: %s", today_.toHuman().c_str());
+    if (ImGui::IsItemHovered() && ImGui::GetMouseClickedCount(ImGuiMouseButton_Left) == 3)
+        toggleDevMode();
+    if (devMode_) {
+        ImGui::SameLine();
+        ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 200, 0, 255));
+        ImGui::TextUnformatted("[DEV]");
+        ImGui::PopStyleColor();
+    }
     ImGui::Separator();
 
     if (view == MainView::Agenda)

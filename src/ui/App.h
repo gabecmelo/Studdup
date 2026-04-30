@@ -101,8 +101,10 @@ public:
     void requestToggleHistory();
     void requestOpenHelp();
     void onWindowFocusChanged();
+    void toggleDevMode();
 
     Date today() const { return today_; }
+    bool isDevMode() const { return devMode_; }
     const std::vector<Card>& active() const { return active_; }
     const std::vector<Card>& archived() const { return archived_; }
 
@@ -161,6 +163,7 @@ private:
     std::vector<Card> active_;
     std::vector<Card> archived_;
     Date today_;
+    bool devMode_ = false;
 };
 
 }  // namespace srs::ui
