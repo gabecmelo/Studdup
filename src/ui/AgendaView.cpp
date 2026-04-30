@@ -1,5 +1,3 @@
-#include "App.h"
-
 #include <imgui.h>
 
 #include <map>
@@ -7,6 +5,7 @@
 #include <vector>
 
 #include "../Scheduler.h"
+#include "App.h"
 
 namespace srs::ui::AgendaView {
 
@@ -18,7 +17,8 @@ void drawCardRow(App& app, const Card& c, bool complete, bool overdue, int overd
     ImGui::AlignTextToFramePadding();
     // Title is clickable — opens the detail view
     ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(220, 220, 255, 255));
-    if (ImGui::SmallButton(c.title.c_str())) app.openCardDetail(c);
+    if (ImGui::SmallButton(c.title.c_str()))
+        app.openCardDetail(c);
     ImGui::PopStyleColor();
     ImGui::SameLine();
     ImGui::TextDisabled("[%s]", stageLabel(c.currentStage));
@@ -32,8 +32,10 @@ void drawCardRow(App& app, const Card& c, bool complete, bool overdue, int overd
 
     if (!c.contentLink.empty() || !c.reviewLink.empty()) {
         ImGui::Indent();
-        if (!c.contentLink.empty()) ImGui::TextDisabled("Content: %s", c.contentLink.c_str());
-        if (!c.reviewLink.empty())  ImGui::TextDisabled("Review:  %s", c.reviewLink.c_str());
+        if (!c.contentLink.empty())
+            ImGui::TextDisabled("Content: %s", c.contentLink.c_str());
+        if (!c.reviewLink.empty())
+            ImGui::TextDisabled("Review:  %s", c.reviewLink.c_str());
         ImGui::Unindent();
     }
 
@@ -42,16 +44,20 @@ void drawCardRow(App& app, const Card& c, bool complete, bool overdue, int overd
     ImGui::SameLine();
 
     if (complete) {
-        if (ImGui::SmallButton("Complete")) app.completeCard(c);
+        if (ImGui::SmallButton("Complete"))
+            app.completeCard(c);
         ImGui::SameLine();
     }
 
-    if (ImGui::SmallButton("Edit")) app.openEditCard(c);
+    if (ImGui::SmallButton("Edit"))
+        app.openEditCard(c);
     ImGui::SameLine();
-    if (ImGui::SmallButton("Postpone")) app.openPostpone(c);
+    if (ImGui::SmallButton("Postpone"))
+        app.openPostpone(c);
     ImGui::SameLine();
     ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 120, 120, 255));
-    if (ImGui::SmallButton("Delete")) app.openDeleteCard(c);
+    if (ImGui::SmallButton("Delete"))
+        app.openDeleteCard(c);
     ImGui::PopStyleColor();
 
     ImGui::Separator();
@@ -61,7 +67,7 @@ void drawCardRow(App& app, const Card& c, bool complete, bool overdue, int overd
 }  // namespace
 
 void draw(App& app) {
-    const Date today    = app.today();
+    const Date today = app.today();
     const Date tomorrow = today.addDays(1);
 
     std::vector<const Card*> todayCards;
@@ -70,9 +76,12 @@ void draw(App& app) {
 
     for (const Card& c : app.active()) {
         const Date due = Scheduler::dueDate(c);
-        if (due <= today)         todayCards.push_back(&c);
-        else if (due == tomorrow) tomorrowCards.push_back(&c);
-        else                      upcoming[due.toIso()].push_back(&c);
+        if (due <= today)
+            todayCards.push_back(&c);
+        else if (due == tomorrow)
+            tomorrowCards.push_back(&c);
+        else
+            upcoming[due.toIso()].push_back(&c);
     }
 
     if (ImGui::CollapsingHeader(("Today (" + std::to_string(todayCards.size()) + ")").c_str(),
@@ -94,8 +103,9 @@ void draw(App& app) {
                 drawCardRow(app, *c, false, false, 0);
     }
 
-    if (ImGui::CollapsingHeader(("Upcoming (" + std::to_string(upcoming.size()) + " dates)").c_str(),
-                                ImGuiTreeNodeFlags_DefaultOpen)) {
+    if (ImGui::CollapsingHeader(
+            ("Upcoming (" + std::to_string(upcoming.size()) + " dates)").c_str(),
+            ImGuiTreeNodeFlags_DefaultOpen)) {
         if (upcoming.empty()) {
             ImGui::TextDisabled("No upcoming reviews.");
         } else {
@@ -105,7 +115,8 @@ void draw(App& app) {
                 ImGui::Text("%s", d.toHuman().c_str());
                 ImGui::PopStyleColor();
                 ImGui::Indent();
-                for (const Card* c : cards) drawCardRow(app, *c, false, false, 0);
+                for (const Card* c : cards)
+                    drawCardRow(app, *c, false, false, 0);
                 ImGui::Unindent();
             }
         }

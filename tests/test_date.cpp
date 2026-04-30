@@ -11,8 +11,8 @@ TEST_CASE("Date::isValid") {
     CHECK_FALSE(Date{2026, 13, 1}.isValid());
     CHECK_FALSE(Date{2026, 1, 0}.isValid());
     CHECK_FALSE(Date{2026, 1, 32}.isValid());
-    CHECK(Date{2024, 2, 29}.isValid());   // leap year
-    CHECK_FALSE(Date{2023, 2, 29}.isValid()); // not leap
+    CHECK(Date{2024, 2, 29}.isValid());        // leap year
+    CHECK_FALSE(Date{2023, 2, 29}.isValid());  // not leap
 }
 
 TEST_CASE("Date::fromIso / toIso roundtrip") {
@@ -50,20 +50,20 @@ TEST_CASE("Date::addDays month boundary") {
 TEST_CASE("Date::addDays leap year Feb") {
     CHECK(Date{2024, 2, 28}.addDays(1) == (Date{2024, 2, 29}));
     CHECK(Date{2024, 2, 29}.addDays(1) == (Date{2024, 3, 1}));
-    CHECK(Date{2023, 2, 28}.addDays(1) == (Date{2023, 3, 1})); // non-leap
+    CHECK(Date{2023, 2, 28}.addDays(1) == (Date{2023, 3, 1}));  // non-leap
 }
 
 TEST_CASE("Date::addDays negative (backward)") {
     CHECK(Date{2026, 5, 1}.addDays(-1) == (Date{2026, 4, 30}));
     CHECK(Date{2026, 3, 1}.addDays(-1) == (Date{2026, 2, 28}));
-    CHECK(Date{2024, 3, 1}.addDays(-1) == (Date{2024, 2, 29})); // leap
+    CHECK(Date{2024, 3, 1}.addDays(-1) == (Date{2024, 2, 29}));  // leap
 }
 
 TEST_CASE("Date::addDays large offset (SRS ladder)") {
     const Date start{2026, 4, 29};
-    CHECK(start.addDays(1)  == (Date{2026, 4, 30}));
-    CHECK(start.addDays(2)  == (Date{2026, 5,  1}));
-    CHECK(start.addDays(5)  == (Date{2026, 5,  4}));
+    CHECK(start.addDays(1) == (Date{2026, 4, 30}));
+    CHECK(start.addDays(2) == (Date{2026, 5, 1}));
+    CHECK(start.addDays(5) == (Date{2026, 5, 4}));
     CHECK(start.addDays(15) == (Date{2026, 5, 14}));
     CHECK(start.addDays(30) == (Date{2026, 5, 29}));
 }

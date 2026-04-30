@@ -7,10 +7,10 @@ namespace srs::Scheduler {
 
 Date dueDate(const Card& c);
 
-bool isDueToday   (const Card& c, Date today);
+bool isDueToday(const Card& c, Date today);
 bool isDueTomorrow(const Card& c, Date today);
-bool isOverdue    (const Card& c, Date today);
-int  overdueDays  (const Card& c, Date today);  // 0 if not overdue
+bool isOverdue(const Card& c, Date today);
+int overdueDays(const Card& c, Date today);  // 0 if not overdue
 
 // Stage transitions. All pure: take Card by value, return updated Card.
 

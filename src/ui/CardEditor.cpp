@@ -1,5 +1,3 @@
-#include "App.h"
-
 #include <imgui.h>
 
 #include <algorithm>
@@ -7,16 +5,19 @@
 #include <cstdio>
 #include <cstdlib>
 
+#include "App.h"
+
 #ifdef _WIN32
-#include <windows.h>
 #include <shellapi.h>
+#include <windows.h>
 #endif
 
 #include "../Scheduler.h"
 
 namespace {
 void openUrl(const std::string& url) {
-    if (url.empty()) return;
+    if (url.empty())
+        return;
 #ifdef _WIN32
     ShellExecuteA(nullptr, "open", url.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
 #else
@@ -48,9 +49,9 @@ void drawNewCardModal(App& app) {
     }
 
     bool submit = false;
-    submit |= ImGui::InputText("Title##nc", app.newCardForm.title,
-                               IM_ARRAYSIZE(app.newCardForm.title),
-                               ImGuiInputTextFlags_EnterReturnsTrue);
+    submit |=
+        ImGui::InputText("Title##nc", app.newCardForm.title, IM_ARRAYSIZE(app.newCardForm.title),
+                         ImGuiInputTextFlags_EnterReturnsTrue);
     submit |= ImGui::InputText("Content link##nc", app.newCardForm.contentLink,
                                IM_ARRAYSIZE(app.newCardForm.contentLink),
                                ImGuiInputTextFlags_EnterReturnsTrue);
@@ -60,7 +61,7 @@ void drawNewCardModal(App& app) {
 
     ImGui::Spacing();
     ImGui::TextDisabled("When do you want to start studying?");
-    ImGui::RadioButton("Study today   (Day 0, due today)",    &app.newCardForm.stageChoice, 0);
+    ImGui::RadioButton("Study today   (Day 0, due today)", &app.newCardForm.stageChoice, 0);
     ImGui::RadioButton("Study tomorrow (Day 0, due tomorrow)", &app.newCardForm.stageChoice, 1);
 
     if (app.newCardForm.showError) {
@@ -72,7 +73,8 @@ void drawNewCardModal(App& app) {
     ImGui::Spacing();
     if (ImGui::Button("Create", ImVec2(120, 0)) || submit) {
         app.submitNewCard();
-        if (app.modal == Modal::None) ImGui::CloseCurrentPopup();
+        if (app.modal == Modal::None)
+            ImGui::CloseCurrentPopup();
     }
     ImGui::SameLine();
     if (ImGui::Button("Cancel", ImVec2(120, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
@@ -103,9 +105,9 @@ void drawEditCardModal(App& app) {
     }
 
     bool submit = false;
-    submit |= ImGui::InputText("Title##ec", app.editCardForm.title,
-                               IM_ARRAYSIZE(app.editCardForm.title),
-                               ImGuiInputTextFlags_EnterReturnsTrue);
+    submit |=
+        ImGui::InputText("Title##ec", app.editCardForm.title, IM_ARRAYSIZE(app.editCardForm.title),
+                         ImGuiInputTextFlags_EnterReturnsTrue);
     submit |= ImGui::InputText("Content link##ec", app.editCardForm.contentLink,
                                IM_ARRAYSIZE(app.editCardForm.contentLink),
                                ImGuiInputTextFlags_EnterReturnsTrue);
@@ -124,7 +126,8 @@ void drawEditCardModal(App& app) {
     ImGui::Spacing();
     if (ImGui::Button("Save", ImVec2(120, 0)) || submit) {
         app.applyEditCard();
-        if (app.modal == Modal::None) ImGui::CloseCurrentPopup();
+        if (app.modal == Modal::None)
+            ImGui::CloseCurrentPopup();
     }
     ImGui::SameLine();
     if (ImGui::Button("Cancel", ImVec2(120, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
@@ -149,21 +152,21 @@ void drawCardDetailModal(App& app) {
     if (!ImGui::BeginPopupModal("Card Details", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         return;
 
-    const Card* ptr = app.cardDetail.archived
-                          ? app.findArchived(app.cardDetail.cardId)
-                          : app.findActive(app.cardDetail.cardId);
+    const Card* ptr = app.cardDetail.archived ? app.findArchived(app.cardDetail.cardId)
+                                              : app.findActive(app.cardDetail.cardId);
 
     if (!ptr) {
         ImGui::TextDisabled("Card not found.");
         if (ImGui::Button("Close", ImVec2(-1, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
-            app.closeModal(); ImGui::CloseCurrentPopup();
+            app.closeModal();
+            ImGui::CloseCurrentPopup();
         }
         ImGui::EndPopup();
         return;
     }
 
-    const Card&  c     = *ptr;
-    const Date   today = app.today();
+    const Card& c = *ptr;
+    const Date today = app.today();
 
     // ── Title + stage ──────────────────────────────────────────────────────
     ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(240, 240, 255, 255));
@@ -216,35 +219,46 @@ void drawCardDetailModal(App& app) {
 
     if (!c.archived && Scheduler::isDueToday(c, today)) {
         if (ImGui::Button("Complete", ImVec2(110, 0))) {
-            app.closeModal(); ImGui::CloseCurrentPopup(); app.completeCard(c);
+            app.closeModal();
+            ImGui::CloseCurrentPopup();
+            app.completeCard(c);
         }
         ImGui::SameLine();
     }
     if (!c.archived) {
         if (ImGui::Button("Postpone", ImVec2(90, 0))) {
-            app.closeModal(); ImGui::CloseCurrentPopup(); app.openPostpone(c);
+            app.closeModal();
+            ImGui::CloseCurrentPopup();
+            app.openPostpone(c);
         }
         ImGui::SameLine();
     }
     if (ImGui::Button("Edit", ImVec2(80, 0))) {
-        app.closeModal(); ImGui::CloseCurrentPopup(); app.openEditCard(c);
+        app.closeModal();
+        ImGui::CloseCurrentPopup();
+        app.openEditCard(c);
     }
     ImGui::SameLine();
     if (ImGui::Button("View Log", ImVec2(80, 0))) {
-        app.closeModal(); ImGui::CloseCurrentPopup(); app.openViewLog(c);
+        app.closeModal();
+        ImGui::CloseCurrentPopup();
+        app.openViewLog(c);
     }
     ImGui::SameLine();
-    ImGui::PushStyleColor(ImGuiCol_Button,        IM_COL32(140, 35, 35, 255));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered,  IM_COL32(180, 50, 50, 255));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive,   IM_COL32(200, 70, 70, 255));
+    ImGui::PushStyleColor(ImGuiCol_Button, IM_COL32(140, 35, 35, 255));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, IM_COL32(180, 50, 50, 255));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, IM_COL32(200, 70, 70, 255));
     if (ImGui::Button("Delete", ImVec2(80, 0))) {
-        app.closeModal(); ImGui::CloseCurrentPopup(); app.openDeleteCard(c);
+        app.closeModal();
+        ImGui::CloseCurrentPopup();
+        app.openDeleteCard(c);
     }
     ImGui::PopStyleColor(3);
     ImGui::SameLine();
     if (ImGui::Button("Close", ImVec2(80, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape) ||
         ImGui::IsKeyPressed(ImGuiKey_Enter)) {
-        app.closeModal(); ImGui::CloseCurrentPopup();
+        app.closeModal();
+        ImGui::CloseCurrentPopup();
     }
 
     ImGui::EndPopup();
@@ -264,33 +278,39 @@ void drawOverdueModal(App& app) {
     if (!ImGui::BeginPopupModal("Overdue card", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         return;
 
-    ImGui::TextWrapped("\"%s\" is overdue by %d day%s (stage: %s).",
-                       app.overdue.title.c_str(),
-                       app.overdue.overdueDays,
-                       app.overdue.overdueDays == 1 ? "" : "s",
+    ImGui::TextWrapped("\"%s\" is overdue by %d day%s (stage: %s).", app.overdue.title.c_str(),
+                       app.overdue.overdueDays, app.overdue.overdueDays == 1 ? "" : "s",
                        stageLabel(app.overdue.currentStage));
     ImGui::Spacing();
     ImGui::TextWrapped("How would you like to resolve it?");
     ImGui::Spacing();
 
-    const Card* c   = app.findActive(app.overdue.cardId);
-    bool        acted = false;
+    const Card* c = app.findActive(app.overdue.cardId);
+    bool acted = false;
 
-    if (ImGui::Button("Mark as completed", ImVec2(-1, 0)) ||
-        ImGui::IsKeyPressed(ImGuiKey_Enter)) {
-        if (c) { app.applyMarkCompleted(*c); acted = true; }
+    if (ImGui::Button("Mark as completed", ImVec2(-1, 0)) || ImGui::IsKeyPressed(ImGuiKey_Enter)) {
+        if (c) {
+            app.applyMarkCompleted(*c);
+            acted = true;
+        }
     }
     ImGui::TextDisabled("  Advance to the next stage, anchored to the original start date.");
 
     ImGui::Spacing();
     if (ImGui::Button("Restart the study", ImVec2(-1, 0))) {
-        if (c) { app.applyRestart(*c); acted = true; }
+        if (c) {
+            app.applyRestart(*c);
+            acted = true;
+        }
     }
     ImGui::TextDisabled("  Keep the current stage and re-schedule it for today.");
 
     ImGui::Spacing();
     if (ImGui::Button("Erase the study", ImVec2(-1, 0))) {
-        if (c) { app.applyErase(*c); acted = true; }
+        if (c) {
+            app.applyErase(*c);
+            acted = true;
+        }
     }
     ImGui::TextDisabled("  Reset to Day 0 with today as the new start date.");
 
@@ -312,8 +332,8 @@ void drawOverdueModal(App& app) {
 
 void drawPostponeModal(App& app) {
     srs::ui::PostponeState& ps = app.postponeState;
-    const bool  isReview = ps.isReview();
-    const char* popupId  = isReview ? "Postpone Review" : "Postpone Study";
+    const bool isReview = ps.isReview();
+    const char* popupId = isReview ? "Postpone Review" : "Postpone Study";
 
     ImGui::OpenPopup(popupId);
 
@@ -347,11 +367,11 @@ void drawPostponeModal(App& app) {
             ImGui::Spacing();
             if (ImGui::Button("No, postpone anyway", ImVec2(-1, 0))) {
                 ps.timerExpired = false;
-                ps.timerActive  = false;
+                ps.timerActive = false;
             }
         } else if (ps.timerActive) {
             // ── Timer running ─────────────────────────────────────────────
-            const int rem  = ps.remainingSeconds();
+            const int rem = ps.remainingSeconds();
             ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(100, 220, 255, 255));
             ImGui::Text("Quick review timer: %02d:%02d", rem / 60, rem % 60);
             ImGui::PopStyleColor();
@@ -364,7 +384,8 @@ void drawPostponeModal(App& app) {
                 ImGui::TextDisabled("Review link:");
                 ImGui::SameLine();
                 ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(100, 180, 255, 255));
-                if (ImGui::SmallButton("Open##rl")) openUrl(ptr->reviewLink);
+                if (ImGui::SmallButton("Open##rl"))
+                    openUrl(ptr->reviewLink);
                 ImGui::PopStyleColor();
             }
 
@@ -385,13 +406,14 @@ void drawPostponeModal(App& app) {
                 "The spacing is calibrated to keep the memory fresh — skipping breaks the curve.");
             ImGui::Spacing();
 
-            ImGui::PushStyleColor(ImGuiCol_Button,        IM_COL32(40,  140, 60,  255));
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered,  IM_COL32(60,  180, 80,  255));
-            ImGui::PushStyleColor(ImGuiCol_ButtonActive,   IM_COL32(80,  200, 100, 255));
+            ImGui::PushStyleColor(ImGuiCol_Button, IM_COL32(40, 140, 60, 255));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, IM_COL32(60, 180, 80, 255));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, IM_COL32(80, 200, 100, 255));
             if (ImGui::Button("Start 5-min review timer", ImVec2(-1, 0))) {
                 app.startPostponeTimer();
                 const srs::Card* ptr = app.findActive(ps.cardId);
-                if (ptr && !ptr->reviewLink.empty()) openUrl(ptr->reviewLink);
+                if (ptr && !ptr->reviewLink.empty())
+                    openUrl(ptr->reviewLink);
             }
             ImGui::PopStyleColor(3);
             ImGui::TextDisabled("  Opens your review link and counts down 5 minutes.");
@@ -456,15 +478,14 @@ void drawDeleteModal(App& app) {
     ImGui::PopStyleColor();
     ImGui::Spacing();
     ImGui::TextWrapped("Delete \"%s\"?", app.deleteState.title.c_str());
-    ImGui::TextWrapped(
-        "All history events for this card will also be permanently removed.");
+    ImGui::TextWrapped("All history events for this card will also be permanently removed.");
     ImGui::Spacing();
     ImGui::Separator();
     ImGui::Spacing();
 
-    ImGui::PushStyleColor(ImGuiCol_Button,        IM_COL32(160, 40,  40,  255));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered,  IM_COL32(200, 60,  60,  255));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive,   IM_COL32(220, 80,  80,  255));
+    ImGui::PushStyleColor(ImGuiCol_Button, IM_COL32(160, 40, 40, 255));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, IM_COL32(200, 60, 60, 255));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, IM_COL32(220, 80, 80, 255));
     if (ImGui::Button("Delete", ImVec2(120, 0))) {
         app.applyDeleteCard();
         ImGui::CloseCurrentPopup();
@@ -493,7 +514,8 @@ void drawViewLogModal(App& app) {
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
     ImGui::SetNextWindowSize(ImVec2(560, 420), ImGuiCond_Appearing);
 
-    if (!ImGui::BeginPopupModal("Event log", nullptr)) return;
+    if (!ImGui::BeginPopupModal("Event log", nullptr))
+        return;
 
     ImGui::Text("%s", app.viewLog.title.c_str());
     ImGui::Separator();
@@ -502,11 +524,8 @@ void drawViewLogModal(App& app) {
         ImGui::TextDisabled("No events recorded.");
     } else {
         for (const HistoryEvent& e : app.viewLog.events) {
-            ImGui::Text("%-12s  %-10s  %s -> %s",
-                        e.when.toHuman().c_str(),
-                        e.type.c_str(),
-                        stageLabel(e.fromStage),
-                        stageLabel(e.toStage));
+            ImGui::Text("%-12s  %-10s  %s -> %s", e.when.toHuman().c_str(), e.type.c_str(),
+                        stageLabel(e.fromStage), stageLabel(e.toStage));
         }
     }
 

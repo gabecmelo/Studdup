@@ -13,8 +13,6 @@ Usage:
   python run.py clean             Remove the build/ directory
 """
 
-import glob
-import os
 import platform
 import shutil
 import subprocess

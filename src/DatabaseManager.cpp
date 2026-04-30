@@ -23,16 +23,19 @@ void bindDate(sqlite3_stmt* st, int idx, Date d) {
 }
 
 Date readDate(sqlite3_stmt* st, int col) {
-    if (sqlite3_column_type(st, col) == SQLITE_NULL) return Date{};
+    if (sqlite3_column_type(st, col) == SQLITE_NULL)
+        return Date{};
     const unsigned char* txt = sqlite3_column_text(st, col);
-    if (!txt) return Date{};
+    if (!txt)
+        return Date{};
     return Date::fromIso(reinterpret_cast<const char*>(txt));
 }
 
 std::string readText(sqlite3_stmt* st, int col) {
-    if (sqlite3_column_type(st, col) == SQLITE_NULL) return {};
+    if (sqlite3_column_type(st, col) == SQLITE_NULL)
+        return {};
     const unsigned char* txt = sqlite3_column_text(st, col);
-    const int len            = sqlite3_column_bytes(st, col);
+    const int len = sqlite3_column_bytes(st, col);
     return txt ? std::string(reinterpret_cast<const char*>(txt), static_cast<size_t>(len))
                : std::string{};
 }
@@ -52,14 +55,18 @@ DatabaseManager::DatabaseManager(std::string path) : path_(std::move(path)) {
 }
 
 DatabaseManager::~DatabaseManager() {
-    if (db_) sqlite3_close(db_);
+    if (db_)
+        sqlite3_close(db_);
 }
 
 void DatabaseManager::exec(const char* sql) {
     char* err = nullptr;
     if (sqlite3_exec(db_, sql, nullptr, nullptr, &err) != SQLITE_OK) {
         std::string msg = "sqlite exec failed: ";
-        if (err) { msg += err; sqlite3_free(err); }
+        if (err) {
+            msg += err;
+            sqlite3_free(err);
+        }
         throw std::runtime_error(msg);
     }
 }
@@ -76,8 +83,7 @@ void DatabaseManager::migrate() {
         "  archived          INTEGER NOT NULL DEFAULT 0,"
         "  created_at        TEXT NOT NULL,"
         "  last_completed_at TEXT"
-        ")"
-    );
+        ")");
     exec(
         "CREATE TABLE IF NOT EXISTS history ("
         "  id          INTEGER PRIMARY KEY AUTOINCREMENT,"
@@ -86,8 +92,7 @@ void DatabaseManager::migrate() {
         "  from_stage  INTEGER,"
         "  to_stage    INTEGER,"
         "  when_date   TEXT NOT NULL"
-        ")"
-    );
+        ")");
     exec("CREATE INDEX IF NOT EXISTS idx_cards_archived ON cards(archived)");
     exec("CREATE INDEX IF NOT EXISTS idx_history_card   ON history(card_id)");
 }
@@ -166,14 +171,14 @@ static std::vector<Card> loadWhere(sqlite3* db, const char* where, const char* o
     std::vector<Card> out;
     while (sqlite3_step(st) == SQLITE_ROW) {
         Card c;
-        c.id              = sqlite3_column_int64(st, 0);
-        c.title           = readText(st, 1);
-        c.contentLink     = readText(st, 2);
-        c.reviewLink      = readText(st, 3);
-        c.startDate       = readDate(st, 4);
-        c.currentStage    = static_cast<Stage>(sqlite3_column_int(st, 5));
-        c.archived        = sqlite3_column_int(st, 6) != 0;
-        c.createdAt       = readDate(st, 7);
+        c.id = sqlite3_column_int64(st, 0);
+        c.title = readText(st, 1);
+        c.contentLink = readText(st, 2);
+        c.reviewLink = readText(st, 3);
+        c.startDate = readDate(st, 4);
+        c.currentStage = static_cast<Stage>(sqlite3_column_int(st, 5));
+        c.archived = sqlite3_column_int(st, 6) != 0;
+        c.createdAt = readDate(st, 7);
         c.lastCompletedAt = readDate(st, 8);
         out.push_back(std::move(c));
     }
@@ -189,8 +194,8 @@ std::vector<Card> DatabaseManager::loadArchived() {
     return loadWhere(db_, "archived = 1", "last_completed_at DESC, id DESC");
 }
 
-void DatabaseManager::recordEvent(int64_t cardId, const std::string& type,
-                                  Stage fromStage, Stage toStage, Date when) {
+void DatabaseManager::recordEvent(int64_t cardId, const std::string& type, Stage fromStage,
+                                  Stage toStage, Date when) {
     const char* sql =
         "INSERT INTO history (card_id, event_type, from_stage, to_stage, when_date) "
         "VALUES (?, ?, ?, ?, ?)";
@@ -224,12 +229,12 @@ std::vector<HistoryEvent> DatabaseManager::loadHistoryFor(int64_t cardId) {
     std::vector<HistoryEvent> out;
     while (sqlite3_step(st) == SQLITE_ROW) {
         HistoryEvent e;
-        e.id        = sqlite3_column_int64(st, 0);
-        e.cardId    = sqlite3_column_int64(st, 1);
-        e.type      = readText(st, 2);
+        e.id = sqlite3_column_int64(st, 0);
+        e.cardId = sqlite3_column_int64(st, 1);
+        e.type = readText(st, 2);
         e.fromStage = static_cast<Stage>(sqlite3_column_int(st, 3));
-        e.toStage   = static_cast<Stage>(sqlite3_column_int(st, 4));
-        e.when      = readDate(st, 5);
+        e.toStage = static_cast<Stage>(sqlite3_column_int(st, 4));
+        e.when = readDate(st, 5);
         out.push_back(std::move(e));
     }
     sqlite3_finalize(st);
