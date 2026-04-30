@@ -28,8 +28,40 @@ void glfwErrorCallback(int error, const char* description) {
 
 std::string defaultDbPath() {
     std::error_code ec;
-    std::filesystem::create_directories("data", ec);
-    return "data/srs.db";
+
+#ifdef _WIN32
+    const char* appdata = std::getenv("APPDATA");
+    if (!appdata || appdata[0] == '\0') {
+        std::filesystem::create_directories("data", ec);
+        return "data/srs.db";
+    }
+    std::filesystem::path dir = std::filesystem::path(appdata) / "studdup";
+#else
+    const char* xdg = std::getenv("XDG_DATA_HOME");
+    std::filesystem::path dir;
+    if (xdg && xdg[0] != '\0') {
+        dir = std::filesystem::path(xdg) / "studdup";
+    } else {
+        const char* home = std::getenv("HOME");
+        if (!home || home[0] == '\0') {
+            std::filesystem::create_directories("data", ec);
+            return "data/srs.db";
+        }
+        dir = std::filesystem::path(home) / ".local" / "share" / "studdup";
+    }
+#endif
+
+    std::filesystem::create_directories(dir, ec);
+
+    std::filesystem::path newPath = dir / "srs.db";
+
+    // One-time migration: copy old relative db to new location on first run after update.
+    std::filesystem::path oldPath = std::filesystem::path("data") / "srs.db";
+    if (std::filesystem::exists(oldPath, ec) && !std::filesystem::exists(newPath, ec)) {
+        std::filesystem::copy_file(oldPath, newPath, ec);
+    }
+
+    return newPath.string();
 }
 
 void handleHotkeys(srs::ui::App& app) {
