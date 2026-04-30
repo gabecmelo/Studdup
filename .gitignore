@@ -1,4 +1,7 @@
 build/
+build-debug/
+build-release/
+build-test/
 out/
 .vs/
 .vscode/

@@ -6,11 +6,11 @@ Works identically on Windows and Linux (Python 3.8+, no extra packages).
 Usage:
   python run.py lint              Check code style (clang-format)
   python run.py fix               Auto-fix code style in-place
-  python run.py test              Build & run unit tests
-  python run.py build             Build Debug  (default)
-  python run.py build debug       Build Debug
-  python run.py build release     Build Release
-  python run.py clean             Remove all build directories
+  python run.py test              Build & run unit tests  → build/Tests/
+  python run.py build             Build Debug  (default)  → build/Debug/
+  python run.py build debug       Build Debug             → build/Debug/
+  python run.py build release     Build Release           → build/Release/
+  python run.py clean             Remove the build/ directory
 """
 
 import glob
@@ -147,7 +147,7 @@ def cmd_fix():
 
 def cmd_test():
     _head("Test")
-    build_dir  = ROOT / "build-test"
+    build_dir  = ROOT / "build" / "Tests"
     build_type = "Debug"
 
     _step("Configuring (Debug + tests) ...")
@@ -175,7 +175,7 @@ def cmd_build(build_type="Debug"):
         sys.exit(1)
 
     _head("Build  ({})".format(build_type))
-    build_dir = ROOT / "build-{}".format(build_type.lower())
+    build_dir = ROOT / "build"
 
     _step("Configuring ...")
     _run(["cmake", "-B", build_dir]
@@ -198,6 +198,7 @@ def cmd_build(build_type="Debug"):
 def cmd_clean():
     _head("Clean")
     removed = 0
+    # Primary build tree + any leftover flat dirs from older layouts
     for name in ("build", "build-debug", "build-release", "build-test"):
         path = ROOT / name
         if path.is_dir():
@@ -214,11 +215,11 @@ studdup task runner  —  python run.py <command> [args]
 
   lint              Check code style (clang-format --dry-run)
   fix               Auto-fix code style in-place
-  test              Build & run unit tests
-  build             Build Debug  (default)
-  build debug       Build Debug
-  build release     Build Release
-  clean             Remove all build directories
+  test              Build & run unit tests      → build/Tests/
+  build             Build Debug  (default)      → build/Debug/
+  build debug       Build Debug                 → build/Debug/
+  build release     Build Release               → build/Release/
+  clean             Remove the build/ directory
 """
 
 
