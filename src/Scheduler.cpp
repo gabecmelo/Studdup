@@ -58,4 +58,9 @@ Card reviveFromHistory(Card c, Date today) {
     return c;
 }
 
+Card postpone(Card c, int days) {
+    c.startDate = c.startDate.addDays(days);
+    return c;
+}
+
 }  // namespace srs::Scheduler

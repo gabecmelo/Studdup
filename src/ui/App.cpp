@@ -156,6 +156,47 @@ void App::openCardDetail(const Card& c) {
 }
 
 // ---------------------------------------------------------------------------
+// Postpone (commit 3)
+// ---------------------------------------------------------------------------
+
+void App::openPostpone(const Card& c) {
+    postponeState              = PostponeState{};
+    postponeState.cardId       = c.id;
+    postponeState.title        = c.title;
+    postponeState.stage        = c.currentStage;
+    postponeState.postponeDays = 1;
+    modal                      = Modal::Postpone;
+}
+
+void App::applyPostpone() {
+    const Card* ptr = findActive(postponeState.cardId);
+    if (!ptr) { closeModal(); return; }
+
+    Card updated = Scheduler::postpone(*ptr, postponeState.postponeDays);
+    db_.updateCard(updated);
+    db_.recordEvent(updated.id, "postponed", updated.currentStage,
+                    updated.currentStage, today_);
+    reloadActive();
+    closeModal();
+}
+
+void App::startPostponeTimer() {
+    postponeState.timerActive  = true;
+    postponeState.timerExpired = false;
+    postponeState.timerStart   = std::chrono::steady_clock::now();
+}
+
+void App::applyPostponeAfterTimer() {
+    const Card* ptr = findActive(postponeState.cardId);
+    if (ptr) applyMarkCompleted(*ptr);
+    else     closeModal();
+}
+
+void App::applyPostponeSkipTimer() {
+    applyPostpone();
+}
+
+// ---------------------------------------------------------------------------
 // Edit (commit 1)
 // ---------------------------------------------------------------------------
 
@@ -225,6 +266,7 @@ void App::renderFrame() {
         case Modal::EditCard:   CardEditor::drawEditCardModal  (*this); break;
         case Modal::CardDetail: CardEditor::drawCardDetailModal(*this); break;
         case Modal::Overdue:    CardEditor::drawOverdueModal   (*this); break;
+        case Modal::Postpone:   CardEditor::drawPostponeModal  (*this); break;
         case Modal::Help:       HelpView::draw                 (*this); break;
         case Modal::ViewLog:    CardEditor::drawViewLogModal   (*this); break;
         case Modal::None:                                               break;

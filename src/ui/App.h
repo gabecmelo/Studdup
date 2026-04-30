@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <memory>
 #include <string>
 #include <vector>
@@ -18,6 +19,7 @@ enum class Modal {
     EditCard,    // edit title / content / review link
     CardDetail,  // read-only detail + action hub
     Overdue,
+    Postpone,    // postpone study or review (with optional 5-min timer)
     Help,
     ViewLog,
 };
@@ -48,6 +50,31 @@ struct OverdueState {
     std::string title;
     int         overdueDays  = 0;
     Stage       currentStage = Stage::Day0;
+};
+
+struct PostponeState {
+    int64_t     cardId       = 0;
+    std::string title;
+    Stage       stage        = Stage::Day0;
+    int         postponeDays = 1;
+
+    // Review-postpone 5-min timer
+    bool        timerActive  = false;
+    bool        timerExpired = false;
+    std::chrono::steady_clock::time_point timerStart;
+
+    static constexpr int kTimerSeconds = 300;   // 5 minutes
+
+    bool isReview() const { return stage != Stage::Day0; }
+
+    int remainingSeconds() const {
+        if (!timerActive) return kTimerSeconds;
+        using namespace std::chrono;
+        const auto elapsed =
+            duration_cast<seconds>(steady_clock::now() - timerStart).count();
+        const int rem = kTimerSeconds - static_cast<int>(elapsed);
+        return rem > 0 ? rem : 0;
+    }
 };
 
 struct ViewLogState {
@@ -95,6 +122,13 @@ public:
     // Detail view (commit 2)
     void openCardDetail(const Card& c);
 
+    // Postpone (commit 3)
+    void openPostpone            (const Card& c);
+    void applyPostpone           ();            // shift due by postponeState_.postponeDays
+    void startPostponeTimer      ();            // begin 5-min countdown
+    void applyPostponeAfterTimer ();            // "Yes I reviewed" → markCompleted
+    void applyPostponeSkipTimer  ();            // "No, postpone anyway" after timer
+
     MainView    view                = MainView::Agenda;
     Modal       modal               = Modal::None;
     bool        wantFocusFirstField = false;
@@ -103,7 +137,8 @@ public:
     EditCardForm    editCardForm;
     CardDetailState cardDetail;
     OverdueState    overdue;
-    ViewLogState viewLog;
+    PostponeState   postponeState;
+    ViewLogState    viewLog;
 
 private:
     void reloadActive();
@@ -126,5 +161,6 @@ namespace srs::ui::CardEditor {
     void drawEditCardModal  (App& app);
     void drawCardDetailModal(App& app);
     void drawOverdueModal   (App& app);
+    void drawPostponeModal  (App& app);
     void drawViewLogModal   (App& app);
 }

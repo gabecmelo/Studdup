@@ -122,6 +122,14 @@ TEST_CASE("Scheduler::reviveFromHistory resets archived card to Day0") {
     CHECK(Scheduler::dueDate(updated) == kToday);
 }
 
+TEST_CASE("Scheduler::postpone shifts dueDate by N days") {
+    Card c = makeCard(kStart, Stage::Day2);  // due = kStart + 2
+    Card updated = Scheduler::postpone(c, 3);
+    CHECK(updated.currentStage == Stage::Day2);           // stage unchanged
+    CHECK(updated.startDate == kStart.addDays(3));        // startDate shifted
+    CHECK(Scheduler::dueDate(updated) == kStart.addDays(5)); // due shifted by 3
+}
+
 TEST_CASE("nextStage full ladder") {
     CHECK(nextStage(Stage::Day0)  == Stage::Day1);
     CHECK(nextStage(Stage::Day1)  == Stage::Day2);

@@ -47,6 +47,8 @@ void drawCardRow(App& app, const Card& c, bool complete, bool overdue, int overd
     }
 
     if (ImGui::SmallButton("Edit")) app.openEditCard(c);
+    ImGui::SameLine();
+    if (ImGui::SmallButton("Postpone")) app.openPostpone(c);
 
     ImGui::Separator();
     ImGui::PopID();

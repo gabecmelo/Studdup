@@ -3,8 +3,28 @@
 #include <imgui.h>
 
 #include <algorithm>
+#include <chrono>
+#include <cstdio>
+#include <cstdlib>
+
+#ifdef _WIN32
+#include <windows.h>
+#include <shellapi.h>
+#endif
 
 #include "../Scheduler.h"
+
+namespace {
+void openUrl(const std::string& url) {
+    if (url.empty()) return;
+#ifdef _WIN32
+    ShellExecuteA(nullptr, "open", url.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+#else
+    std::string cmd = "xdg-open \"" + url + "\" &";
+    (void)std::system(cmd.c_str());
+#endif
+}
+}  // namespace
 
 namespace srs::ui::CardEditor {
 
@@ -200,6 +220,12 @@ void drawCardDetailModal(App& app) {
         }
         ImGui::SameLine();
     }
+    if (!c.archived) {
+        if (ImGui::Button("Postpone", ImVec2(90, 0))) {
+            app.closeModal(); ImGui::CloseCurrentPopup(); app.openPostpone(c);
+        }
+        ImGui::SameLine();
+    }
     if (ImGui::Button("Edit", ImVec2(80, 0))) {
         app.closeModal(); ImGui::CloseCurrentPopup(); app.openEditCard(c);
     }
@@ -266,6 +292,137 @@ void drawOverdueModal(App& app) {
         app.closeModal();
         ImGui::CloseCurrentPopup();
     } else if (acted) {
+        ImGui::CloseCurrentPopup();
+    }
+
+    ImGui::EndPopup();
+}
+
+// ===========================================================================
+// Postpone modal  (commit 3)
+// ===========================================================================
+
+void drawPostponeModal(App& app) {
+    srs::ui::PostponeState& ps = app.postponeState;
+    const bool  isReview = ps.isReview();
+    const char* popupId  = isReview ? "Postpone Review" : "Postpone Study";
+
+    ImGui::OpenPopup(popupId);
+
+    const ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(520, 0), ImGuiCond_Appearing);
+
+    if (!ImGui::BeginPopupModal(popupId, nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        return;
+
+    if (isReview) {
+        // Tick timer
+        if (ps.timerActive && !ps.timerExpired && ps.remainingSeconds() == 0)
+            ps.timerExpired = true;
+
+        if (ps.timerExpired) {
+            // ── Time's up ─────────────────────────────────────────────────
+            ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(120, 255, 120, 255));
+            ImGui::TextUnformatted("Time's up!");
+            ImGui::PopStyleColor();
+            ImGui::Spacing();
+            ImGui::TextWrapped("Did you complete the review of \"%s\"?", ps.title.c_str());
+            ImGui::Spacing();
+
+            if (ImGui::Button("Yes, mark as reviewed", ImVec2(-1, 0)) ||
+                ImGui::IsKeyPressed(ImGuiKey_Enter)) {
+                app.applyPostponeAfterTimer();
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::TextDisabled("  Advance to the next stage.");
+            ImGui::Spacing();
+            if (ImGui::Button("No, postpone anyway", ImVec2(-1, 0))) {
+                ps.timerExpired = false;
+                ps.timerActive  = false;
+            }
+        } else if (ps.timerActive) {
+            // ── Timer running ─────────────────────────────────────────────
+            const int rem  = ps.remainingSeconds();
+            ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(100, 220, 255, 255));
+            ImGui::Text("Quick review timer: %02d:%02d", rem / 60, rem % 60);
+            ImGui::PopStyleColor();
+            ImGui::Spacing();
+            ImGui::TextWrapped("Review \"%s\" now. Come back when you're done.", ps.title.c_str());
+
+            const srs::Card* ptr = app.findActive(ps.cardId);
+            if (ptr && !ptr->reviewLink.empty()) {
+                ImGui::Spacing();
+                ImGui::TextDisabled("Review link:");
+                ImGui::SameLine();
+                ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(100, 180, 255, 255));
+                if (ImGui::SmallButton("Open##rl")) openUrl(ptr->reviewLink);
+                ImGui::PopStyleColor();
+            }
+
+            ImGui::Spacing();
+            ImGui::Separator();
+            if (ImGui::Button("Stop timer & postpone anyway", ImVec2(-1, 0)) ||
+                ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+                ps.timerActive = false;
+            }
+        } else {
+            // ── Initial review-postpone screen ────────────────────────────
+            ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 210, 80, 255));
+            ImGui::TextUnformatted("Spaced repetition works best when reviews aren't skipped.");
+            ImGui::PopStyleColor();
+            ImGui::Spacing();
+            ImGui::TextWrapped(
+                "Even a quick 5-minute review is far more effective than postponing. "
+                "The spacing is calibrated to keep the memory fresh — skipping breaks the curve.");
+            ImGui::Spacing();
+
+            ImGui::PushStyleColor(ImGuiCol_Button,        IM_COL32(40,  140, 60,  255));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered,  IM_COL32(60,  180, 80,  255));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive,   IM_COL32(80,  200, 100, 255));
+            if (ImGui::Button("Start 5-min review timer", ImVec2(-1, 0))) {
+                app.startPostponeTimer();
+                const srs::Card* ptr = app.findActive(ps.cardId);
+                if (ptr && !ptr->reviewLink.empty()) openUrl(ptr->reviewLink);
+            }
+            ImGui::PopStyleColor(3);
+            ImGui::TextDisabled("  Opens your review link and counts down 5 minutes.");
+
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Spacing();
+            ImGui::TextDisabled("Or postpone the review anyway:");
+            ImGui::SetNextItemWidth(160);
+            ImGui::SliderInt("Days##rv", &ps.postponeDays, 1, 7);
+            ImGui::Spacing();
+            if (ImGui::Button("Postpone review", ImVec2(-1, 0))) {
+                app.applyPostpone();
+                ImGui::CloseCurrentPopup();
+            }
+        }
+    } else {
+        // ── Study postpone (Day 0) ─────────────────────────────────────────
+        ImGui::TextWrapped("Postpone study of \"%s\".", ps.title.c_str());
+        ImGui::Spacing();
+        ImGui::SetNextItemWidth(160);
+        ImGui::SliderInt("Days##st", &ps.postponeDays, 1, 30);
+        ImGui::SameLine();
+
+        char buf[32];
+        std::snprintf(buf, sizeof(buf), "(due: %s)",
+                      app.today().addDays(ps.postponeDays).toHuman().c_str());
+        ImGui::TextDisabled("%s", buf);
+
+        ImGui::Spacing();
+        if (ImGui::Button("Postpone", ImVec2(120, 0)) || ImGui::IsKeyPressed(ImGuiKey_Enter)) {
+            app.applyPostpone();
+            ImGui::CloseCurrentPopup();
+        }
+    }
+
+    ImGui::Spacing();
+    if (ImGui::Button("Cancel", ImVec2(-1, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+        app.closeModal();
         ImGui::CloseCurrentPopup();
     }
 
