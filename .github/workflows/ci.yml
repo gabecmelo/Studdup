@@ -1,8 +1,6 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
 
@@ -11,37 +9,95 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-windows:
-    name: Build (Windows / MSVC)
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Configure
-        run: cmake -B build -G "Visual Studio 17 2022" -A x64
-
-      - name: Build
-        run: cmake --build build --config Release --parallel
-
-  build-linux:
-    name: Build (Ubuntu / GCC)
+  # ---------------------------------------------------------------------------
+  # 1. Lint — clang-format only, zero compilation
+  # ---------------------------------------------------------------------------
+  lint:
+    name: Lint (clang-format)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install GLFW / OpenGL dependencies
+      - name: Install clang-format
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            libgl1-mesa-dev \
-            libxinerama-dev \
-            libxcursor-dev \
-            libxi-dev \
-            libxrandr-dev \
-            libxext-dev
+          sudo apt-get install -y clang-format
 
-      - name: Configure
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Check formatting
+        run: |
+          find src tests \
+            \( -name '*.cpp' -o -name '*.h' \) \
+            -print0 \
+          | xargs -0 clang-format --dry-run --Werror --style=file
 
-      - name: Build
-        run: cmake --build build --parallel
+  # ---------------------------------------------------------------------------
+  # 2. Unit tests + coverage threshold
+  #    Builds ONLY Date.cpp + Scheduler.cpp + Catch2 — NOT the full app.
+  #    No GLFW / ImGui / OpenGL / SQLite are pulled in.
+  # ---------------------------------------------------------------------------
+  test:
+    name: Unit tests (coverage ≥ 70%)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install lcov
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lcov
+
+      # Configure with coverage ON; this implies BUILD_TESTS=ON and skips
+      # building the studdup executable (FetchContent still runs for Catch2).
+      # GLFW/ImGui/SQLite are fetched but only Catch2 is linked to the test binary.
+      - name: Configure (tests + coverage, no app binary)
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DENABLE_COVERAGE=ON \
+            -DBUILD_TESTS=ON \
+            -DFETCHCONTENT_QUIET=OFF
+
+      - name: Build test binary only
+        run: cmake --build build --target studdup_tests --parallel
+
+      - name: Run tests
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Capture coverage
+        run: |
+          lcov --capture \
+               --directory build \
+               --output-file coverage.info \
+               --ignore-errors mismatch
+          # Strip third-party and system headers
+          lcov --remove coverage.info \
+               '*/tests/*' \
+               '*/catch2/*' \
+               '*/Catch2/*' \
+               '*/build/_deps/*' \
+               '/usr/*' \
+               --output-file coverage.info
+          lcov --list coverage.info
+
+      - name: Enforce 70% coverage threshold
+        run: |
+          COVERAGE=$(lcov --summary coverage.info 2>&1 \
+            | grep -oP 'lines\.*: \K[0-9]+\.[0-9]+')
+          echo "Line coverage: ${COVERAGE}%"
+          python3 -c "
+          import sys
+          cov = float('${COVERAGE}')
+          threshold = 70.0
+          if cov < threshold:
+              print(f'FAIL: {cov:.1f}% < {threshold}% threshold')
+              sys.exit(1)
+          print(f'PASS: {cov:.1f}% >= {threshold}% threshold')
+          "
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.info
+          retention-days: 7

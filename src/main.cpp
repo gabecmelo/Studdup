@@ -6,10 +6,9 @@
 #include <imgui_impl_opengl3.h>
 
 #ifdef _WIN32
-  #include <windows.h>
+#include <windows.h>
 #endif
 #include <GL/gl.h>
-
 #include <GLFW/glfw3.h>
 
 #include <cstdio>
@@ -37,11 +36,15 @@ void handleHotkeys(srs::ui::App& app) {
     const ImGuiIO& io = ImGui::GetIO();
     const bool ctrl = io.KeyCtrl;
 
-    if (ImGui::IsKeyPressed(ImGuiKey_F1, false)) app.requestOpenHelp();
-    if (ImGui::IsKeyPressed(ImGuiKey_Slash, false) && io.KeyShift) app.requestOpenHelp();
+    if (ImGui::IsKeyPressed(ImGuiKey_F1, false))
+        app.requestOpenHelp();
+    if (ImGui::IsKeyPressed(ImGuiKey_Slash, false) && io.KeyShift)
+        app.requestOpenHelp();
 
-    if (ctrl && ImGui::IsKeyPressed(ImGuiKey_N, false)) app.requestOpenNewCard();
-    if (ctrl && ImGui::IsKeyPressed(ImGuiKey_H, false)) app.requestToggleHistory();
+    if (ctrl && ImGui::IsKeyPressed(ImGuiKey_N, false))
+        app.requestOpenNewCard();
+    if (ctrl && ImGui::IsKeyPressed(ImGuiKey_H, false))
+        app.requestToggleHistory();
 }
 
 }  // namespace

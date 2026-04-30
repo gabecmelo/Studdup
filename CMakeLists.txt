@@ -73,7 +73,7 @@ find_package(OpenGL REQUIRED)
 # studdup executable
 # ---------------------------------------------------------------------------
 
-add_executable(studdup
+add_executable(studdup WIN32
     src/main.cpp
     src/Date.cpp
     src/Scheduler.cpp
@@ -84,6 +84,10 @@ add_executable(studdup
     src/ui/HistoryView.cpp
     src/ui/HelpView.cpp
 )
+
+if(WIN32)
+    set_target_properties(studdup PROPERTIES LINK_FLAGS "/ENTRY:mainCRTStartup")
+endif()
 
 target_include_directories(studdup PRIVATE src)
 
@@ -98,15 +102,23 @@ target_link_libraries(studdup PRIVATE
     OpenGL::GL
 )
 
-if (WIN32)
-    # Hide console window on Release builds; keep it on Debug for diagnostics
-    set_target_properties(studdup PROPERTIES
-        WIN32_EXECUTABLE $<CONFIG:Release>
-    )
-endif()
-
 if (MSVC)
     target_compile_options(studdup PRIVATE /W4 /permissive-)
 else()
     target_compile_options(studdup PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+
+# ---------------------------------------------------------------------------
+# Unit tests  (cmake -DBUILD_TESTS=ON  or  -DENABLE_COVERAGE=ON implies it)
+# ---------------------------------------------------------------------------
+option(BUILD_TESTS     "Build unit tests"               OFF)
+option(ENABLE_COVERAGE "Instrument tests for gcov/lcov" OFF)
+
+if (ENABLE_COVERAGE)
+    set(BUILD_TESTS ON CACHE BOOL "" FORCE)
+endif()
+
+if (BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
 endif()
