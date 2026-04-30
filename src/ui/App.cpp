@@ -156,6 +156,24 @@ void App::openCardDetail(const Card& c) {
 }
 
 // ---------------------------------------------------------------------------
+// Delete (commit 4)
+// ---------------------------------------------------------------------------
+
+void App::openDeleteCard(const Card& c) {
+    deleteState.cardId   = c.id;
+    deleteState.title    = c.title;
+    deleteState.archived = c.archived;
+    modal                = Modal::DeleteCard;
+}
+
+void App::applyDeleteCard() {
+    db_.deleteCard(deleteState.cardId);
+    reloadActive();
+    reloadArchived();
+    closeModal();
+}
+
+// ---------------------------------------------------------------------------
 // Postpone (commit 3)
 // ---------------------------------------------------------------------------
 
@@ -267,6 +285,7 @@ void App::renderFrame() {
         case Modal::CardDetail: CardEditor::drawCardDetailModal(*this); break;
         case Modal::Overdue:    CardEditor::drawOverdueModal   (*this); break;
         case Modal::Postpone:   CardEditor::drawPostponeModal  (*this); break;
+        case Modal::DeleteCard: CardEditor::drawDeleteModal    (*this); break;
         case Modal::Help:       HelpView::draw                 (*this); break;
         case Modal::ViewLog:    CardEditor::drawViewLogModal   (*this); break;
         case Modal::None:                                               break;

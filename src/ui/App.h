@@ -20,6 +20,7 @@ enum class Modal {
     CardDetail,  // read-only detail + action hub
     Overdue,
     Postpone,    // postpone study or review (with optional 5-min timer)
+    DeleteCard,  // permanent delete with confirmation
     Help,
     ViewLog,
 };
@@ -50,6 +51,12 @@ struct OverdueState {
     std::string title;
     int         overdueDays  = 0;
     Stage       currentStage = Stage::Day0;
+};
+
+struct DeleteState {
+    int64_t     cardId   = 0;
+    std::string title;
+    bool        archived = false;
 };
 
 struct PostponeState {
@@ -129,6 +136,10 @@ public:
     void applyPostponeAfterTimer ();            // "Yes I reviewed" → markCompleted
     void applyPostponeSkipTimer  ();            // "No, postpone anyway" after timer
 
+    // Delete (commit 4)
+    void openDeleteCard(const Card& c);
+    void applyDeleteCard();
+
     MainView    view                = MainView::Agenda;
     Modal       modal               = Modal::None;
     bool        wantFocusFirstField = false;
@@ -138,6 +149,7 @@ public:
     CardDetailState cardDetail;
     OverdueState    overdue;
     PostponeState   postponeState;
+    DeleteState     deleteState;
     ViewLogState    viewLog;
 
 private:
@@ -162,5 +174,6 @@ namespace srs::ui::CardEditor {
     void drawCardDetailModal(App& app);
     void drawOverdueModal   (App& app);
     void drawPostponeModal  (App& app);
+    void drawDeleteModal    (App& app);
     void drawViewLogModal   (App& app);
 }

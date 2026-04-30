@@ -234,6 +234,14 @@ void drawCardDetailModal(App& app) {
         app.closeModal(); ImGui::CloseCurrentPopup(); app.openViewLog(c);
     }
     ImGui::SameLine();
+    ImGui::PushStyleColor(ImGuiCol_Button,        IM_COL32(140, 35, 35, 255));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered,  IM_COL32(180, 50, 50, 255));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,   IM_COL32(200, 70, 70, 255));
+    if (ImGui::Button("Delete", ImVec2(80, 0))) {
+        app.closeModal(); ImGui::CloseCurrentPopup(); app.openDeleteCard(c);
+    }
+    ImGui::PopStyleColor(3);
+    ImGui::SameLine();
     if (ImGui::Button("Close", ImVec2(80, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape) ||
         ImGui::IsKeyPressed(ImGuiKey_Enter)) {
         app.closeModal(); ImGui::CloseCurrentPopup();
@@ -422,6 +430,51 @@ void drawPostponeModal(App& app) {
 
     ImGui::Spacing();
     if (ImGui::Button("Cancel", ImVec2(-1, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+        app.closeModal();
+        ImGui::CloseCurrentPopup();
+    }
+
+    ImGui::EndPopup();
+}
+
+// ===========================================================================
+// Delete modal  (commit 4)
+// ===========================================================================
+
+void drawDeleteModal(App& app) {
+    ImGui::OpenPopup("Delete Card");
+
+    const ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(460, 0), ImGuiCond_Appearing);
+
+    if (!ImGui::BeginPopupModal("Delete Card", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        return;
+
+    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 120, 120, 255));
+    ImGui::TextUnformatted("This action cannot be undone.");
+    ImGui::PopStyleColor();
+    ImGui::Spacing();
+    ImGui::TextWrapped("Delete \"%s\"?", app.deleteState.title.c_str());
+    ImGui::TextWrapped(
+        "All history events for this card will also be permanently removed.");
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    ImGui::PushStyleColor(ImGuiCol_Button,        IM_COL32(160, 40,  40,  255));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered,  IM_COL32(200, 60,  60,  255));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,   IM_COL32(220, 80,  80,  255));
+    if (ImGui::Button("Delete", ImVec2(120, 0))) {
+        app.applyDeleteCard();
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::PopStyleColor(3);
+
+    ImGui::SameLine();
+    // Enter = safe default (Cancel), not Delete
+    if (ImGui::Button("Cancel", ImVec2(120, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape) ||
+        ImGui::IsKeyPressed(ImGuiKey_Enter)) {
         app.closeModal();
         ImGui::CloseCurrentPopup();
     }

@@ -49,6 +49,10 @@ void drawCardRow(App& app, const Card& c, bool complete, bool overdue, int overd
     if (ImGui::SmallButton("Edit")) app.openEditCard(c);
     ImGui::SameLine();
     if (ImGui::SmallButton("Postpone")) app.openPostpone(c);
+    ImGui::SameLine();
+    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 120, 120, 255));
+    if (ImGui::SmallButton("Delete")) app.openDeleteCard(c);
+    ImGui::PopStyleColor();
 
     ImGui::Separator();
     ImGui::PopID();
