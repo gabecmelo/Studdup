@@ -315,8 +315,11 @@ void App::renderFrame() {
     if (devMode_) {
         ImGui::SameLine();
         ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 200, 0, 255));
-        ImGui::TextUnformatted("[DEV]");
+        ImGui::TextUnformatted("[DEV MODE]");
         ImGui::PopStyleColor();
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Exit dev mode"))
+            toggleDevMode();
     }
     ImGui::Separator();
 

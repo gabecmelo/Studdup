@@ -1,32 +1,12 @@
-// clang-format off
-#ifdef _WIN32
-#include <windows.h>   // must precede shellapi.h
-#include <shellapi.h>
-#endif
-// clang-format on
-
 #include <imgui.h>
 
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
-#include <cstdlib>
 
 #include "../Scheduler.h"
 #include "App.h"
-
-namespace {
-void openUrl(const std::string& url) {
-    if (url.empty())
-        return;
-#ifdef _WIN32
-    ShellExecuteA(nullptr, "open", url.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
-#else
-    std::string cmd = "xdg-open \"" + url + "\" &";
-    (void)std::system(cmd.c_str());
-#endif
-}
-}  // namespace
+#include "openurl.h"
 
 namespace srs::ui::CardEditor {
 
@@ -63,7 +43,7 @@ void drawNewCardModal(App& app) {
     ImGui::Spacing();
     if (app.isDevMode()) {
         ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 200, 0, 255));
-        ImGui::TextUnformatted("[DEV] Starting stage — all injected as due today");
+        ImGui::TextUnformatted("[DEV MODE] Starting stage — all injected as due today");
         ImGui::PopStyleColor();
         static const char* kDevLabels[] = {"Day 0", "Day 1", "Day 2",
                                            "Day 5", "Day 15", "Day 30"};
@@ -216,10 +196,22 @@ void drawCardDetailModal(App& app) {
 
     // ── Links ──────────────────────────────────────────────────────────────
     ImGui::Spacing();
-    if (!c.contentLink.empty())
-        ImGui::TextDisabled("Content : %s", c.contentLink.c_str());
-    if (!c.reviewLink.empty())
-        ImGui::TextDisabled("Review  : %s", c.reviewLink.c_str());
+    if (!c.contentLink.empty()) {
+        ImGui::TextDisabled("Content:");
+        ImGui::SameLine();
+        ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(100, 180, 255, 255));
+        if (ImGui::SmallButton("Open##content"))
+            srs::ui::openUrl(c.contentLink);
+        ImGui::PopStyleColor();
+    }
+    if (!c.reviewLink.empty()) {
+        ImGui::TextDisabled("Review: ");
+        ImGui::SameLine();
+        ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(100, 180, 255, 255));
+        if (ImGui::SmallButton("Open##review"))
+            srs::ui::openUrl(c.reviewLink);
+        ImGui::PopStyleColor();
+    }
     if (c.contentLink.empty() && c.reviewLink.empty())
         ImGui::TextDisabled("No links attached.");
 
@@ -396,7 +388,7 @@ void drawPostponeModal(App& app) {
                 ImGui::SameLine();
                 ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(100, 180, 255, 255));
                 if (ImGui::SmallButton("Open##rl"))
-                    openUrl(ptr->reviewLink);
+                    srs::ui::openUrl(ptr->reviewLink);
                 ImGui::PopStyleColor();
             }
 
@@ -424,7 +416,7 @@ void drawPostponeModal(App& app) {
                 app.startPostponeTimer();
                 const srs::Card* ptr = app.findActive(ps.cardId);
                 if (ptr && !ptr->reviewLink.empty())
-                    openUrl(ptr->reviewLink);
+                    srs::ui::openUrl(ptr->reviewLink);
             }
             ImGui::PopStyleColor(3);
             ImGui::TextDisabled("  Opens your review link and counts down 5 minutes.");

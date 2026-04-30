@@ -6,6 +6,7 @@
 
 #include "../Scheduler.h"
 #include "App.h"
+#include "openurl.h"
 
 namespace srs::ui::AgendaView {
 
@@ -22,6 +23,16 @@ void drawCardRow(App& app, const Card& c, bool complete, bool overdue, int overd
     ImGui::PopStyleColor();
     ImGui::SameLine();
     ImGui::TextDisabled("[%s]", stageLabel(c.currentStage));
+    ImGui::SameLine();
+    if (c.currentStage == Stage::Day0) {
+        ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(120, 230, 120, 255));
+        ImGui::TextUnformatted("To Study");
+        ImGui::PopStyleColor();
+    } else {
+        ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(100, 180, 255, 255));
+        ImGui::TextUnformatted("To Review");
+        ImGui::PopStyleColor();
+    }
 
     if (overdue) {
         ImGui::SameLine();
@@ -32,10 +43,22 @@ void drawCardRow(App& app, const Card& c, bool complete, bool overdue, int overd
 
     if (!c.contentLink.empty() || !c.reviewLink.empty()) {
         ImGui::Indent();
-        if (!c.contentLink.empty())
-            ImGui::TextDisabled("Content: %s", c.contentLink.c_str());
-        if (!c.reviewLink.empty())
-            ImGui::TextDisabled("Review:  %s", c.reviewLink.c_str());
+        if (!c.contentLink.empty()) {
+            ImGui::TextDisabled("Content:");
+            ImGui::SameLine();
+            ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(100, 180, 255, 255));
+            if (ImGui::SmallButton("Open##cl"))
+                openUrl(c.contentLink);
+            ImGui::PopStyleColor();
+        }
+        if (!c.reviewLink.empty()) {
+            ImGui::TextDisabled("Review: ");
+            ImGui::SameLine();
+            ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(100, 180, 255, 255));
+            if (ImGui::SmallButton("Open##rl"))
+                openUrl(c.reviewLink);
+            ImGui::PopStyleColor();
+        }
         ImGui::Unindent();
     }
 
