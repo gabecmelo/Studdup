@@ -16,7 +16,10 @@ void drawCardRow(App& app, const Card& c, bool complete, bool overdue, int overd
     ImGui::PushID(static_cast<int>(c.id));
 
     ImGui::AlignTextToFramePadding();
-    ImGui::TextUnformatted(c.title.c_str());
+    // Title is clickable — opens the detail view
+    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(220, 220, 255, 255));
+    if (ImGui::SmallButton(c.title.c_str())) app.openCardDetail(c);
+    ImGui::PopStyleColor();
     ImGui::SameLine();
     ImGui::TextDisabled("[%s]", stageLabel(c.currentStage));
 

@@ -116,6 +116,107 @@ void drawEditCardModal(App& app) {
 }
 
 // ===========================================================================
+// Card Detail modal  (commit 2)
+// ===========================================================================
+
+void drawCardDetailModal(App& app) {
+    ImGui::OpenPopup("Card Details");
+
+    const ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(520, 0), ImGuiCond_Appearing);
+
+    if (!ImGui::BeginPopupModal("Card Details", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        return;
+
+    const Card* ptr = app.cardDetail.archived
+                          ? app.findArchived(app.cardDetail.cardId)
+                          : app.findActive(app.cardDetail.cardId);
+
+    if (!ptr) {
+        ImGui::TextDisabled("Card not found.");
+        if (ImGui::Button("Close", ImVec2(-1, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+            app.closeModal(); ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+        return;
+    }
+
+    const Card&  c     = *ptr;
+    const Date   today = app.today();
+
+    // ── Title + stage ──────────────────────────────────────────────────────
+    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(240, 240, 255, 255));
+    ImGui::TextUnformatted(c.title.c_str());
+    ImGui::PopStyleColor();
+    ImGui::SameLine();
+    ImGui::TextDisabled("[%s]", stageLabel(c.currentStage));
+
+    ImGui::Separator();
+
+    // ── Schedule ───────────────────────────────────────────────────────────
+    ImGui::TextDisabled("Start date : %s", c.startDate.toHuman().c_str());
+
+    if (!c.archived) {
+        const Date due = Scheduler::dueDate(c);
+        ImGui::TextDisabled("Due date   : %s", due.toHuman().c_str());
+
+        if (Scheduler::isOverdue(c, today)) {
+            const int days = Scheduler::overdueDays(c, today);
+            ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 120, 120, 255));
+            ImGui::Text("Overdue by %d day%s!", days, days == 1 ? "" : "s");
+            ImGui::PopStyleColor();
+        } else if (Scheduler::isDueToday(c, today)) {
+            ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(120, 255, 120, 255));
+            ImGui::TextUnformatted("Due today!");
+            ImGui::PopStyleColor();
+        } else {
+            const int in = today.daysUntil(due);
+            ImGui::TextDisabled("Due in %d day%s.", in, in == 1 ? "" : "s");
+        }
+    } else {
+        if (c.lastCompletedAt.isValid())
+            ImGui::TextDisabled("Completed : %s", c.lastCompletedAt.toHuman().c_str());
+        ImGui::TextDisabled("(Archived — full 30-day cycle completed.)");
+    }
+
+    // ── Links ──────────────────────────────────────────────────────────────
+    ImGui::Spacing();
+    if (!c.contentLink.empty())
+        ImGui::TextDisabled("Content : %s", c.contentLink.c_str());
+    if (!c.reviewLink.empty())
+        ImGui::TextDisabled("Review  : %s", c.reviewLink.c_str());
+    if (c.contentLink.empty() && c.reviewLink.empty())
+        ImGui::TextDisabled("No links attached.");
+
+    // ── Actions ────────────────────────────────────────────────────────────
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    if (!c.archived && Scheduler::isDueToday(c, today)) {
+        if (ImGui::Button("Complete", ImVec2(110, 0))) {
+            app.closeModal(); ImGui::CloseCurrentPopup(); app.completeCard(c);
+        }
+        ImGui::SameLine();
+    }
+    if (ImGui::Button("Edit", ImVec2(80, 0))) {
+        app.closeModal(); ImGui::CloseCurrentPopup(); app.openEditCard(c);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("View Log", ImVec2(80, 0))) {
+        app.closeModal(); ImGui::CloseCurrentPopup(); app.openViewLog(c);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Close", ImVec2(80, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape) ||
+        ImGui::IsKeyPressed(ImGuiKey_Enter)) {
+        app.closeModal(); ImGui::CloseCurrentPopup();
+    }
+
+    ImGui::EndPopup();
+}
+
+// ===========================================================================
 // Overdue modal
 // ===========================================================================
 

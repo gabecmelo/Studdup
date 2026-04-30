@@ -146,6 +146,16 @@ void App::submitNewCard() {
 }
 
 // ---------------------------------------------------------------------------
+// Detail view (commit 2)
+// ---------------------------------------------------------------------------
+
+void App::openCardDetail(const Card& c) {
+    cardDetail.cardId   = c.id;
+    cardDetail.archived = c.archived;
+    modal               = Modal::CardDetail;
+}
+
+// ---------------------------------------------------------------------------
 // Edit (commit 1)
 // ---------------------------------------------------------------------------
 
@@ -211,12 +221,13 @@ void App::renderFrame() {
     ImGui::End();
 
     switch (modal) {
-        case Modal::NewCard:  CardEditor::drawNewCardModal (*this); break;
-        case Modal::EditCard: CardEditor::drawEditCardModal(*this); break;
-        case Modal::Overdue:  CardEditor::drawOverdueModal (*this); break;
-        case Modal::Help:     HelpView::draw               (*this); break;
-        case Modal::ViewLog:  CardEditor::drawViewLogModal (*this); break;
-        case Modal::None:                                           break;
+        case Modal::NewCard:    CardEditor::drawNewCardModal   (*this); break;
+        case Modal::EditCard:   CardEditor::drawEditCardModal  (*this); break;
+        case Modal::CardDetail: CardEditor::drawCardDetailModal(*this); break;
+        case Modal::Overdue:    CardEditor::drawOverdueModal   (*this); break;
+        case Modal::Help:       HelpView::draw                 (*this); break;
+        case Modal::ViewLog:    CardEditor::drawViewLogModal   (*this); break;
+        case Modal::None:                                               break;
     }
 }
 

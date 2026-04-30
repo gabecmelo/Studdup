@@ -17,7 +17,9 @@ void draw(App& app) {
         ImGui::PushID(static_cast<int>(c.id));
 
         ImGui::AlignTextToFramePadding();
-        ImGui::TextUnformatted(c.title.c_str());
+        ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(220, 220, 255, 255));
+        if (ImGui::SmallButton(c.title.c_str())) app.openCardDetail(c);
+        ImGui::PopStyleColor();
         ImGui::SameLine();
         if (c.lastCompletedAt.isValid())
             ImGui::TextDisabled("— completed %s", c.lastCompletedAt.toHuman().c_str());

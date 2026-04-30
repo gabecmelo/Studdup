@@ -15,7 +15,8 @@ enum class MainView { Agenda, History };
 enum class Modal {
     None,
     NewCard,
-    EditCard,   // edit title / content / review link
+    EditCard,    // edit title / content / review link
+    CardDetail,  // read-only detail + action hub
     Overdue,
     Help,
     ViewLog,
@@ -35,6 +36,11 @@ struct EditCardForm {
     char    contentLink[512] = {0};
     char    reviewLink[512]  = {0};
     bool    showError        = false;
+};
+
+struct CardDetailState {
+    int64_t cardId   = 0;
+    bool    archived = false;
 };
 
 struct OverdueState {
@@ -86,13 +92,17 @@ public:
     void openEditCard (const Card& c);
     void applyEditCard();
 
+    // Detail view (commit 2)
+    void openCardDetail(const Card& c);
+
     MainView    view                = MainView::Agenda;
     Modal       modal               = Modal::None;
     bool        wantFocusFirstField = false;
 
-    NewCardForm  newCardForm;
-    EditCardForm editCardForm;
-    OverdueState overdue;
+    NewCardForm     newCardForm;
+    EditCardForm    editCardForm;
+    CardDetailState cardDetail;
+    OverdueState    overdue;
     ViewLogState viewLog;
 
 private:
@@ -112,8 +122,9 @@ namespace srs::ui::AgendaView  { void draw(App& app); }
 namespace srs::ui::HistoryView { void draw(App& app); }
 namespace srs::ui::HelpView    { void draw(App& app); }
 namespace srs::ui::CardEditor {
-    void drawNewCardModal (App& app);
-    void drawEditCardModal(App& app);
-    void drawOverdueModal (App& app);
-    void drawViewLogModal (App& app);
+    void drawNewCardModal   (App& app);
+    void drawEditCardModal  (App& app);
+    void drawCardDetailModal(App& app);
+    void drawOverdueModal   (App& app);
+    void drawViewLogModal   (App& app);
 }
