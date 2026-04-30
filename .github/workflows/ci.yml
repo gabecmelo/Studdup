@@ -89,10 +89,10 @@ jobs:
           # Strip third-party and system headers
           lcov --remove coverage.info \
                '*/tests/*' \
-               '*/catch2/*' \
-               '*/Catch2/*' \
+               '*/catch2-src/*' \
                '*/build/_deps/*' \
                '/usr/*' \
+               --ignore-errors unused \
                --output-file coverage.info
           lcov --list coverage.info
 
