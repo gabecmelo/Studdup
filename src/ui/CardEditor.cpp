@@ -45,8 +45,7 @@ void drawNewCardModal(App& app) {
         ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 200, 0, 255));
         ImGui::TextUnformatted("[DEV MODE] Starting stage — all injected as due today");
         ImGui::PopStyleColor();
-        static const char* kDevLabels[] = {"Day 0", "Day 1", "Day 2",
-                                           "Day 5", "Day 15", "Day 30"};
+        static const char* kDevLabels[] = {"Day 0", "Day 1", "Day 2", "Day 5", "Day 15", "Day 30"};
         for (int i = 0; i < 6; ++i)
             ImGui::RadioButton(kDevLabels[i], &app.newCardForm.stageChoice, i);
     } else {

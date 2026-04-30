@@ -152,15 +152,15 @@ void App::submitNewCard() {
     }
 
     if (devMode_) {
-        static const Stage kStages[] = {Stage::Day0,  Stage::Day1, Stage::Day2,
+        static const Stage kStages[] = {Stage::Day0, Stage::Day1,  Stage::Day2,
                                         Stage::Day5, Stage::Day15, Stage::Day30};
-        const int idx    = std::max(0, std::min(newCardForm.stageChoice, 5));
-        c.currentStage   = kStages[idx];
+        const int idx = std::max(0, std::min(newCardForm.stageChoice, 5));
+        c.currentStage = kStages[idx];
         // Anchor startDate so dueDate == today regardless of stage
         c.startDate = today_.addDays(-static_cast<int>(c.currentStage));
     } else {
         c.currentStage = Stage::Day0;
-        c.startDate    = (newCardForm.stageChoice == 0) ? today_ : today_.addDays(1);
+        c.startDate = (newCardForm.stageChoice == 0) ? today_ : today_.addDays(1);
     }
 
     c.id = db_.insertCard(c);
