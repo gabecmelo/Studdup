@@ -69,10 +69,9 @@ jobs:
         run: |
           cmake -B build \
             -DCMAKE_BUILD_TYPE=Debug \
+            -DBUILD_APP=OFF \
             -DENABLE_COVERAGE=ON \
             -DBUILD_TESTS=ON \
-            -DGLFW_BUILD_WAYLAND=OFF \
-            -DGLFW_BUILD_X11=OFF \
             -DFETCHCONTENT_QUIET=OFF
 
       - name: Build test binary only

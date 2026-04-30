@@ -152,7 +152,7 @@ def cmd_test():
     _run(["cmake", "-B", build_dir]
          + _cmake_generator()
          + _cmake_build_type(build_type)
-         + ["-DBUILD_TESTS=ON", "-DENABLE_COVERAGE=OFF"])
+         + ["-DBUILD_APP=OFF", "-DBUILD_TESTS=ON", "-DENABLE_COVERAGE=OFF"])
 
     _step("Building studdup_tests ...")
     _run(["cmake", "--build", build_dir,
