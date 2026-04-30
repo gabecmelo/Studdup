@@ -1,3 +1,8 @@
+#ifdef _WIN32
+#include <windows.h>
+#include <shellapi.h>
+#endif
+
 #include <imgui.h>
 
 #include <algorithm>
@@ -6,11 +11,6 @@
 #include <cstdlib>
 
 #include "App.h"
-
-#ifdef _WIN32
-#include <shellapi.h>
-#include <windows.h>
-#endif
 
 #include "../Scheduler.h"
 

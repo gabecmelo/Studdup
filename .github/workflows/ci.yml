@@ -55,6 +55,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Debug \
             -DENABLE_COVERAGE=ON \
             -DBUILD_TESTS=ON \
+            -DGLFW_BUILD_WAYLAND=OFF \
             -DFETCHCONTENT_QUIET=OFF
 
       - name: Build test binary only

@@ -23,6 +23,8 @@ jobs:
         id: rp
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: .github/release-please-config.json
+          manifest-file: .release-please-manifest.json
 
   # -------------------------------------------------------------------------
   # 2a. Build Windows binary (only when a release was just created)
@@ -74,7 +76,7 @@ jobs:
             libxext-dev
 
       - name: Configure
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DGLFW_BUILD_WAYLAND=OFF
 
       - name: Build
         run: cmake --build build --parallel
