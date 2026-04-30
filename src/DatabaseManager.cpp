@@ -149,7 +149,8 @@ void DatabaseManager::updateCard(const Card& c) {
 
 void DatabaseManager::deleteCard(int64_t id) {
     sqlite3_stmt* st = nullptr;
-    sqlite3_prepare_v2(db_, "DELETE FROM cards WHERE id=?", -1, &st, nullptr);
+    if (sqlite3_prepare_v2(db_, "DELETE FROM cards WHERE id=?", -1, &st, nullptr) != SQLITE_OK)
+        return;
     sqlite3_bind_int64(st, 1, id);
     sqlite3_step(st);
     sqlite3_finalize(st);

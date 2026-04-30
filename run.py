@@ -19,6 +19,13 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Ensure UTF-8 output on Windows consoles (Python 3.7+)
+try:
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+except AttributeError:
+    pass
+
 ROOT = Path(__file__).parent.resolve()
 
 # ── Colour output ─────────────────────────────────────────────────────────────

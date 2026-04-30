@@ -1,7 +1,9 @@
+// clang-format off
 #ifdef _WIN32
+#include <windows.h>   // must precede shellapi.h
 #include <shellapi.h>
-#include <windows.h>
 #endif
+// clang-format on
 
 #include <imgui.h>
 
@@ -365,8 +367,8 @@ void drawPostponeModal(App& app) {
             ImGui::TextDisabled("  Advance to the next stage.");
             ImGui::Spacing();
             if (ImGui::Button("No, postpone anyway", ImVec2(-1, 0))) {
-                ps.timerExpired = false;
-                ps.timerActive = false;
+                app.applyPostponeSkipTimer();
+                ImGui::CloseCurrentPopup();
             }
         } else if (ps.timerActive) {
             // ── Timer running ─────────────────────────────────────────────
