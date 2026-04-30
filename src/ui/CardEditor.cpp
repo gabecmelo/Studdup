@@ -1,6 +1,6 @@
 #ifdef _WIN32
-#include <windows.h>
 #include <shellapi.h>
+#include <windows.h>
 #endif
 
 #include <imgui.h>
@@ -10,9 +10,8 @@
 #include <cstdio>
 #include <cstdlib>
 
-#include "App.h"
-
 #include "../Scheduler.h"
+#include "App.h"
 
 namespace {
 void openUrl(const std::string& url) {
