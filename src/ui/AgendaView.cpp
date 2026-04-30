@@ -3,6 +3,7 @@
 #include <imgui.h>
 
 #include <map>
+#include <string>
 #include <vector>
 
 #include "../Scheduler.h"
@@ -11,14 +12,13 @@ namespace srs::ui::AgendaView {
 
 namespace {
 
-void drawCardRow(App& app, const Card& c, bool overdue, int overdueDays) {
+void drawCardRow(App& app, const Card& c, bool complete, bool overdue, int overdueDays) {
     ImGui::PushID(static_cast<int>(c.id));
 
     ImGui::AlignTextToFramePadding();
     ImGui::TextUnformatted(c.title.c_str());
-
     ImGui::SameLine();
-    ImGui::TextDisabled(" [%s]", stageLabel(c.currentStage));
+    ImGui::TextDisabled("[%s]", stageLabel(c.currentStage));
 
     if (overdue) {
         ImGui::SameLine();
@@ -37,9 +37,13 @@ void drawCardRow(App& app, const Card& c, bool overdue, int overdueDays) {
     ImGui::SameLine();
     ImGui::Dummy(ImVec2(8, 0));
     ImGui::SameLine();
-    if (ImGui::Button("Complete")) {
-        app.completeCard(c);
+
+    if (complete) {
+        if (ImGui::SmallButton("Complete")) app.completeCard(c);
+        ImGui::SameLine();
     }
+
+    if (ImGui::SmallButton("Edit")) app.openEditCard(c);
 
     ImGui::Separator();
     ImGui::PopID();
@@ -53,34 +57,32 @@ void draw(App& app) {
 
     std::vector<const Card*> todayCards;
     std::vector<const Card*> tomorrowCards;
-    std::map<std::string, std::vector<const Card*>> upcoming;  // key = ISO date
+    std::map<std::string, std::vector<const Card*>> upcoming;
 
     for (const Card& c : app.active()) {
         const Date due = Scheduler::dueDate(c);
-        if (due <= today)        todayCards.push_back(&c);
+        if (due <= today)         todayCards.push_back(&c);
         else if (due == tomorrow) tomorrowCards.push_back(&c);
         else                      upcoming[due.toIso()].push_back(&c);
     }
 
     if (ImGui::CollapsingHeader(("Today (" + std::to_string(todayCards.size()) + ")").c_str(),
                                 ImGuiTreeNodeFlags_DefaultOpen)) {
-        if (todayCards.empty()) {
-            ImGui::TextDisabled("Nothing due today.");
-        } else {
-            for (const Card* c : todayCards) {
-                const bool over = Scheduler::isOverdue(*c, today);
-                drawCardRow(app, *c, over, Scheduler::overdueDays(*c, today));
-            }
-        }
+        if (todayCards.empty())
+            ImGui::TextDisabled("Nothing due today. Enjoy the break!");
+        else
+            for (const Card* c : todayCards)
+                drawCardRow(app, *c, true, Scheduler::isOverdue(*c, today),
+                            Scheduler::overdueDays(*c, today));
     }
 
     if (ImGui::CollapsingHeader(("Tomorrow (" + std::to_string(tomorrowCards.size()) + ")").c_str(),
                                 ImGuiTreeNodeFlags_DefaultOpen)) {
-        if (tomorrowCards.empty()) {
+        if (tomorrowCards.empty())
             ImGui::TextDisabled("Nothing scheduled for tomorrow.");
-        } else {
-            for (const Card* c : tomorrowCards) drawCardRow(app, *c, false, 0);
-        }
+        else
+            for (const Card* c : tomorrowCards)
+                drawCardRow(app, *c, false, false, 0);
     }
 
     if (ImGui::CollapsingHeader(("Upcoming (" + std::to_string(upcoming.size()) + " dates)").c_str(),
@@ -94,7 +96,7 @@ void draw(App& app) {
                 ImGui::Text("%s", d.toHuman().c_str());
                 ImGui::PopStyleColor();
                 ImGui::Indent();
-                for (const Card* c : cards) drawCardRow(app, *c, false, 0);
+                for (const Card* c : cards) drawCardRow(app, *c, false, false, 0);
                 ImGui::Unindent();
             }
         }

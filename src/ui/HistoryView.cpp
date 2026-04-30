@@ -18,13 +18,11 @@ void draw(App& app) {
 
         ImGui::AlignTextToFramePadding();
         ImGui::TextUnformatted(c.title.c_str());
-
         ImGui::SameLine();
-        if (c.lastCompletedAt.isValid()) {
-            ImGui::TextDisabled(" - completed %s", c.lastCompletedAt.toHuman().c_str());
-        } else {
-            ImGui::TextDisabled(" - completed (date unknown)");
-        }
+        if (c.lastCompletedAt.isValid())
+            ImGui::TextDisabled("— completed %s", c.lastCompletedAt.toHuman().c_str());
+        else
+            ImGui::TextDisabled("— completed (date unknown)");
 
         if (!c.contentLink.empty() || !c.reviewLink.empty()) {
             ImGui::Indent();
@@ -33,13 +31,14 @@ void draw(App& app) {
             ImGui::Unindent();
         }
 
-        if (ImGui::Button("View log")) {
-            app.openViewLog(c);
-        }
         ImGui::SameLine();
-        if (ImGui::Button("Revive")) {
-            app.applyRevive(c);
-        }
+        ImGui::Dummy(ImVec2(8, 0));
+        ImGui::SameLine();
+        if (ImGui::SmallButton("View log")) app.openViewLog(c);
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Revive"))   app.applyRevive(c);
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Edit"))     app.openEditCard(c);
 
         ImGui::Separator();
         ImGui::PopID();

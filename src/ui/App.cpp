@@ -36,8 +36,16 @@ void App::refreshToday() {
     today_ = Date::today();
 }
 
-void App::onWindowFocusChanged() {
-    refreshToday();
+const Card* App::findActive(int64_t id) const {
+    auto it = std::find_if(active_.begin(), active_.end(),
+                           [id](const Card& c) { return c.id == id; });
+    return it == active_.end() ? nullptr : &*it;
+}
+
+const Card* App::findArchived(int64_t id) const {
+    auto it = std::find_if(archived_.begin(), archived_.end(),
+                           [id](const Card& c) { return c.id == id; });
+    return it == archived_.end() ? nullptr : &*it;
 }
 
 void App::requestOpenNewCard() {
@@ -60,11 +68,8 @@ void App::closeModal() {
 }
 
 void App::completeCard(const Card& c) {
-    if (Scheduler::isOverdue(c, today_)) {
-        openOverdueModal(c);
-    } else {
-        applyMarkCompleted(c);
-    }
+    if (Scheduler::isOverdue(c, today_)) openOverdueModal(c);
+    else                                  applyMarkCompleted(c);
 }
 
 void App::openOverdueModal(const Card& c) {
@@ -87,9 +92,8 @@ void App::applyMarkCompleted(Card c) {
     Card updated     = Scheduler::markCompleted(std::move(c), today_);
     db_.updateCard(updated);
     db_.recordEvent(updated.id, "completed", from, updated.currentStage, today_);
-    if (updated.archived) {
+    if (updated.archived)
         db_.recordEvent(updated.id, "archived", from, updated.currentStage, today_);
-    }
     reloadActive();
     reloadArchived();
     closeModal();
@@ -128,21 +132,54 @@ void App::submitNewCard() {
     c.title        = newCardForm.title;
     c.contentLink  = newCardForm.contentLink;
     c.reviewLink   = newCardForm.reviewLink;
-    c.currentStage = Stage::Day0;  // stage label matches the day-offset; for tomorrow we just shift startDate
+    c.currentStage = Stage::Day0;
     c.startDate    = (newCardForm.stageChoice == 0) ? today_ : today_.addDays(1);
     c.createdAt    = today_;
     c.archived     = false;
 
-    if (c.title.empty()) {
-        newCardForm.showError = true;
-        return;
-    }
+    if (c.title.empty()) { newCardForm.showError = true; return; }
 
     c.id = db_.insertCard(c);
     db_.recordEvent(c.id, "created", Stage::Day0, Stage::Day0, today_);
     reloadActive();
     closeModal();
 }
+
+// ---------------------------------------------------------------------------
+// Edit (commit 1)
+// ---------------------------------------------------------------------------
+
+void App::openEditCard(const Card& c) {
+    editCardForm    = EditCardForm{};
+    editCardForm.id = c.id;
+    std::strncpy(editCardForm.title,       c.title.c_str(),       sizeof(editCardForm.title)       - 1);
+    std::strncpy(editCardForm.contentLink, c.contentLink.c_str(), sizeof(editCardForm.contentLink) - 1);
+    std::strncpy(editCardForm.reviewLink,  c.reviewLink.c_str(),  sizeof(editCardForm.reviewLink)  - 1);
+    wantFocusFirstField = true;
+    modal               = Modal::EditCard;
+}
+
+void App::applyEditCard() {
+    if (editCardForm.title[0] == '\0') { editCardForm.showError = true; return; }
+
+    const Card* ptr = findActive(editCardForm.id);
+    if (!ptr) ptr   = findArchived(editCardForm.id);
+    if (!ptr) { closeModal(); return; }
+
+    Card updated        = *ptr;
+    updated.title       = editCardForm.title;
+    updated.contentLink = editCardForm.contentLink;
+    updated.reviewLink  = editCardForm.reviewLink;
+    db_.updateCard(updated);
+    db_.recordEvent(updated.id, "edited", updated.currentStage, updated.currentStage, today_);
+    reloadActive();
+    reloadArchived();
+    closeModal();
+}
+
+// ---------------------------------------------------------------------------
+// Render
+// ---------------------------------------------------------------------------
 
 void App::renderFrame() {
     refreshToday();
@@ -158,15 +195,14 @@ void App::renderFrame() {
 
     ImGui::Begin("##srs_root", nullptr, kRootFlags);
 
-    // Toolbar
     if (ImGui::Button("+ New Card")) requestOpenNewCard();
     ImGui::SameLine();
-    if (ImGui::Button(view == MainView::Agenda ? "History" : "Agenda")) requestToggleHistory();
+    if (ImGui::Button(view == MainView::Agenda ? "History" : "Agenda"))
+        requestToggleHistory();
     ImGui::SameLine();
     if (ImGui::Button("?")) requestOpenHelp();
     ImGui::SameLine();
     ImGui::TextDisabled("Today: %s", today_.toHuman().c_str());
-
     ImGui::Separator();
 
     if (view == MainView::Agenda) AgendaView::draw(*this);
@@ -174,13 +210,13 @@ void App::renderFrame() {
 
     ImGui::End();
 
-    // Modals (rendered on top)
     switch (modal) {
-        case Modal::NewCard: CardEditor::drawNewCardModal(*this); break;
-        case Modal::Overdue: CardEditor::drawOverdueModal(*this); break;
-        case Modal::ViewLog: CardEditor::drawViewLogModal(*this); break;
-        case Modal::Help:    HelpView::draw(*this);               break;
-        case Modal::None:                                         break;
+        case Modal::NewCard:  CardEditor::drawNewCardModal (*this); break;
+        case Modal::EditCard: CardEditor::drawEditCardModal(*this); break;
+        case Modal::Overdue:  CardEditor::drawOverdueModal (*this); break;
+        case Modal::Help:     HelpView::draw               (*this); break;
+        case Modal::ViewLog:  CardEditor::drawViewLogModal (*this); break;
+        case Modal::None:                                           break;
     }
 }
 

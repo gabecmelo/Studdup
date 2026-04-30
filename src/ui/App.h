@@ -12,25 +12,40 @@ namespace srs::ui {
 
 enum class MainView { Agenda, History };
 
-enum class Modal { None, NewCard, Overdue, Help, ViewLog };
+enum class Modal {
+    None,
+    NewCard,
+    EditCard,   // edit title / content / review link
+    Overdue,
+    Help,
+    ViewLog,
+};
 
 struct NewCardForm {
-    char  title[256]       = {0};
-    char  contentLink[512] = {0};
-    char  reviewLink[512]  = {0};
-    int   stageChoice      = 0;  // 0 = Day 0 (today), 1 = Day 1 (tomorrow)
-    bool  showError        = false;
+    char title[256]       = {0};
+    char contentLink[512] = {0};
+    char reviewLink[512]  = {0};
+    int  stageChoice      = 0;
+    bool showError        = false;
+};
+
+struct EditCardForm {
+    int64_t id = 0;
+    char    title[256]       = {0};
+    char    contentLink[512] = {0};
+    char    reviewLink[512]  = {0};
+    bool    showError        = false;
 };
 
 struct OverdueState {
-    int64_t cardId        = 0;
+    int64_t     cardId       = 0;
     std::string title;
-    int     overdueDays   = 0;
-    Stage   currentStage  = Stage::Day0;
+    int         overdueDays  = 0;
+    Stage       currentStage = Stage::Day0;
 };
 
 struct ViewLogState {
-    int64_t cardId = 0;
+    int64_t     cardId = 0;
     std::string title;
     std::vector<HistoryEvent> events;
 };
@@ -42,37 +57,43 @@ public:
 
     void renderFrame();
 
-    // Hotkey-triggered requests (called from main.cpp key callbacks).
     void requestOpenNewCard();
     void requestToggleHistory();
     void requestOpenHelp();
-
-    // Called on window focus change so we re-evaluate the local date when
-    // the user returns to the app after midnight.
     void onWindowFocusChanged();
 
-    // ---- helpers used by the View files ----
-    Date today() const                              { return today_; }
-    const std::vector<Card>& active()   const       { return active_; }
-    const std::vector<Card>& archived() const       { return archived_; }
+    Date today() const                        { return today_; }
+    const std::vector<Card>& active()   const { return active_; }
+    const std::vector<Card>& archived() const { return archived_; }
 
-    void completeCard(const Card& c);     // opens overdue modal if overdue
+    const Card* findActive  (int64_t id) const;
+    const Card* findArchived(int64_t id) const;
+
+    void completeCard      (const Card& c);
     void applyMarkCompleted(Card c);
-    void applyRestart(Card c);
-    void applyErase(Card c);
-    void applyRevive(Card c);
+    void applyRestart      (Card c);
+    void applyErase        (Card c);
+    void applyRevive       (Card c);
 
     void openOverdueModal(const Card& c);
-    void openViewLog(const Card& c);
+    void openViewLog     (const Card& c);
     void closeModal();
-    void submitNewCard();   // called by CardEditor on Enter / Create
 
-    MainView          view        = MainView::Agenda;
-    Modal             modal       = Modal::None;
-    bool              wantFocusFirstField = false;
-    NewCardForm       newCardForm;
-    OverdueState      overdue;
-    ViewLogState      viewLog;
+    // Create
+    void submitNewCard();
+
+    // Edit (commit 1)
+    void openEditCard (const Card& c);
+    void applyEditCard();
+
+    MainView    view                = MainView::Agenda;
+    Modal       modal               = Modal::None;
+    bool        wantFocusFirstField = false;
+
+    NewCardForm  newCardForm;
+    EditCardForm editCardForm;
+    OverdueState overdue;
+    ViewLogState viewLog;
 
 private:
     void reloadActive();
@@ -87,11 +108,12 @@ private:
 
 }  // namespace srs::ui
 
-namespace srs::ui::AgendaView { void draw(App& app); }
+namespace srs::ui::AgendaView  { void draw(App& app); }
 namespace srs::ui::HistoryView { void draw(App& app); }
 namespace srs::ui::HelpView    { void draw(App& app); }
 namespace srs::ui::CardEditor {
-    void drawNewCardModal(App& app);
+    void drawNewCardModal (App& app);
+    void drawEditCardModal(App& app);
     void drawOverdueModal (App& app);
     void drawViewLogModal (App& app);
 }
