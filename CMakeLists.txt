@@ -103,6 +103,7 @@ target_link_libraries(studdup PRIVATE
 )
 
 if (MSVC)
+    target_compile_definitions(studdup PRIVATE _CRT_SECURE_NO_WARNINGS)
     target_compile_options(studdup PRIVATE /W4 /permissive-)
 else()
     target_compile_options(studdup PRIVATE -Wall -Wextra -Wpedantic)

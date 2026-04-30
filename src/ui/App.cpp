@@ -36,6 +36,10 @@ void App::refreshToday() {
     today_ = Date::today();
 }
 
+void App::onWindowFocusChanged() {
+    refreshToday();
+}
+
 const Card* App::findActive(int64_t id) const {
     auto it = std::find_if(active_.begin(), active_.end(),
                            [id](const Card& c) { return c.id == id; });
