@@ -10,25 +10,41 @@ concurrency:
 
 jobs:
   # ---------------------------------------------------------------------------
-  # 1. Lint — clang-format only, zero compilation
+  # 1. Lint — auto-fix with clang-format and push the fix back to the branch
   # ---------------------------------------------------------------------------
   lint:
     name: Lint (clang-format)
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install clang-format
         run: |
           sudo apt-get update
           sudo apt-get install -y clang-format
 
-      - name: Check formatting
+      - name: Auto-fix formatting
         run: |
           find src tests \
             \( -name '*.cpp' -o -name '*.h' \) \
             -print0 \
-          | xargs -0 clang-format --dry-run --Werror --style=file
+          | xargs -0 clang-format -i --style=file
+
+      - name: Commit and push fixes if needed
+        run: |
+          if ! git diff --quiet; then
+            git config user.name  "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add -A
+            git commit -m "style: auto-fix clang-format violations"
+            git push
+            echo "Formatting issues were found and auto-fixed — pull the latest commit."
+          fi
 
   # ---------------------------------------------------------------------------
   # 2. Unit tests + coverage threshold
@@ -53,6 +69,7 @@ jobs:
         run: |
           cmake -B build \
             -DCMAKE_BUILD_TYPE=Debug \
+            -DBUILD_APP=OFF \
             -DENABLE_COVERAGE=ON \
             -DBUILD_TESTS=ON \
             -DFETCHCONTENT_QUIET=OFF
@@ -72,10 +89,10 @@ jobs:
           # Strip third-party and system headers
           lcov --remove coverage.info \
                '*/tests/*' \
-               '*/catch2/*' \
-               '*/Catch2/*' \
+               '*/catch2-src/*' \
                '*/build/_deps/*' \
                '/usr/*' \
+               --ignore-errors unused \
                --output-file coverage.info
           lcov --list coverage.info
 

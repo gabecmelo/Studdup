@@ -7,10 +7,10 @@ namespace srs::Scheduler {
 
 Date dueDate(const Card& c);
 
-bool isDueToday   (const Card& c, Date today);
+bool isDueToday(const Card& c, Date today);
 bool isDueTomorrow(const Card& c, Date today);
-bool isOverdue    (const Card& c, Date today);
-int  overdueDays  (const Card& c, Date today);  // 0 if not overdue
+bool isOverdue(const Card& c, Date today);
+int overdueDays(const Card& c, Date today);  // 0 if not overdue
 
 // Stage transitions. All pure: take Card by value, return updated Card.
 
@@ -29,5 +29,9 @@ Card eraseStudy(Card c, Date today);
 
 // History → Agenda: bring an archived card back as a fresh Day 0 study.
 Card reviveFromHistory(Card c, Date today);
+
+// Shift the due date by `days` without changing stage.
+// Implemented by moving startDate forward (preserves the stage-anchor invariant).
+Card postpone(Card c, int days);
 
 }  // namespace srs::Scheduler

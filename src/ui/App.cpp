@@ -23,7 +23,8 @@ void App::reloadActive() {
     std::sort(active_.begin(), active_.end(), [](const Card& a, const Card& b) {
         const Date da = Scheduler::dueDate(a);
         const Date db = Scheduler::dueDate(b);
-        if (da != db) return da < db;
+        if (da != db)
+            return da < db;
         return a.id < b.id;
     });
 }
@@ -40,9 +41,25 @@ void App::onWindowFocusChanged() {
     refreshToday();
 }
 
+void App::toggleDevMode() {
+    devMode_ = !devMode_;
+}
+
+const Card* App::findActive(int64_t id) const {
+    auto it =
+        std::find_if(active_.begin(), active_.end(), [id](const Card& c) { return c.id == id; });
+    return it == active_.end() ? nullptr : &*it;
+}
+
+const Card* App::findArchived(int64_t id) const {
+    auto it = std::find_if(archived_.begin(), archived_.end(),
+                           [id](const Card& c) { return c.id == id; });
+    return it == archived_.end() ? nullptr : &*it;
+}
+
 void App::requestOpenNewCard() {
-    modal               = Modal::NewCard;
-    newCardForm         = NewCardForm{};
+    modal = Modal::NewCard;
+    newCardForm = NewCardForm{};
     wantFocusFirstField = true;
 }
 
@@ -55,41 +72,39 @@ void App::requestOpenHelp() {
 }
 
 void App::closeModal() {
-    modal               = Modal::None;
+    modal = Modal::None;
     wantFocusFirstField = false;
 }
 
 void App::completeCard(const Card& c) {
-    if (Scheduler::isOverdue(c, today_)) {
+    if (Scheduler::isOverdue(c, today_))
         openOverdueModal(c);
-    } else {
+    else
         applyMarkCompleted(c);
-    }
 }
 
 void App::openOverdueModal(const Card& c) {
-    overdue.cardId       = c.id;
-    overdue.title        = c.title;
-    overdue.overdueDays  = Scheduler::overdueDays(c, today_);
+    overdue.cardId = c.id;
+    overdue.title = c.title;
+    overdue.overdueDays = Scheduler::overdueDays(c, today_);
     overdue.currentStage = c.currentStage;
-    modal                = Modal::Overdue;
+    modal = Modal::Overdue;
 }
 
 void App::openViewLog(const Card& c) {
     viewLog.cardId = c.id;
-    viewLog.title  = c.title;
+    viewLog.title = c.title;
     viewLog.events = db_.loadHistoryFor(c.id);
-    modal          = Modal::ViewLog;
+    modal = Modal::ViewLog;
 }
 
 void App::applyMarkCompleted(Card c) {
     const Stage from = c.currentStage;
-    Card updated     = Scheduler::markCompleted(std::move(c), today_);
+    Card updated = Scheduler::markCompleted(std::move(c), today_);
     db_.updateCard(updated);
     db_.recordEvent(updated.id, "completed", from, updated.currentStage, today_);
-    if (updated.archived) {
+    if (updated.archived)
         db_.recordEvent(updated.id, "archived", from, updated.currentStage, today_);
-    }
     reloadActive();
     reloadArchived();
     closeModal();
@@ -97,7 +112,7 @@ void App::applyMarkCompleted(Card c) {
 
 void App::applyRestart(Card c) {
     const Stage stage = c.currentStage;
-    Card updated      = Scheduler::restartStudy(std::move(c), today_);
+    Card updated = Scheduler::restartStudy(std::move(c), today_);
     db_.updateCard(updated);
     db_.recordEvent(updated.id, "restart", stage, stage, today_);
     reloadActive();
@@ -106,7 +121,7 @@ void App::applyRestart(Card c) {
 
 void App::applyErase(Card c) {
     const Stage from = c.currentStage;
-    Card updated     = Scheduler::eraseStudy(std::move(c), today_);
+    Card updated = Scheduler::eraseStudy(std::move(c), today_);
     db_.updateCard(updated);
     db_.recordEvent(updated.id, "erase", from, Stage::Day0, today_);
     reloadActive();
@@ -115,7 +130,7 @@ void App::applyErase(Card c) {
 
 void App::applyRevive(Card c) {
     const Stage from = c.currentStage;
-    Card updated     = Scheduler::reviveFromHistory(std::move(c), today_);
+    Card updated = Scheduler::reviveFromHistory(std::move(c), today_);
     db_.updateCard(updated);
     db_.recordEvent(updated.id, "revived", from, Stage::Day0, today_);
     reloadActive();
@@ -125,24 +140,152 @@ void App::applyRevive(Card c) {
 
 void App::submitNewCard() {
     Card c;
-    c.title        = newCardForm.title;
-    c.contentLink  = newCardForm.contentLink;
-    c.reviewLink   = newCardForm.reviewLink;
-    c.currentStage = Stage::Day0;  // stage label matches the day-offset; for tomorrow we just shift startDate
-    c.startDate    = (newCardForm.stageChoice == 0) ? today_ : today_.addDays(1);
-    c.createdAt    = today_;
-    c.archived     = false;
+    c.title = newCardForm.title;
+    c.contentLink = newCardForm.contentLink;
+    c.reviewLink = newCardForm.reviewLink;
+    c.createdAt = today_;
+    c.archived = false;
 
     if (c.title.empty()) {
         newCardForm.showError = true;
         return;
     }
 
+    if (devMode_) {
+        static const Stage kStages[] = {Stage::Day0, Stage::Day1,  Stage::Day2,
+                                        Stage::Day5, Stage::Day15, Stage::Day30};
+        const int idx = std::max(0, std::min(newCardForm.stageChoice, 5));
+        c.currentStage = kStages[idx];
+        // Anchor startDate so dueDate == today regardless of stage
+        c.startDate = today_.addDays(-static_cast<int>(c.currentStage));
+    } else {
+        c.currentStage = Stage::Day0;
+        c.startDate = (newCardForm.stageChoice == 0) ? today_ : today_.addDays(1);
+    }
+
     c.id = db_.insertCard(c);
-    db_.recordEvent(c.id, "created", Stage::Day0, Stage::Day0, today_);
+    db_.recordEvent(c.id, "created", c.currentStage, c.currentStage, today_);
     reloadActive();
     closeModal();
 }
+
+// ---------------------------------------------------------------------------
+// Detail view (commit 2)
+// ---------------------------------------------------------------------------
+
+void App::openCardDetail(const Card& c) {
+    cardDetail.cardId = c.id;
+    cardDetail.archived = c.archived;
+    modal = Modal::CardDetail;
+}
+
+// ---------------------------------------------------------------------------
+// Delete (commit 4)
+// ---------------------------------------------------------------------------
+
+void App::openDeleteCard(const Card& c) {
+    deleteState.cardId = c.id;
+    deleteState.title = c.title;
+    deleteState.archived = c.archived;
+    modal = Modal::DeleteCard;
+}
+
+void App::applyDeleteCard() {
+    db_.deleteCard(deleteState.cardId);
+    reloadActive();
+    reloadArchived();
+    closeModal();
+}
+
+// ---------------------------------------------------------------------------
+// Postpone (commit 3)
+// ---------------------------------------------------------------------------
+
+void App::openPostpone(const Card& c) {
+    postponeState = PostponeState{};
+    postponeState.cardId = c.id;
+    postponeState.title = c.title;
+    postponeState.stage = c.currentStage;
+    postponeState.postponeDays = 1;
+    modal = Modal::Postpone;
+}
+
+void App::applyPostpone() {
+    const Card* ptr = findActive(postponeState.cardId);
+    if (!ptr) {
+        closeModal();
+        return;
+    }
+
+    Card updated = Scheduler::postpone(*ptr, postponeState.postponeDays);
+    db_.updateCard(updated);
+    db_.recordEvent(updated.id, "postponed", updated.currentStage, updated.currentStage, today_);
+    reloadActive();
+    closeModal();
+}
+
+void App::startPostponeTimer() {
+    postponeState.timerActive = true;
+    postponeState.timerExpired = false;
+    postponeState.timerStart = std::chrono::steady_clock::now();
+}
+
+void App::applyPostponeAfterTimer() {
+    const Card* ptr = findActive(postponeState.cardId);
+    if (ptr)
+        applyMarkCompleted(*ptr);
+    else
+        closeModal();
+}
+
+void App::applyPostponeSkipTimer() {
+    applyPostpone();
+}
+
+// ---------------------------------------------------------------------------
+// Edit (commit 1)
+// ---------------------------------------------------------------------------
+
+void App::openEditCard(const Card& c) {
+    editCardForm = EditCardForm{};
+    editCardForm.id = c.id;
+    std::strncpy(editCardForm.title, c.title.c_str(), sizeof(editCardForm.title) - 1);
+    std::strncpy(editCardForm.contentLink, c.contentLink.c_str(),
+                 sizeof(editCardForm.contentLink) - 1);
+    std::strncpy(editCardForm.reviewLink, c.reviewLink.c_str(),
+                 sizeof(editCardForm.reviewLink) - 1);
+    wantFocusFirstField = true;
+    modal = Modal::EditCard;
+}
+
+void App::applyEditCard() {
+    if (editCardForm.title[0] == '\0') {
+        editCardForm.showError = true;
+        return;
+    }
+
+    const Card* ptr = findActive(editCardForm.id);
+    if (!ptr)
+        ptr = findArchived(editCardForm.id);
+    if (!ptr) {
+        closeModal();
+        return;
+    }
+
+    Card updated = *ptr;
+    updated.title = editCardForm.title;
+    updated.contentLink = editCardForm.contentLink;
+    updated.reviewLink = editCardForm.reviewLink;
+    db_.updateCard(updated);
+    db_.recordEvent(updated.id, "edited", updated.currentStage, updated.currentStage, today_);
+    reloadActive();
+    reloadArchived();
+    closeModal();
+}
+
+// ---------------------------------------------------------------------------
+// Render
+// ---------------------------------------------------------------------------
 
 void App::renderFrame() {
     refreshToday();
@@ -152,35 +295,68 @@ void App::renderFrame() {
     ImGui::SetNextWindowSize(vp->WorkSize);
 
     constexpr ImGuiWindowFlags kRootFlags =
-        ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
-        ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoBringToFrontOnFocus |
-        ImGuiWindowFlags_NoSavedSettings;
+        ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
+        ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoSavedSettings;
 
     ImGui::Begin("##srs_root", nullptr, kRootFlags);
 
-    // Toolbar
-    if (ImGui::Button("+ New Card")) requestOpenNewCard();
+    if (ImGui::Button("+ New Card"))
+        requestOpenNewCard();
     ImGui::SameLine();
-    if (ImGui::Button(view == MainView::Agenda ? "History" : "Agenda")) requestToggleHistory();
+    if (ImGui::Button(view == MainView::Agenda ? "History" : "Agenda"))
+        requestToggleHistory();
     ImGui::SameLine();
-    if (ImGui::Button("?")) requestOpenHelp();
+    if (ImGui::Button("?"))
+        requestOpenHelp();
     ImGui::SameLine();
     ImGui::TextDisabled("Today: %s", today_.toHuman().c_str());
-
+    if (ImGui::IsItemHovered() && ImGui::GetMouseClickedCount(ImGuiMouseButton_Left) == 3)
+        toggleDevMode();
+    if (devMode_) {
+        ImGui::SameLine();
+        ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 200, 0, 255));
+        ImGui::TextUnformatted("[DEV MODE]");
+        ImGui::PopStyleColor();
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Exit dev mode"))
+            toggleDevMode();
+    }
     ImGui::Separator();
 
-    if (view == MainView::Agenda) AgendaView::draw(*this);
-    else                          HistoryView::draw(*this);
+    if (view == MainView::Agenda)
+        AgendaView::draw(*this);
+    else
+        HistoryView::draw(*this);
 
     ImGui::End();
 
-    // Modals (rendered on top)
     switch (modal) {
-        case Modal::NewCard: CardEditor::drawNewCardModal(*this); break;
-        case Modal::Overdue: CardEditor::drawOverdueModal(*this); break;
-        case Modal::ViewLog: CardEditor::drawViewLogModal(*this); break;
-        case Modal::Help:    HelpView::draw(*this);               break;
-        case Modal::None:                                         break;
+        case Modal::NewCard:
+            CardEditor::drawNewCardModal(*this);
+            break;
+        case Modal::EditCard:
+            CardEditor::drawEditCardModal(*this);
+            break;
+        case Modal::CardDetail:
+            CardEditor::drawCardDetailModal(*this);
+            break;
+        case Modal::Overdue:
+            CardEditor::drawOverdueModal(*this);
+            break;
+        case Modal::Postpone:
+            CardEditor::drawPostponeModal(*this);
+            break;
+        case Modal::DeleteCard:
+            CardEditor::drawDeleteModal(*this);
+            break;
+        case Modal::Help:
+            HelpView::draw(*this);
+            break;
+        case Modal::ViewLog:
+            CardEditor::drawViewLogModal(*this);
+            break;
+        case Modal::None:
+            break;
     }
 }
 

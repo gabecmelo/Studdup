@@ -1,6 +1,7 @@
-#include "App.h"
-
 #include <imgui.h>
+
+#include "App.h"
+#include "openurl.h"
 
 namespace srs::ui::HistoryView {
 
@@ -17,29 +18,53 @@ void draw(App& app) {
         ImGui::PushID(static_cast<int>(c.id));
 
         ImGui::AlignTextToFramePadding();
-        ImGui::TextUnformatted(c.title.c_str());
-
+        ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(220, 220, 255, 255));
+        if (ImGui::SmallButton(c.title.c_str()))
+            app.openCardDetail(c);
+        ImGui::PopStyleColor();
         ImGui::SameLine();
-        if (c.lastCompletedAt.isValid()) {
-            ImGui::TextDisabled(" - completed %s", c.lastCompletedAt.toHuman().c_str());
-        } else {
-            ImGui::TextDisabled(" - completed (date unknown)");
-        }
+        if (c.lastCompletedAt.isValid())
+            ImGui::TextDisabled("— completed %s", c.lastCompletedAt.toHuman().c_str());
+        else
+            ImGui::TextDisabled("— completed (date unknown)");
 
         if (!c.contentLink.empty() || !c.reviewLink.empty()) {
             ImGui::Indent();
-            if (!c.contentLink.empty()) ImGui::TextDisabled("Content: %s", c.contentLink.c_str());
-            if (!c.reviewLink.empty())  ImGui::TextDisabled("Review:  %s", c.reviewLink.c_str());
+            if (!c.contentLink.empty()) {
+                ImGui::TextDisabled("Content:");
+                ImGui::SameLine();
+                ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(100, 180, 255, 255));
+                if (ImGui::SmallButton("Open##cl"))
+                    openUrl(c.contentLink);
+                ImGui::PopStyleColor();
+            }
+            if (!c.reviewLink.empty()) {
+                ImGui::TextDisabled("Review: ");
+                ImGui::SameLine();
+                ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(100, 180, 255, 255));
+                if (ImGui::SmallButton("Open##rl"))
+                    openUrl(c.reviewLink);
+                ImGui::PopStyleColor();
+            }
             ImGui::Unindent();
         }
 
-        if (ImGui::Button("View log")) {
-            app.openViewLog(c);
-        }
         ImGui::SameLine();
-        if (ImGui::Button("Revive")) {
+        ImGui::Dummy(ImVec2(8, 0));
+        ImGui::SameLine();
+        if (ImGui::SmallButton("View log"))
+            app.openViewLog(c);
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Revive"))
             app.applyRevive(c);
-        }
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Edit"))
+            app.openEditCard(c);
+        ImGui::SameLine();
+        ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 120, 120, 255));
+        if (ImGui::SmallButton("Delete"))
+            app.openDeleteCard(c);
+        ImGui::PopStyleColor();
 
         ImGui::Separator();
         ImGui::PopID();

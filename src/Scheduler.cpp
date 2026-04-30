@@ -21,7 +21,8 @@ bool isOverdue(const Card& c, Date today) {
 }
 
 int overdueDays(const Card& c, Date today) {
-    if (c.archived) return 0;
+    if (c.archived)
+        return 0;
     const int d = dueDate(c).daysUntil(today);  // today - due
     return d > 0 ? d : 0;
 }
@@ -29,7 +30,7 @@ int overdueDays(const Card& c, Date today) {
 Card markCompleted(Card c, Date today) {
     assert(!c.archived);
     assert(c.currentStage != Stage::Done);
-    c.currentStage    = nextStage(c.currentStage);
+    c.currentStage = nextStage(c.currentStage);
     c.lastCompletedAt = today;
     if (c.currentStage == Stage::Done) {
         c.archived = true;
@@ -44,17 +45,22 @@ Card restartStudy(Card c, Date today) {
 }
 
 Card eraseStudy(Card c, Date today) {
-    c.startDate    = today;
+    c.startDate = today;
     c.currentStage = Stage::Day0;
-    c.archived     = false;
+    c.archived = false;
     return c;
 }
 
 Card reviveFromHistory(Card c, Date today) {
-    c.startDate       = today;
-    c.currentStage    = Stage::Day0;
-    c.archived        = false;
+    c.startDate = today;
+    c.currentStage = Stage::Day0;
+    c.archived = false;
     c.lastCompletedAt = Date{};
+    return c;
+}
+
+Card postpone(Card c, int days) {
+    c.startDate = c.startDate.addDays(days);
     return c;
 }
 
