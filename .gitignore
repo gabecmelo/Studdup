@@ -35,3 +35,14 @@ data/*.db-shm
 
 # Design handoff bundle (Claude Design export) — local reference only, not versioned
 design/
+
+# Rust / Cargo
+/target/
+**/target/
+
+# Tauri generated
+studdup/gen/
+
+# Node / Vite
+node_modules/
+ui/dist/
