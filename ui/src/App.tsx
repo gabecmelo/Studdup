@@ -1,17 +1,11 @@
-import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { useEffect } from "react";
+import "./styles/tokens.css";
+import { initTheme } from "./styles/theme";
+import { AppShell } from "./components/AppShell";
 
-// Smoke wiring: exercises the Tauri `invoke` bridge. There is no `ping` command yet
-// (commands land in a later phase), so we fall back gracefully when it is absent or
-// when running outside a Tauri window (e.g. a plain `vite build` preview).
+// App root: apply the persisted theme, then render the collapsible shell (AD-009). The kanban
+// board, modals and session screens plug into the shell's routes in later tasks.
 export default function App() {
-  const [status, setStatus] = useState<string>("carregando…");
-
-  useEffect(() => {
-    invoke<string>("ping")
-      .then((reply) => setStatus(reply))
-      .catch(() => setStatus("studdup"));
-  }, []);
-
-  return <main>studdup — {status}</main>;
+  useEffect(() => initTheme(), []);
+  return <AppShell />;
 }
