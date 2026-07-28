@@ -73,7 +73,10 @@ fn cards_table_preserves_cpp_columns_and_adds_new_ones() {
         "created_at",
         "last_completed_at",
     ] {
-        assert!(cols.iter().any(|c| c == cpp), "cards missing C++ column {cpp}");
+        assert!(
+            cols.iter().any(|c| c == cpp),
+            "cards missing C++ column {cpp}"
+        );
     }
     // New columns for this feature.
     for new in [
@@ -84,7 +87,10 @@ fn cards_table_preserves_cpp_columns_and_adds_new_ones() {
         "pomodoro_break_min",
         "exam_id",
     ] {
-        assert!(cols.iter().any(|c| c == new), "cards missing new column {new}");
+        assert!(
+            cols.iter().any(|c| c == new),
+            "cards missing new column {new}"
+        );
     }
 }
 
@@ -95,11 +101,24 @@ fn history_table_preserves_cpp_columns_and_adds_new_ones() {
     db.create_schema().unwrap();
 
     let cols = columns(db.conn(), "history");
-    for cpp in ["id", "card_id", "event_type", "from_stage", "to_stage", "when_date"] {
-        assert!(cols.iter().any(|c| c == cpp), "history missing C++ column {cpp}");
+    for cpp in [
+        "id",
+        "card_id",
+        "event_type",
+        "from_stage",
+        "to_stage",
+        "when_date",
+    ] {
+        assert!(
+            cols.iter().any(|c| c == cpp),
+            "history missing C++ column {cpp}"
+        );
     }
     for new in ["method", "technique", "focused_secs", "self_rating"] {
-        assert!(cols.iter().any(|c| c == new), "history missing new column {new}");
+        assert!(
+            cols.iter().any(|c| c == new),
+            "history missing new column {new}"
+        );
     }
 }
 

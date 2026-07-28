@@ -185,7 +185,10 @@ mod tests {
         let yesterday = ymd(2026, 4, 28);
         assert!(is_overdue(&card(yesterday, Stage::Day0), k_today()));
         // "today" earlier than due → future, not overdue.
-        assert!(!is_overdue(&card(k_start(), Stage::Day0), k_today().add_days(-1)));
+        assert!(!is_overdue(
+            &card(k_start(), Stage::Day0),
+            k_today().add_days(-1)
+        ));
     }
 
     // Ported: TEST_CASE("Scheduler::overdueDays").

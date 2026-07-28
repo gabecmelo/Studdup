@@ -45,7 +45,13 @@ fn insert_then_load_preserves_every_field() {
     // Spot-check the new columns explicitly.
     assert_eq!(loaded[0].technique, Some(Technique::Pomodoro));
     assert_eq!(loaded[0].est_minutes, Some(50));
-    assert_eq!(loaded[0].pomodoro, Some(PomodoroRhythm { focus_min: 50, break_min: 10 }));
+    assert_eq!(
+        loaded[0].pomodoro,
+        Some(PomodoroRhythm {
+            focus_min: 50,
+            break_min: 10
+        })
+    );
     assert_eq!(loaded[0].current_stage, Stage::Day5);
 }
 
@@ -115,7 +121,9 @@ fn update_card_persists_changes() {
     let card = sample_card("Antes");
     let id = insert_card(db.conn(), &card).unwrap();
 
-    let mut edited = load_active(db.conn(), Method::SpacedRepetition).unwrap().remove(0);
+    let mut edited = load_active(db.conn(), Method::SpacedRepetition)
+        .unwrap()
+        .remove(0);
     edited.title = "Depois".to_string();
     edited.current_stage = Stage::Day15;
     edited.technique = Some(Technique::Feynman);
@@ -164,7 +172,9 @@ fn delete_card_cascades_to_children() {
     // The card and all its children are gone.
     let card_count: i64 = db
         .conn()
-        .query_row("SELECT count(*) FROM cards WHERE id = ?1", [id], |r| r.get(0))
+        .query_row("SELECT count(*) FROM cards WHERE id = ?1", [id], |r| {
+            r.get(0)
+        })
         .unwrap();
     assert_eq!(card_count, 0);
 

@@ -81,7 +81,10 @@ fn delete_exam_removes_its_cards_and_sessions() {
     delete_exam_cascade(db.conn(), exam_id).unwrap();
 
     // Deleted exam, its card and its sessions are all gone.
-    assert!(load_exams(db.conn()).unwrap().iter().all(|e| e.id != exam_id));
+    assert!(load_exams(db.conn())
+        .unwrap()
+        .iter()
+        .all(|e| e.id != exam_id));
     let cards_left: i64 = db
         .conn()
         .query_row(
@@ -94,7 +97,10 @@ fn delete_exam_removes_its_cards_and_sessions() {
     assert_eq!(load_sessions(db.conn(), card_id).unwrap().len(), 0);
 
     // The unrelated exam and its card/sessions survive.
-    assert!(load_exams(db.conn()).unwrap().iter().any(|e| e.id == other_exam));
+    assert!(load_exams(db.conn())
+        .unwrap()
+        .iter()
+        .any(|e| e.id == other_exam));
     assert_eq!(load_sessions(db.conn(), other_card).unwrap().len(), 1);
 }
 
@@ -106,7 +112,12 @@ fn progress_counts_completed_versus_total_across_all_cards() {
     let card_a = insert_exam_card(&db, "Célula", exam_id);
     let card_b = insert_exam_card(&db, "Genética", exam_id);
     insert_sessions(db.conn(), card_a, &[ymd(2026, 5, 1), ymd(2026, 5, 6)]).unwrap();
-    insert_sessions(db.conn(), card_b, &[ymd(2026, 5, 2), ymd(2026, 5, 7), ymd(2026, 5, 12)]).unwrap();
+    insert_sessions(
+        db.conn(),
+        card_b,
+        &[ymd(2026, 5, 2), ymd(2026, 5, 7), ymd(2026, 5, 12)],
+    )
+    .unwrap();
 
     // Start: 0 of 5 completed.
     assert_eq!(exam_session_progress(db.conn(), exam_id).unwrap(), (0, 5));

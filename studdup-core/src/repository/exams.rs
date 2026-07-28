@@ -12,7 +12,12 @@ use crate::repository::{date_to_db, opt_parse_date, parse_date};
 pub fn insert_exam(conn: &Connection, e: &Exam) -> rusqlite::Result<i64> {
     conn.execute(
         "INSERT INTO exams (name, exam_date, created_at, concluded) VALUES (?1, ?2, ?3, ?4)",
-        params![e.name, date_to_db(e.exam_date), date_to_db(e.created_at), e.concluded],
+        params![
+            e.name,
+            date_to_db(e.exam_date),
+            date_to_db(e.created_at),
+            e.concluded
+        ],
     )?;
     Ok(conn.last_insert_rowid())
 }
@@ -27,7 +32,11 @@ pub fn load_exams(conn: &Connection) -> rusqlite::Result<Vec<Exam>> {
 }
 
 /// Mark an exam concluded (EXAM-02.5, when its date has passed).
-pub fn set_exam_concluded(conn: &Connection, exam_id: i64, concluded: bool) -> rusqlite::Result<()> {
+pub fn set_exam_concluded(
+    conn: &Connection,
+    exam_id: i64,
+    concluded: bool,
+) -> rusqlite::Result<()> {
     conn.execute(
         "UPDATE exams SET concluded = ?2 WHERE id = ?1",
         params![exam_id, concluded],

@@ -69,7 +69,10 @@ pub fn record_event(conn: &Connection, e: &HistoryEvent) -> rusqlite::Result<i64
 
 /// Load history events matching `filter`, most recent first. Each row is self-labeled with its
 /// method and technique (HIST-02/04). The caller derives the result count (HIST-03) from the len.
-pub fn load_history(conn: &Connection, filter: &HistoryFilter) -> rusqlite::Result<Vec<HistoryEvent>> {
+pub fn load_history(
+    conn: &Connection,
+    filter: &HistoryFilter,
+) -> rusqlite::Result<Vec<HistoryEvent>> {
     let mut conds: Vec<String> = Vec::new();
     let mut vals: Vec<Value> = Vec::new();
     if let Some(m) = filter.method {
@@ -85,8 +88,9 @@ pub fn load_history(conn: &Connection, filter: &HistoryFilter) -> rusqlite::Resu
     } else {
         format!("WHERE {}", conds.join(" AND "))
     };
-    let sql =
-        format!("SELECT {SELECT_COLS} FROM history {where_clause} ORDER BY when_date DESC, id DESC");
+    let sql = format!(
+        "SELECT {SELECT_COLS} FROM history {where_clause} ORDER BY when_date DESC, id DESC"
+    );
     let mut stmt = conn.prepare(&sql)?;
     let rows = stmt.query_map(params_from_iter(vals), row_to_event)?;
     rows.collect()

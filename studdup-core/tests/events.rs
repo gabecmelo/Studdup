@@ -76,7 +76,11 @@ fn per_method_scope_versus_unified_returns_correct_sets() {
     record_event(db.conn(), &event(exam_card, Method::ExamPrep)).unwrap();
 
     // Per-method (HIST-01): only that method's events.
-    let spaced = load_history(db.conn(), &HistoryFilter::for_method(Method::SpacedRepetition)).unwrap();
+    let spaced = load_history(
+        db.conn(),
+        &HistoryFilter::for_method(Method::SpacedRepetition),
+    )
+    .unwrap();
     assert_eq!(spaced.len(), 1);
     assert!(spaced.iter().all(|e| e.method == Method::SpacedRepetition));
 
@@ -87,8 +91,16 @@ fn per_method_scope_versus_unified_returns_correct_sets() {
     // Unified (HIST-02): everything, labeled by method.
     let all = load_history(db.conn(), &HistoryFilter::all()).unwrap();
     assert_eq!(all.len(), 3);
-    assert_eq!(all.iter().filter(|e| e.method == Method::SpacedRepetition).count(), 1);
-    assert_eq!(all.iter().filter(|e| e.method == Method::ExamPrep).count(), 2);
+    assert_eq!(
+        all.iter()
+            .filter(|e| e.method == Method::SpacedRepetition)
+            .count(),
+        1
+    );
+    assert_eq!(
+        all.iter().filter(|e| e.method == Method::ExamPrep).count(),
+        2
+    );
 }
 
 #[test]
@@ -113,7 +125,9 @@ fn technique_filter_narrows_and_counts_correctly() {
     )
     .unwrap();
     assert_eq!(pomodoro.len(), 2);
-    assert!(pomodoro.iter().all(|e| e.technique == Some(Technique::Pomodoro)));
+    assert!(pomodoro
+        .iter()
+        .all(|e| e.technique == Some(Technique::Pomodoro)));
 
     let feynman = load_history(
         db.conn(),
@@ -123,7 +137,12 @@ fn technique_filter_narrows_and_counts_correctly() {
     assert_eq!(feynman.len(), 1);
 
     // Unified still sees all four.
-    assert_eq!(load_history(db.conn(), &HistoryFilter::all()).unwrap().len(), 4);
+    assert_eq!(
+        load_history(db.conn(), &HistoryFilter::all())
+            .unwrap()
+            .len(),
+        4
+    );
 }
 
 #[test]
@@ -137,7 +156,11 @@ fn method_and_technique_filters_compose() {
         e.technique = Some(t);
         e
     };
-    record_event(db.conn(), &mk(spaced, Method::SpacedRepetition, Technique::Pomodoro)).unwrap();
+    record_event(
+        db.conn(),
+        &mk(spaced, Method::SpacedRepetition, Technique::Pomodoro),
+    )
+    .unwrap();
     record_event(db.conn(), &mk(exam, Method::ExamPrep, Technique::Pomodoro)).unwrap();
 
     let filter = HistoryFilter::for_method(Method::ExamPrep).with_technique(Technique::Pomodoro);

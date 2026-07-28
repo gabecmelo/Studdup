@@ -340,7 +340,11 @@ mod tests {
         assert_eq!(shifted[0].due_date, today, "completed session untouched");
         assert_eq!(shifted[0].completed_at, Some(today));
         assert_eq!(shifted[1].due_date, today.add_days(8), "cursor moved +3");
-        assert_eq!(shifted[2].due_date, today.add_days(10), "later session untouched");
+        assert_eq!(
+            shifted[2].due_date,
+            today.add_days(10),
+            "later session untouched"
+        );
         // Cursor due date reflects the shift.
         assert_eq!(session_due_date(&shifted), Some(today.add_days(8)));
     }
@@ -364,9 +368,18 @@ mod tests {
             created_at: ymd(2026, 5, 1),
             concluded: false,
         };
-        assert!(!should_conclude(&exam, exam_date.add_days(-1)), "before date");
-        assert!(!should_conclude(&exam, exam_date), "on the date: last session due");
-        assert!(should_conclude(&exam, exam_date.add_days(1)), "day after: concluded");
+        assert!(
+            !should_conclude(&exam, exam_date.add_days(-1)),
+            "before date"
+        );
+        assert!(
+            !should_conclude(&exam, exam_date),
+            "on the date: last session due"
+        );
+        assert!(
+            should_conclude(&exam, exam_date.add_days(1)),
+            "day after: concluded"
+        );
 
         // An already-concluded exam never re-concludes.
         let concluded = Exam {
