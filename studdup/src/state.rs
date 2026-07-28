@@ -15,8 +15,7 @@ use studdup_core::repository::Db;
 /// The app's shared state: the migrated database behind a `Mutex`. Holds the core [`Db`] (which
 /// wraps the rusqlite `Connection` plus its path, required by the migration/backup step).
 pub struct AppState {
-    // Read by the command handlers added in T17; only written here at startup for now.
-    #[allow(dead_code)]
+    /// The migrated database, locked per command call by the `commands` module.
     pub db: Mutex<Db>,
 }
 

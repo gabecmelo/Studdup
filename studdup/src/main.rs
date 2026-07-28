@@ -8,6 +8,7 @@
 //! message naming the path rather than opening a blank database (spec edge case / MIG). The
 //! command registry is filled in by T17.
 
+mod commands;
 mod paths;
 mod state;
 
@@ -28,7 +29,21 @@ fn main() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .manage(app_state)
-        .invoke_handler(tauri::generate_handler![])
+        .invoke_handler(tauri::generate_handler![
+            commands::create_card,
+            commands::edit_card,
+            commands::complete_card,
+            commands::record_session,
+            commands::postpone_card,
+            commands::restart_card,
+            commands::erase_card,
+            commands::revive_card,
+            commands::delete_card,
+            commands::create_exam,
+            commands::delete_exam,
+            commands::list_board,
+            commands::list_history,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running studdup");
 }
