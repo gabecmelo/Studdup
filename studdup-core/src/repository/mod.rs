@@ -16,6 +16,7 @@ use crate::domain::{Date, Method, Stage, Technique};
 pub mod cards;
 pub mod events;
 pub mod exams;
+pub mod migration;
 
 /// The schema version this build targets, tracked via `PRAGMA user_version`. A C++ DB is 0.
 pub const SCHEMA_VERSION: i64 = 1;
