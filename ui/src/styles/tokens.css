@@ -1,0 +1,166 @@
+/*
+ * Studdup design tokens — the "soft & rounded" system (AD-008).
+ *
+ * Ported 1:1 from the Claude Design handoff (`Studdup Design System.dc.html`): light and dark are
+ * authored side by side (not derived), in oklch. Theme resolution:
+ *   - `:root` (and an explicit `[data-theme="light"]`) = light;
+ *   - `[data-theme="dark"]` = dark;
+ *   - with no explicit choice, the OS preference wins via `prefers-color-scheme`.
+ * `theme.ts` stamps `data-theme` on `<html>` to override the OS default.
+ *
+ * Fonts: Outfit (interface + titles), DM Mono (numbers, dates, timers, code). Referenced by
+ * family with robust system fallbacks — the app is offline, so no webfont network fetch here;
+ * bundling the font files is a later concern.
+ */
+
+:root,
+:root[data-theme="light"] {
+  /* 01 · Palette — light */
+  --bg: oklch(0.975 0.008 300);
+  --surface: oklch(1 0 0);
+  --surface-2: oklch(0.968 0.008 300);
+  --surface-3: oklch(0.94 0.012 300);
+  --border: oklch(0.915 0.012 300);
+  --border-strong: oklch(0.84 0.02 300);
+  --text: oklch(0.27 0.03 300);
+  --text-2: oklch(0.47 0.025 300);
+  --text-3: oklch(0.62 0.02 300);
+  --accent: oklch(0.55 0.15 295);
+  --accent-hover: oklch(0.49 0.16 295);
+  --accent-ink: oklch(0.99 0.005 300);
+  --accent-soft: oklch(0.945 0.035 295);
+  --accent-soft-ink: oklch(0.42 0.14 295);
+  --revisar: oklch(0.58 0.11 195);
+  --revisar-soft: oklch(0.95 0.03 195);
+  --revisar-ink: oklch(0.42 0.1 195);
+  --atraso-soft: oklch(0.95 0.045 75);
+  --atraso-ink: oklch(0.5 0.11 65);
+  --danger: oklch(0.58 0.16 25);
+  --danger-soft: oklch(0.96 0.03 25);
+  --danger-ink: oklch(0.47 0.15 25);
+  --ring-track: oklch(0.92 0.02 300);
+  --shadow-1: 0 1px 2px oklch(0.4 0.05 300 / 0.05);
+  --shadow-2: 0 6px 18px -6px oklch(0.4 0.06 300 / 0.16);
+
+  color-scheme: light;
+}
+
+/* Dark palette, shared by the explicit toggle and the OS-preference fallback below. */
+:root[data-theme="dark"] {
+  --bg: oklch(0.185 0.014 295);
+  --surface: oklch(0.235 0.016 295);
+  --surface-2: oklch(0.275 0.018 295);
+  --surface-3: oklch(0.32 0.02 295);
+  --border: oklch(0.325 0.018 295);
+  --border-strong: oklch(0.42 0.025 295);
+  --text: oklch(0.95 0.008 300);
+  --text-2: oklch(0.76 0.015 300);
+  --text-3: oklch(0.62 0.018 300);
+  --accent: oklch(0.72 0.13 295);
+  --accent-hover: oklch(0.78 0.13 295);
+  --accent-ink: oklch(0.18 0.03 295);
+  --accent-soft: oklch(0.3 0.05 295);
+  --accent-soft-ink: oklch(0.84 0.09 295);
+  --revisar: oklch(0.72 0.1 195);
+  --revisar-soft: oklch(0.29 0.04 195);
+  --revisar-ink: oklch(0.83 0.08 195);
+  --atraso-soft: oklch(0.31 0.045 70);
+  --atraso-ink: oklch(0.85 0.09 75);
+  --danger: oklch(0.68 0.14 25);
+  --danger-soft: oklch(0.31 0.06 25);
+  --danger-ink: oklch(0.85 0.1 25);
+  --ring-track: oklch(0.3 0.02 295);
+  --shadow-1: 0 1px 2px oklch(0.1 0.02 295 / 0.4);
+  --shadow-2: 0 6px 18px -6px oklch(0.08 0.02 295 / 0.55);
+
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: oklch(0.185 0.014 295);
+    --surface: oklch(0.235 0.016 295);
+    --surface-2: oklch(0.275 0.018 295);
+    --surface-3: oklch(0.32 0.02 295);
+    --border: oklch(0.325 0.018 295);
+    --border-strong: oklch(0.42 0.025 295);
+    --text: oklch(0.95 0.008 300);
+    --text-2: oklch(0.76 0.015 300);
+    --text-3: oklch(0.62 0.018 300);
+    --accent: oklch(0.72 0.13 295);
+    --accent-hover: oklch(0.78 0.13 295);
+    --accent-ink: oklch(0.18 0.03 295);
+    --accent-soft: oklch(0.3 0.05 295);
+    --accent-soft-ink: oklch(0.84 0.09 295);
+    --revisar: oklch(0.72 0.1 195);
+    --revisar-soft: oklch(0.29 0.04 195);
+    --revisar-ink: oklch(0.83 0.08 195);
+    --atraso-soft: oklch(0.31 0.045 70);
+    --atraso-ink: oklch(0.85 0.09 75);
+    --danger: oklch(0.68 0.14 25);
+    --danger-soft: oklch(0.31 0.06 25);
+    --danger-ink: oklch(0.85 0.1 25);
+    --ring-track: oklch(0.3 0.02 295);
+    --shadow-1: 0 1px 2px oklch(0.1 0.02 295 / 0.4);
+    --shadow-2: 0 6px 18px -6px oklch(0.08 0.02 295 / 0.55);
+
+    color-scheme: dark;
+  }
+}
+
+:root {
+  /* 02 · Typography */
+  --font-sans: "Outfit", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "DM Mono", ui-monospace, "Cascadia Code", "Consolas", monospace;
+
+  /* Spacing — base 4 (handoff scale). */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* Radii — soft & rounded. */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-2xl: 24px;
+  --radius-pill: 999px;
+
+  /* Motion. */
+  --transition-fast: 120ms ease;
+  --transition: 180ms ease;
+}
+
+/* Base layer — makes the tokens visible and gives a consistent cozy ground. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
