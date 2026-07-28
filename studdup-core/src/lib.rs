@@ -5,7 +5,7 @@
 
 // Module stubs — filled in by later phases. Kept as empty inline modules so the crate
 // compiles from the first task; each is promoted to a real module when its phase lands.
+pub mod api;
 pub mod domain;
 pub mod repository;
 pub mod scheduler;
-pub mod api {}

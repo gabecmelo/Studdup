@@ -82,6 +82,16 @@ pub fn advance_session(conn: &Connection, session_id: i64, when: Date) -> rusqli
     Ok(())
 }
 
+/// Reschedule a session by overwriting its `due_date` (used when an exam card is postponed —
+/// the current cursor session shifts). `completed_at` is untouched.
+pub fn set_session_due_date(conn: &Connection, session_id: i64, due: Date) -> rusqlite::Result<()> {
+    conn.execute(
+        "UPDATE exam_sessions SET due_date = ?2 WHERE id = ?1",
+        params![session_id, date_to_db(due)],
+    )?;
+    Ok(())
+}
+
 /// `(completed, total)` session counts across all cards of an exam (EXAM-01.6 progress).
 pub fn exam_session_progress(conn: &Connection, exam_id: i64) -> rusqlite::Result<(i64, i64)> {
     conn.query_row(

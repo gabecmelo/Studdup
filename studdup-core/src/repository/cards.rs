@@ -76,6 +76,18 @@ pub fn delete_card(conn: &Connection, id: i64) -> rusqlite::Result<()> {
     Ok(())
 }
 
+/// Load a single card by id, regardless of method or archived state. `None` when no such card
+/// exists. Used by the `core::api` facade to fetch the card an id-based action operates on.
+pub fn load_card(conn: &Connection, id: i64) -> rusqlite::Result<Option<Card>> {
+    let sql = format!("SELECT {SELECT_COLS} FROM cards WHERE id = ?1");
+    let mut stmt = conn.prepare(&sql)?;
+    let mut rows = stmt.query_map(params![id], row_to_card)?;
+    match rows.next() {
+        Some(row) => Ok(Some(row?)),
+        None => Ok(None),
+    }
+}
+
 /// Active (non-archived) cards for a method, ordered as the C++ agenda was
 /// (`start_date ASC, stage ASC`).
 pub fn load_active(conn: &Connection, method: Method) -> rusqlite::Result<Vec<Card>> {
