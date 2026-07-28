@@ -5,7 +5,7 @@
 //! the resulting dates as `ExamSession` rows. The scheduler reads those stored dates — it never
 //! re-derives them — so the study plan cannot silently shift.
 
-use crate::domain::Date;
+use crate::domain::{Date, Exam, ExamSession};
 
 /// Back-loading exponent from EXAM-02: `offset_i = round(S · (i/(N−1))^EXPONENT)`.
 const EXPONENT: f64 = 0.62;
@@ -60,6 +60,74 @@ pub fn distribute(today: Date, exam_date: Date) -> Vec<Date> {
         .into_iter()
         .map(|off| today.add_days(off))
         .collect()
+}
+
+/// Result of completing an exam session: the updated session set and whether the card is now
+/// fully studied (the last session was just completed → the card should be archived, EXAM-03).
+#[derive(Debug, Clone, PartialEq)]
+pub struct SessionAdvance {
+    pub sessions: Vec<ExamSession>,
+    /// `true` when there are no remaining uncompleted sessions after this completion.
+    pub archived: bool,
+}
+
+/// Index of the current cursor session: the uncompleted session with the smallest `seq`.
+/// `None` when every session is already completed. Session order is defined by `seq`, not
+/// by vector position, so this is robust to storage order.
+fn cursor_index(sessions: &[ExamSession]) -> Option<usize> {
+    sessions
+        .iter()
+        .enumerate()
+        .filter(|(_, s)| s.completed_at.is_none())
+        .min_by_key(|(_, s)| s.seq)
+        .map(|(i, _)| i)
+}
+
+/// Due date of an exam card = the due date of its current cursor session (the date of the next
+/// session to study). `None` when all sessions are completed. Reads the stored, materialized
+/// dates — never recomputes them (AD-010).
+pub fn session_due_date(sessions: &[ExamSession]) -> Option<Date> {
+    cursor_index(sessions).map(|i| sessions[i].due_date)
+}
+
+/// Completed / total session counts for an exam card (drives the progress display, EXAM-01.6).
+pub fn session_progress(sessions: &[ExamSession]) -> (usize, usize) {
+    let completed = sessions.iter().filter(|s| s.completed_at.is_some()).count();
+    (completed, sessions.len())
+}
+
+/// Complete the current cursor session (dated `today`) and advance the cursor. When the
+/// completed session was the last one, `archived` is `true` (EXAM-03: last session → done +
+/// archived). A no-op returning `archived = true` when everything is already completed.
+pub fn mark_session_completed(mut sessions: Vec<ExamSession>, today: Date) -> SessionAdvance {
+    match cursor_index(&sessions) {
+        Some(i) => {
+            sessions[i].completed_at = Some(today);
+            let archived = cursor_index(&sessions).is_none();
+            SessionAdvance { sessions, archived }
+        }
+        None => SessionAdvance {
+            sessions,
+            archived: true,
+        },
+    }
+}
+
+/// Postpone an exam card by shifting **only its current cursor session** `days` forward
+/// (design: "exam shifts the current session date"); already-completed and future sessions are
+/// untouched. A no-op when all sessions are completed.
+pub fn postpone_session(mut sessions: Vec<ExamSession>, days: i64) -> Vec<ExamSession> {
+    if let Some(i) = cursor_index(&sessions) {
+        sessions[i].due_date = sessions[i].due_date.add_days(days);
+    }
+    sessions
+}
+
+/// Whether an exam has passed its date and should be concluded (EXAM-02.5): the exam is not
+/// already concluded and `today` is strictly after the exam date. On the exam date itself the
+/// final session is still due, so the exam is not yet concluded.
+pub fn should_conclude(exam: &Exam, today: Date) -> bool {
+    !exam.concluded && today > exam.exam_date
 }
 
 #[cfg(test)]
@@ -172,5 +240,139 @@ mod tests {
         assert_eq!(session_count(45), 5);
         assert_eq!(session_count(46), 6);
         assert_eq!(session_count(1000), 6);
+    }
+
+    // ---- T9: session advancement / postpone / conclusion ----
+
+    /// Build a session set for `card_id` from `(seq, due, completed)` triples.
+    fn sessions(specs: &[(u16, Date, Option<Date>)]) -> Vec<ExamSession> {
+        specs
+            .iter()
+            .enumerate()
+            .map(|(i, &(seq, due, completed))| ExamSession {
+                id: i as i64 + 1,
+                card_id: 42,
+                seq,
+                due_date: due,
+                completed_at: completed,
+            })
+            .collect()
+    }
+
+    /// A fresh 3-session set at today, +5, +10 (materialized once).
+    fn three_sessions(today: Date) -> Vec<ExamSession> {
+        sessions(&[
+            (0, today, None),
+            (1, today.add_days(5), None),
+            (2, today.add_days(10), None),
+        ])
+    }
+
+    /// The cursor's due date is the first uncompleted session; `None` once all are done.
+    #[test]
+    fn session_due_date_tracks_the_cursor() {
+        let today = ymd(2026, 5, 1);
+        let s = three_sessions(today);
+        assert_eq!(session_due_date(&s), Some(today));
+
+        // Complete the first → cursor moves to the second session's date.
+        let s = mark_session_completed(s, today).sessions;
+        assert_eq!(session_due_date(&s), Some(today.add_days(5)));
+
+        // Complete the rest → no cursor, no due date.
+        let s = mark_session_completed(s, today.add_days(5)).sessions;
+        let done = mark_session_completed(s, today.add_days(10));
+        assert_eq!(session_due_date(&done.sessions), None);
+    }
+
+    /// Completing sessions advances the cursor one at a time; only the last completion archives.
+    #[test]
+    fn completing_last_session_archives_the_card() {
+        let today = ymd(2026, 5, 1);
+        let s = three_sessions(today);
+
+        let step1 = mark_session_completed(s, today);
+        assert!(!step1.archived, "1 of 3 completed — not yet archived");
+        assert_eq!(step1.sessions[0].completed_at, Some(today));
+        assert_eq!(session_progress(&step1.sessions), (1, 3));
+
+        let step2 = mark_session_completed(step1.sessions, today.add_days(5));
+        assert!(!step2.archived, "2 of 3 completed — not yet archived");
+        assert_eq!(session_progress(&step2.sessions), (2, 3));
+
+        let step3 = mark_session_completed(step2.sessions, today.add_days(10));
+        assert!(step3.archived, "last session completed — card archived");
+        assert_eq!(session_progress(&step3.sessions), (3, 3));
+        assert_eq!(step3.sessions[2].completed_at, Some(today.add_days(10)));
+    }
+
+    /// A single-session exam (S=0) archives on its first and only completion.
+    #[test]
+    fn single_session_archives_immediately() {
+        let today = ymd(2026, 5, 1);
+        let s = sessions(&[(0, today, None)]);
+        let done = mark_session_completed(s, today);
+        assert!(done.archived);
+        assert_eq!(session_due_date(&done.sessions), None);
+    }
+
+    /// Completing when everything is already done is a no-op that reports archived.
+    #[test]
+    fn mark_completed_on_finished_set_is_noop() {
+        let today = ymd(2026, 5, 1);
+        let s = sessions(&[(0, today, Some(today))]);
+        let out = mark_session_completed(s.clone(), today.add_days(1));
+        assert_eq!(out.sessions, s, "already-completed sessions unchanged");
+        assert!(out.archived);
+    }
+
+    /// Postpone shifts only the current cursor session; completed and later sessions stay put.
+    #[test]
+    fn postpone_shifts_only_the_current_session() {
+        let today = ymd(2026, 5, 1);
+        // First session already completed; cursor is the +5 one.
+        let s = sessions(&[
+            (0, today, Some(today)),
+            (1, today.add_days(5), None),
+            (2, today.add_days(10), None),
+        ]);
+        let shifted = postpone_session(s, 3);
+        assert_eq!(shifted[0].due_date, today, "completed session untouched");
+        assert_eq!(shifted[0].completed_at, Some(today));
+        assert_eq!(shifted[1].due_date, today.add_days(8), "cursor moved +3");
+        assert_eq!(shifted[2].due_date, today.add_days(10), "later session untouched");
+        // Cursor due date reflects the shift.
+        assert_eq!(session_due_date(&shifted), Some(today.add_days(8)));
+    }
+
+    /// Postpone on a fully-completed set is a no-op.
+    #[test]
+    fn postpone_on_finished_set_is_noop() {
+        let today = ymd(2026, 5, 1);
+        let s = sessions(&[(0, today, Some(today))]);
+        assert_eq!(postpone_session(s.clone(), 5), s);
+    }
+
+    /// An exam concludes only once its date has strictly passed and it isn't already concluded.
+    #[test]
+    fn should_conclude_after_date_passes() {
+        let exam_date = ymd(2026, 6, 1);
+        let exam = Exam {
+            id: 1,
+            name: "Cálculo".to_string(),
+            exam_date,
+            created_at: ymd(2026, 5, 1),
+            concluded: false,
+        };
+        assert!(!should_conclude(&exam, exam_date.add_days(-1)), "before date");
+        assert!(!should_conclude(&exam, exam_date), "on the date: last session due");
+        assert!(should_conclude(&exam, exam_date.add_days(1)), "day after: concluded");
+
+        // An already-concluded exam never re-concludes.
+        let concluded = Exam {
+            concluded: true,
+            ..exam
+        };
+        assert!(!should_conclude(&concluded, exam_date.add_days(30)));
     }
 }
