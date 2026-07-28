@@ -3,118 +3,92 @@ name: CI
 on:
   pull_request:
     branches: [main]
+  push:
+    branches: [main]
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
   # ---------------------------------------------------------------------------
-  # 1. Lint — auto-fix with clang-format and push the fix back to the branch
+  # Rust — format, lint, tests, and the coverage gate.
+  # Coverage is measured on `studdup-core` only (the pure, UI-free core), the
+  # direct analog of the retired C++ `BUILD_APP=OFF` lcov gate: the meaningful
+  # scheduling/date/repository logic lives there and links without Tauri.
   # ---------------------------------------------------------------------------
-  lint:
-    name: Lint (clang-format)
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Install clang-format
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clang-format
-
-      - name: Auto-fix formatting
-        run: |
-          find src tests \
-            \( -name '*.cpp' -o -name '*.h' \) \
-            -print0 \
-          | xargs -0 clang-format -i --style=file
-
-      - name: Commit and push fixes if needed
-        run: |
-          if ! git diff --quiet; then
-            git config user.name  "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add -A
-            git commit -m "style: auto-fix clang-format violations"
-            git push
-            echo "Formatting issues were found and auto-fixed — pull the latest commit."
-          fi
-
-  # ---------------------------------------------------------------------------
-  # 2. Unit tests + coverage threshold
-  #    Builds ONLY Date.cpp + Scheduler.cpp + Catch2 — NOT the full app.
-  #    No GLFW / ImGui / OpenGL / SQLite are pulled in.
-  # ---------------------------------------------------------------------------
-  test:
-    name: Unit tests (coverage ≥ 70%)
+  rust:
+    name: Rust — fmt, clippy, tests, coverage (studdup-core ≥ 70%)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install lcov
+      # Tauri v2 Linux prerequisites — needed so the `studdup` app crate compiles
+      # during the workspace clippy/test steps.
+      - name: Install Tauri system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y lcov
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
 
-      # Configure with coverage ON; this implies BUILD_TESTS=ON and skips
-      # building the studdup executable (FetchContent still runs for Catch2).
-      # GLFW/ImGui/SQLite are fetched but only Catch2 is linked to the test binary.
-      - name: Configure (tests + coverage, no app binary)
-        run: |
-          cmake -B build \
-            -DCMAKE_BUILD_TYPE=Debug \
-            -DBUILD_APP=OFF \
-            -DENABLE_COVERAGE=ON \
-            -DBUILD_TESTS=ON \
-            -DFETCHCONTENT_QUIET=OFF
-
-      - name: Build test binary only
-        run: cmake --build build --target studdup_tests --parallel
-
-      - name: Run tests
-        run: ctest --test-dir build --output-on-failure
-
-      - name: Capture coverage
-        run: |
-          lcov --capture \
-               --directory build \
-               --output-file coverage.info \
-               --ignore-errors mismatch
-          # Strip third-party and system headers
-          lcov --remove coverage.info \
-               '*/tests/*' \
-               '*/catch2-src/*' \
-               '*/build/_deps/*' \
-               '/usr/*' \
-               --ignore-errors unused \
-               --output-file coverage.info
-          lcov --list coverage.info
-
-      - name: Enforce 70% coverage threshold
-        run: |
-          COVERAGE=$(lcov --summary coverage.info 2>&1 \
-            | grep -oP 'lines\.*: \K[0-9]+\.[0-9]+')
-          echo "Line coverage: ${COVERAGE}%"
-          python3 -c "
-          import sys
-          cov = float('${COVERAGE}')
-          threshold = 70.0
-          if cov < threshold:
-              print(f'FAIL: {cov:.1f}% < {threshold}% threshold')
-              sys.exit(1)
-          print(f'PASS: {cov:.1f}% >= {threshold}% threshold')
-          "
-
-      - name: Upload coverage report
-        if: always()
-        uses: actions/upload-artifact@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
-          name: coverage-report
-          path: coverage.info
-          retention-days: 7
+          components: rustfmt, clippy, llvm-tools-preview
+
+      - name: Cache cargo build
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Format check
+        run: cargo fmt --all -- --check
+
+      - name: Clippy (deny warnings)
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Tests
+        run: cargo test --workspace
+
+      - name: Coverage — studdup-core, fail under 70% lines
+        run: cargo llvm-cov -p studdup-core --fail-under-lines 70
+
+  # ---------------------------------------------------------------------------
+  # UI — type-check, production build, and Vitest suite.
+  # ---------------------------------------------------------------------------
+  ui:
+    name: UI — build & test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ui
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm run test
