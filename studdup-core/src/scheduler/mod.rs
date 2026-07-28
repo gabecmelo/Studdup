@@ -7,4 +7,5 @@
 //! Every function is pure: it takes values, returns updated values — the same discipline
 //! the C++ reference used, which keeps desynchronized state unrepresentable.
 
+pub mod exam;
 pub mod spaced;
