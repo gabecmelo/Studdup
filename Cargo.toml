@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["studdup-core"]
+members = ["studdup-core", "studdup"]
 
 [workspace.package]
 version = "0.1.0"
