@@ -32,3 +32,6 @@ data/srs.db
 data/*.db-journal
 data/*.db-wal
 data/*.db-shm
+
+# Design handoff bundle (Claude Design export) — local reference only, not versioned
+design/
