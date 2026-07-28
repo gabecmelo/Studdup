@@ -9,10 +9,11 @@
 use rusqlite::Connection;
 use std::path::{Path, PathBuf};
 
-use crate::domain::{Method, Stage, Technique};
+use crate::domain::{Date, Method, Stage, Technique};
 
 // Submodules are wired in as their tasks land (cards → T11, exams → T12, events → T13,
 // migration → T14), keeping each task's build self-contained.
+pub mod cards;
 
 /// The schema version this build targets, tracked via `PRAGMA user_version`. A C++ DB is 0.
 pub const SCHEMA_VERSION: i64 = 1;
@@ -204,6 +205,35 @@ pub(crate) fn technique_from_db(s: Option<&str>) -> Option<Technique> {
         Some("feynman") => Some(Technique::Feynman),
         Some("leitner") => Some(Technique::Leitner),
         _ => None,
+    }
+}
+
+/// Format a date for a TEXT column (ISO `YYYY-MM-DD`, the on-disk format C++ used).
+pub(crate) fn date_to_db(d: Date) -> String {
+    d.to_iso()
+}
+
+/// Format an optional date, mapping `None` to a SQL NULL.
+pub(crate) fn opt_date_to_db(d: Option<Date>) -> Option<String> {
+    d.map(|d| d.to_iso())
+}
+
+/// Parse a stored ISO date string, surfacing corrupt data as a rusqlite error rather than a panic.
+pub(crate) fn parse_date(s: &str) -> rusqlite::Result<Date> {
+    Date::from_iso(s).ok_or_else(|| {
+        rusqlite::Error::InvalidColumnType(
+            0,
+            format!("invalid ISO date in DB: {s}"),
+            rusqlite::types::Type::Text,
+        )
+    })
+}
+
+/// Parse an optional stored ISO date string.
+pub(crate) fn opt_parse_date(s: Option<String>) -> rusqlite::Result<Option<Date>> {
+    match s {
+        Some(s) => parse_date(&s).map(Some),
+        None => Ok(None),
     }
 }
 
