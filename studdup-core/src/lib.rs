@@ -7,5 +7,5 @@
 // compiles from the first task; each is promoted to a real module when its phase lands.
 pub mod domain;
 pub mod scheduler;
-pub mod repository {}
+pub mod repository;
 pub mod api {}
