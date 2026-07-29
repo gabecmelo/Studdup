@@ -1,27 +1,27 @@
 /*
  * Studdup design tokens — the "soft & rounded" system (AD-008).
  *
- * Ported 1:1 from the Claude Design handoff (`Studdup Design System.dc.html`): light and dark are
- * authored side by side (not derived), in oklch. Theme resolution:
+ * Ported 1:1 from the Claude Design handoff (the exact inline `--var` blocks in
+ * `design/handoff/project/Studdup Card.dc.html`, light + dark): authored side by side, in oklch.
+ * Theme resolution:
  *   - `:root` (and an explicit `[data-theme="light"]`) = light;
  *   - `[data-theme="dark"]` = dark;
  *   - with no explicit choice, the OS preference wins via `prefers-color-scheme`.
  * `theme.ts` stamps `data-theme` on `<html>` to override the OS default.
  *
- * Fonts: Outfit (interface + titles), DM Mono (numbers, dates, timers, code). Referenced by
- * family with robust system fallbacks — the app is offline, so no webfont network fetch here;
- * bundling the font files is a later concern.
+ * Fonts: Outfit (interface + titles) and DM Mono (numbers, dates, timers, code) are bundled via
+ * @fontsource and imported in `main.tsx` — the app is offline, so no webfont network fetch.
  */
 
 :root,
 :root[data-theme="light"] {
-  /* 01 · Palette — light */
+  /* 01 · Palette — light (exact handoff values) */
   --bg: oklch(0.975 0.008 300);
   --surface: oklch(1 0 0);
-  --surface-2: oklch(0.968 0.008 300);
-  --surface-3: oklch(0.94 0.012 300);
+  --surface-2: oklch(0.955 0.01 300);
+  --surface-3: oklch(0.925 0.012 300);
   --border: oklch(0.915 0.012 300);
-  --border-strong: oklch(0.84 0.02 300);
+  --border-strong: oklch(0.85 0.018 300);
   --text: oklch(0.27 0.03 300);
   --text-2: oklch(0.47 0.025 300);
   --text-3: oklch(0.62 0.02 300);
@@ -41,6 +41,8 @@
   --ring-track: oklch(0.92 0.02 300);
   --shadow-1: 0 1px 2px oklch(0.4 0.05 300 / 0.05);
   --shadow-2: 0 6px 18px -6px oklch(0.4 0.06 300 / 0.16);
+  --shadow-accent: 0 6px 18px -8px oklch(0.55 0.15 295 / 0.85);
+  --shadow-janela: 0 30px 70px -30px oklch(0.35 0.05 300 / 0.45);
 
   color-scheme: light;
 }
@@ -49,9 +51,9 @@
 :root[data-theme="dark"] {
   --bg: oklch(0.185 0.014 295);
   --surface: oklch(0.235 0.016 295);
-  --surface-2: oklch(0.275 0.018 295);
-  --surface-3: oklch(0.32 0.02 295);
-  --border: oklch(0.325 0.018 295);
+  --surface-2: oklch(0.215 0.015 295);
+  --surface-3: oklch(0.29 0.018 295);
+  --border: oklch(0.315 0.018 295);
   --border-strong: oklch(0.42 0.025 295);
   --text: oklch(0.95 0.008 300);
   --text-2: oklch(0.76 0.015 300);
@@ -72,6 +74,8 @@
   --ring-track: oklch(0.3 0.02 295);
   --shadow-1: 0 1px 2px oklch(0.1 0.02 295 / 0.4);
   --shadow-2: 0 6px 18px -6px oklch(0.08 0.02 295 / 0.55);
+  --shadow-accent: 0 6px 18px -8px oklch(0.72 0.13 295 / 0.4);
+  --shadow-janela: 0 30px 70px -30px oklch(0.12 0.03 295 / 0.7);
 
   color-scheme: dark;
 }
@@ -80,9 +84,9 @@
   :root:not([data-theme="light"]) {
     --bg: oklch(0.185 0.014 295);
     --surface: oklch(0.235 0.016 295);
-    --surface-2: oklch(0.275 0.018 295);
-    --surface-3: oklch(0.32 0.02 295);
-    --border: oklch(0.325 0.018 295);
+    --surface-2: oklch(0.215 0.015 295);
+    --surface-3: oklch(0.29 0.018 295);
+    --border: oklch(0.315 0.018 295);
     --border-strong: oklch(0.42 0.025 295);
     --text: oklch(0.95 0.008 300);
     --text-2: oklch(0.76 0.015 300);
@@ -103,14 +107,16 @@
     --ring-track: oklch(0.3 0.02 295);
     --shadow-1: 0 1px 2px oklch(0.1 0.02 295 / 0.4);
     --shadow-2: 0 6px 18px -6px oklch(0.08 0.02 295 / 0.55);
+    --shadow-accent: 0 6px 18px -8px oklch(0.72 0.13 295 / 0.4);
+    --shadow-janela: 0 30px 70px -30px oklch(0.12 0.03 295 / 0.7);
 
     color-scheme: dark;
   }
 }
 
 :root {
-  /* 02 · Typography */
-  --font-sans: "Outfit", system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* 02 · Typography — Outfit (variable) for UI/titles, DM Mono for numbers/dates/timers. */
+  --font-sans: "Outfit Variable", "Outfit", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "DM Mono", ui-monospace, "Cascadia Code", "Consolas", monospace;
 
   /* Spacing — base 4 (handoff scale). */
@@ -123,11 +129,11 @@
   --space-12: 48px;
   --space-16: 64px;
 
-  /* Radii — soft & rounded. */
+  /* Radii — soft & rounded (handoff). */
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
-  --radius-xl: 20px;
+  --radius-xl: 18px;
   --radius-2xl: 24px;
   --radius-pill: 999px;
 
@@ -136,7 +142,7 @@
   --transition: 180ms ease;
 }
 
-/* Base layer — makes the tokens visible and gives a consistent cozy ground. */
+/* Base layer. */
 *,
 *::before,
 *::after {
