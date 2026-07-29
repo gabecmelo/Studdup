@@ -4,10 +4,10 @@
 // auto-collapses below ~1024px, and a keyboard shortcut (Ctrl/⌘+B) toggles it.
 
 import { useCallback, useEffect, useState } from "react";
-import type { Method } from "../lib/bindings";
 import { MethodSwitcher } from "./MethodSwitcher";
 import { toggleTheme } from "../styles/theme";
 import { DEFAULT_ROUTE, ROUTES, RouteView, type RouteKey } from "../routes";
+import { useStore } from "../store";
 
 const COLLAPSE_KEY = "studdup.sidebar.collapsed";
 const AUTO_COLLAPSE_WIDTH = 1024;
@@ -36,7 +36,10 @@ export function AppShell() {
     () => typeof window !== "undefined" && window.innerWidth < AUTO_COLLAPSE_WIDTH,
   );
   const [route, setRoute] = useState<RouteKey>(DEFAULT_ROUTE);
-  const [method, setMethod] = useState<Method>("SpacedRepetition");
+  // The active method lives in the store (persisted, METH-02) so the promoted switcher and the
+  // board (which reads the same store) stay in sync.
+  const method = useStore((s) => s.activeMethod);
+  const setMethod = useStore((s) => s.setActiveMethod);
 
   // Effective collapse: forced when the viewport is narrow, otherwise the user's preference.
   const collapsed = narrow || collapsedPref;

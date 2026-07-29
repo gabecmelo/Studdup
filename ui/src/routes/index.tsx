@@ -4,6 +4,7 @@
 
 import type { ReactNode } from "react";
 import { EmptyState } from "../components/EmptyState";
+import { Quadro } from "./Quadro";
 
 export type RouteKey =
   | "inicio"
@@ -58,8 +59,10 @@ const PLACEHOLDER: Record<RouteKey, { title: string; description: string }> = {
   },
 };
 
-/** Render the placeholder content for a route (replaced by the real screens in later tasks). */
+/** Render a route's content. The Quadro board is live (T22); other screens stay placeholders
+ *  until their tasks build them. */
 export function RouteView({ route }: { route: RouteKey }): ReactNode {
+  if (route === "quadro") return <Quadro />;
   const meta = PLACEHOLDER[route];
   return <EmptyState title={meta.title} description={meta.description} />;
 }
