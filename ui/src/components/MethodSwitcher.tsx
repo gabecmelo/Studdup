@@ -1,5 +1,6 @@
 // Method switcher — the segmented control promoted above the board (AD-009). Two options:
 // "Repetição Espaçada" and "Prova". Always fully legible (never collapsed into an icon).
+// Styled 1:1 with the handoff (design/handoff/project/Quadro.dc.html, lines 91–99).
 
 import type { Method } from "../lib/bindings";
 
@@ -20,11 +21,12 @@ export function MethodSwitcher({ value, onChange }: MethodSwitcherProps) {
       aria-label="Método de estudo"
       style={{
         display: "inline-flex",
-        gap: 4,
-        padding: 4,
+        gap: 5,
+        padding: 5,
         background: "var(--surface-2)",
         border: "1px solid var(--border)",
-        borderRadius: "var(--radius-pill)",
+        borderRadius: 14,
+        flex: "none",
       }}
     >
       {OPTIONS.map((opt) => {
@@ -37,17 +39,31 @@ export function MethodSwitcher({ value, onChange }: MethodSwitcherProps) {
             aria-selected={active}
             onClick={() => onChange(opt.value)}
             style={{
-              font: "600 13.5px/1.2 var(--font-sans)",
-              padding: "9px 18px",
-              borderRadius: "var(--radius-pill)",
+              display: "flex",
+              alignItems: "center",
+              gap: 9,
+              padding: "9px 16px",
+              borderRadius: 10,
               border: "none",
               cursor: "pointer",
               transition: "var(--transition-fast)",
+              font: active ? "600 13px/1 var(--font-sans)" : "500 13px/1 var(--font-sans)",
               background: active ? "var(--accent)" : "transparent",
               color: active ? "var(--accent-ink)" : "var(--text-2)",
               boxShadow: active ? "var(--shadow-1)" : "none",
             }}
           >
+            <span
+              aria-hidden
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: 999,
+                flex: "none",
+                background: active ? "var(--accent-ink)" : "transparent",
+                border: active ? "none" : "1.5px solid var(--text-3)",
+              }}
+            />
             {opt.label}
           </button>
         );
