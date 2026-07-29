@@ -1,6 +1,6 @@
-// Empty state (handoff "Estado vazio"). Non-punitive placeholder used by empty columns, an
-// empty method board (METH-06) and empty history (HIST-06) — always names the situation and, when
-// relevant, offers the next step rather than reading as an error.
+// Empty state (handoff column empty, design/handoff/project/Quadro.dc.html "vaziaCentro"). A calm,
+// non-punitive placeholder: a dashed box with a dashed-ring mark and a soft one-line message. Used
+// by empty columns, an empty board and empty history — names the situation, never reads as an error.
 
 import type { ReactNode } from "react";
 
@@ -9,37 +9,38 @@ export interface EmptyStateProps {
   description?: string;
   actionLabel?: string;
   onAction?: () => void;
+  /** Override the default dashed-ring mark. */
   icon?: ReactNode;
 }
 
-export function EmptyState({
-  title,
-  description,
-  actionLabel,
-  onAction,
-  icon,
-}: EmptyStateProps) {
+export function EmptyState({ title, description, actionLabel, onAction, icon }: EmptyStateProps) {
   return (
     <div
       style={{
+        flex: 1,
+        minHeight: 130,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
+        justifyContent: "center",
         textAlign: "center",
-        gap: 12,
-        padding: "40px 24px",
-        background: "var(--surface-2)",
-        border: "1px dashed var(--border-strong)",
-        borderRadius: "var(--radius-xl)",
-        color: "var(--text-2)",
+        gap: 9,
+        padding: "18px 12px",
+        border: "1.5px dashed var(--border-strong)",
+        borderRadius: 15,
       }}
     >
-      {icon && <div aria-hidden style={{ fontSize: 28, opacity: 0.8 }}>{icon}</div>}
-      <div style={{ font: "600 16px/1.3 var(--font-sans)", color: "var(--text)" }}>
+      {icon ?? (
+        <span
+          aria-hidden
+          style={{ width: 24, height: 24, borderRadius: 999, border: "2px dashed var(--text-3)", opacity: 0.7 }}
+        />
+      )}
+      <div style={{ font: "500 11.5px/1.45 var(--font-sans)", color: "var(--text-2)", maxWidth: 170 }}>
         {title}
       </div>
       {description && (
-        <div style={{ font: "400 13.5px/1.5 var(--font-sans)", maxWidth: 340 }}>
+        <div style={{ font: "400 11px/1.45 var(--font-sans)", color: "var(--text-3)", maxWidth: 200 }}>
           {description}
         </div>
       )}
@@ -49,14 +50,14 @@ export function EmptyState({
           onClick={onAction}
           style={{
             marginTop: 4,
-            font: "600 13px/1 var(--font-sans)",
-            padding: "10px 16px",
-            borderRadius: "var(--radius-pill)",
+            font: "600 12.5px/1 var(--font-sans)",
+            padding: "9px 15px",
+            borderRadius: 11,
             border: "none",
             cursor: "pointer",
             background: "var(--accent)",
             color: "var(--accent-ink)",
-            boxShadow: "var(--shadow-1)",
+            boxShadow: "var(--shadow-accent)",
           }}
         >
           {actionLabel}

@@ -1,17 +1,23 @@
-// Modal shell (handoff "Shell de modal"). The reusable overlay + panel chrome only — title,
-// optional subtitle, body slot and a footer for actions. The feature modals (new/edit card,
-// overdue, postpone, exams…) compose this in later tasks; this is just the container.
+// Modal shell (handoff "Shell de modal", design/handoff/project/Componentes.dc.html lines 273–295).
+// The reusable overlay + panel chrome: a header (with an optional destructive "!" mark), a padded
+// body, and a distinct footer bar (surface-2, or danger-soft when destructive). Feature modals
+// compose this + the `ModalButton` helpers.
 
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 export interface ModalShellProps {
   title: string;
-  subtitle?: string;
-  children: ReactNode;
+  /** Short lead paragraph under the title (the handoff modal "body" text). */
+  subtitle?: ReactNode;
+  children?: ReactNode;
+  /** Footer action row — compose with `ModalButton`. */
   footer?: ReactNode;
   onClose?: () => void;
-  /** When false the shell renders nothing (kept controlled by the caller). Defaults to true. */
   open?: boolean;
+  /** Destructive framing: danger border, danger-soft footer, a "!" mark by the title. */
+  destructive?: boolean;
+  /** Panel width (the handoff modals are 480; the detail hub is wider). */
+  width?: number;
 }
 
 export function ModalShell({
@@ -21,6 +27,8 @@ export function ModalShell({
   footer,
   onClose,
   open = true,
+  destructive = false,
+  width = 480,
 }: ModalShellProps) {
   if (!open) return null;
 
@@ -47,37 +55,120 @@ export function ModalShell({
         style={{
           display: "flex",
           flexDirection: "column",
-          gap: 18,
-          width: "min(480px, 100%)",
+          width: `min(${width}px, 100%)`,
           maxHeight: "calc(100vh - 48px)",
-          padding: 24,
           background: "var(--surface)",
-          border: "1px solid var(--border)",
-          borderRadius: "var(--radius-2xl)",
+          border: `1px solid ${destructive ? "var(--danger)" : "var(--border)"}`,
+          borderRadius: 18,
           boxShadow: "var(--shadow-2)",
+          overflow: "hidden",
         }}
       >
-        <header style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <div style={{ font: "600 16px/1.3 var(--font-sans)", color: "var(--text)" }}>
-            {title}
-          </div>
-          {subtitle && (
-            <div style={{ font: "400 13px/1.5 var(--font-sans)", color: "var(--text-2)" }}>
-              {subtitle}
-            </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "18px 20px 0" }}>
+          {destructive && (
+            <span
+              style={{
+                width: 24,
+                height: 24,
+                borderRadius: 8,
+                background: "var(--danger-soft)",
+                color: "var(--danger-ink)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                font: "700 13px/1 var(--font-sans)",
+                flex: "none",
+              }}
+            >
+              !
+            </span>
           )}
-        </header>
+          <span style={{ font: "600 16px/1.3 var(--font-sans)", color: "var(--text)" }}>{title}</span>
+        </div>
 
-        <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: 14 }}>
+        <div
+          style={{
+            padding: "10px 20px 18px",
+            overflowY: "auto",
+            display: "flex",
+            flexDirection: "column",
+            gap: 14,
+          }}
+        >
+          {subtitle && (
+            <div style={{ font: "400 13px/1.5 var(--font-sans)", color: "var(--text-2)" }}>{subtitle}</div>
+          )}
           {children}
         </div>
 
         {footer && (
-          <footer style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              gap: 8,
+              padding: "14px 20px",
+              background: destructive ? "var(--danger-soft)" : "var(--surface-2)",
+              borderTop: "1px solid var(--border)",
+            }}
+          >
             {footer}
-          </footer>
+          </div>
         )}
       </div>
     </div>
+  );
+}
+
+export type ModalButtonKind = "primary" | "secondary" | "danger";
+
+const BUTTON_STYLE: Record<ModalButtonKind, CSSProperties> = {
+  primary: {
+    padding: "9px 16px",
+    background: "var(--accent)",
+    color: "var(--accent-ink)",
+    font: "600 13px/1 var(--font-sans)",
+  },
+  danger: {
+    padding: "9px 16px",
+    background: "var(--danger)",
+    color: "var(--accent-ink)",
+    font: "600 13px/1 var(--font-sans)",
+  },
+  secondary: {
+    padding: "9px 15px",
+    background: "transparent",
+    color: "var(--text-2)",
+    font: "500 13px/1 var(--font-sans)",
+  },
+};
+
+/** A footer button styled 1:1 with the handoff modal actions. */
+export function ModalButton({
+  kind = "secondary",
+  onClick,
+  disabled,
+  children,
+}: {
+  kind?: ModalButtonKind;
+  onClick?: () => void;
+  disabled?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        ...BUTTON_STYLE[kind],
+        borderRadius: 11,
+        border: "none",
+        cursor: disabled ? "not-allowed" : "pointer",
+        opacity: disabled ? 0.5 : 1,
+      }}
+    >
+      {children}
+    </button>
   );
 }

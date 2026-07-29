@@ -15,22 +15,25 @@ const STAGE_LABEL: Record<Stage, string> = {
   Done: "Concluído",
 };
 
+// Both vocabularies render in DM Mono at 10px, matching the handoff card badges
+// (design/handoff/project/Quadro.dc.html, `eDia` and `eSessao`).
 const baseBadge: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
-  font: "600 11.5px/1 var(--font-sans)",
-  padding: "5px 10px",
+  font: "500 10px/1.4 var(--font-mono)",
+  color: "var(--text-2)",
   whiteSpace: "nowrap",
 };
 
+/** Spaced repetition: an outline pill "Dia N" (rounded, border-strong contour). */
 export function SpacedStageBadge({ stage }: { stage: Stage }) {
   return (
     <span
       style={{
         ...baseBadge,
-        borderRadius: "var(--radius-pill)",
-        background: "var(--accent-soft)",
-        color: "var(--accent-soft-ink)",
+        padding: "3px 9px",
+        borderRadius: 999,
+        border: "1px solid var(--border-strong)",
       }}
     >
       {STAGE_LABEL[stage]}
@@ -38,14 +41,16 @@ export function SpacedStageBadge({ stage }: { stage: Stage }) {
   );
 }
 
+/** Exam prep: a square-cornered filled rectangle "Sessão N de M". */
 export function ExamStageBadge({ seq, total }: { seq: number; total: number }) {
   return (
     <span
       style={{
         ...baseBadge,
-        borderRadius: 4,
-        background: "var(--revisar)",
-        color: "var(--accent-ink)",
+        padding: "3px 8px",
+        borderRadius: 7,
+        background: "var(--surface-3)",
+        border: "1px solid var(--border)",
       }}
     >
       Sessão {seq} de {total}
