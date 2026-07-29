@@ -38,6 +38,26 @@ function writeCollapsedPref(collapsed: boolean): void {
 /** Routes that show the promoted method switcher above their content. */
 const METHOD_SCOPED: ReadonlySet<RouteKey> = new Set<RouteKey>(["quadro", "historico"]);
 
+/** A "toggle sidebar" glyph: a rounded panel with a divided-off left rail. */
+function SidebarToggleIcon() {
+  return (
+    <span
+      aria-hidden
+      style={{
+        width: 15,
+        height: 13,
+        borderRadius: 3.5,
+        border: "1.6px solid currentColor",
+        display: "flex",
+        overflow: "hidden",
+        flex: "none",
+      }}
+    >
+      <span style={{ width: 5, background: "currentColor" }} />
+    </span>
+  );
+}
+
 /** The nav glyphs, reproduced as CSS shapes exactly as the handoff `IconeNav` component. */
 function NavIcon({ route, size = 15 }: { route: RouteKey; size?: number }) {
   const s = { flex: "none" as const };
@@ -84,7 +104,7 @@ function NavIcon({ route, size = 15 }: { route: RouteKey; size?: number }) {
           ?
         </span>
       );
-    case "config":
+    case "configuracoes":
       return (
         <span
           style={{
@@ -117,6 +137,8 @@ export function AppShell() {
   const setMethod = useStore((s) => s.setActiveMethod);
 
   const collapsed = narrow || collapsedPref;
+  const isBoard = route === "quadro";
+  const isMethodScoped = METHOD_SCOPED.has(route);
 
   const toggleCollapse = useCallback(() => {
     setCollapsedPref((prev) => {
@@ -150,7 +172,15 @@ export function AppShell() {
   }, [toggleCollapse]);
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "var(--bg)", color: "var(--text)" }}>
+    <div
+      style={{
+        display: "flex",
+        height: "100vh",
+        overflow: "hidden",
+        background: "var(--bg)",
+        color: "var(--text)",
+      }}
+    >
       <Sidebar
         collapsed={collapsed}
         canToggle={!narrow}
@@ -161,7 +191,16 @@ export function AppShell() {
         onChooseTheme={chooseTheme}
       />
 
-      <main style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", background: "var(--bg)" }}>
+      <main
+        style={{
+          flex: 1,
+          minWidth: 0,
+          minHeight: 0,
+          display: "flex",
+          flexDirection: "column",
+          background: "var(--bg)",
+        }}
+      >
         {METHOD_SCOPED.has(route) && (
           <div
             style={{
@@ -210,7 +249,19 @@ export function AppShell() {
           </div>
         )}
 
-        <section style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+        <section
+          style={{
+            flex: 1,
+            minWidth: 0,
+            minHeight: 0,
+            display: "flex",
+            flexDirection: "column",
+            // The board owns its own padding and scrolls its columns internally; every other
+            // screen gets a standard content padding and scrolls the page area itself.
+            overflow: isBoard ? "hidden" : "auto",
+            padding: isBoard ? 0 : isMethodScoped ? "0 22px 22px" : "22px 24px",
+          }}
+        >
           <RouteView route={route} />
         </section>
       </main>
@@ -259,6 +310,28 @@ function Sidebar({ collapsed, canToggle, route, theme, onNavigate, onToggle, onC
         >
           <span style={{ width: 10, height: 10, borderRadius: 999, background: "var(--accent-ink)" }} />
         </div>
+        {canToggle && (
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-label="Expandir a barra lateral"
+            title="Expandir a barra lateral (Ctrl+B)"
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 11,
+              border: "none",
+              background: "transparent",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "var(--text-2)",
+              cursor: "pointer",
+            }}
+          >
+            <SidebarToggleIcon />
+          </button>
+        )}
         <button
           type="button"
           title="Novo Card"
@@ -307,26 +380,6 @@ function Sidebar({ collapsed, canToggle, route, theme, onNavigate, onToggle, onC
             );
           })}
         </div>
-        {canToggle && (
-          <button
-            type="button"
-            onClick={onToggle}
-            title="Expandir a barra lateral"
-            style={{
-              marginTop: "auto",
-              width: 32,
-              height: 32,
-              borderRadius: 10,
-              border: "none",
-              background: "transparent",
-              color: "var(--text-3)",
-              font: "500 13px/1 var(--font-sans)",
-              cursor: "pointer",
-            }}
-          >
-            ››
-          </button>
-        )}
       </nav>
     );
   }
@@ -377,12 +430,11 @@ function Sidebar({ collapsed, canToggle, route, theme, onNavigate, onToggle, onC
               alignItems: "center",
               justifyContent: "center",
               color: "var(--text-3)",
-              font: "500 13px/1 var(--font-sans)",
               cursor: "pointer",
               flex: "none",
             }}
           >
-            ‹‹
+            <SidebarToggleIcon />
           </button>
         )}
       </div>
