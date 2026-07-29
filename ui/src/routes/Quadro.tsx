@@ -4,9 +4,12 @@
 // just renders the board for the active method.
 
 import { Board } from "../components/Board";
+import { QuadroProva } from "./QuadroProva";
 import { useStore } from "../store";
 
 export function Quadro() {
   const method = useStore((s) => s.activeMethod);
-  return <Board method={method} />;
+  // Prova groups cards by exam and shows the exams rail (KAN-04); the spaced board is the plain
+  // four-column kanban.
+  return method === "ExamPrep" ? <QuadroProva /> : <Board method={method} />;
 }
