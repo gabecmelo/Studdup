@@ -28,8 +28,10 @@ import {
   useBoard,
   useCompleteCard,
   useEditCard,
+  useEraseCard,
   useHistory,
   usePostponeCard,
+  useRestartCard,
 } from "../lib/queries";
 import {
   applyOptimisticMove,
@@ -44,6 +46,18 @@ import { Toast } from "./Toast";
 import { DetalheCardModal } from "./modals/DetalheCard";
 import { LogCardModal } from "./modals/LogCard";
 import { EditarCardModal } from "./modals/EditarCard";
+import { CardAtrasadoModal } from "./modals/CardAtrasado";
+
+/** Spaced ladder stage → its "Dia N" label (mirrors the badge vocabulary, AD-003). */
+const STAGE_LABEL: Record<Stage, string> = {
+  Day0: "Dia 0",
+  Day1: "Dia 1",
+  Day2: "Dia 2",
+  Day5: "Dia 5",
+  Day15: "Dia 15",
+  Day30: "Dia 30",
+  Done: "Concluído",
+};
 import {
   COLUMN_LABELS,
   COLUMN_ORDER,
@@ -150,10 +164,13 @@ export function Board({ method }: BoardProps) {
   const [detailCard, setDetailCard] = useState<CardModel | null>(null);
   const [logCard, setLogCard] = useState<CardModel | null>(null);
   const [editCard, setEditCard] = useState<CardModel | null>(null);
+  const [overdueCard, setOverdueCard] = useState<CardModel | null>(null);
 
   const postpone = usePostponeCard();
   const complete = useCompleteCard();
   const edit = useEditCard();
+  const restart = useRestartCard();
+  const erase = useEraseCard();
   // The card's event log for the "Ver log" modal (filtered from the method's history by card id).
   const history = useHistory(method);
 
@@ -230,6 +247,14 @@ export function Board({ method }: BoardProps) {
           card={detailCard}
           today={today}
           onClose={() => setDetailCard(null)}
+          onStudy={() => {
+            // An overdue card first goes through the non-punitive Recomeçar/Apagar choice (T27);
+            // an on-time card would open its session (Batch 5).
+            if (placeCard(detailCard, today).overdueDays > 0) {
+              setOverdueCard(detailCard);
+              setDetailCard(null);
+            }
+          }}
           onEdit={() => {
             setEditCard(detailCard);
             setDetailCard(null);
@@ -257,6 +282,23 @@ export function Board({ method }: BoardProps) {
             edit.mutate(updated);
             setEditCard(null);
           }}
+        />
+      )}
+
+      {overdueCard && (
+        <CardAtrasadoModal
+          cardTitle={overdueCard.title}
+          stageLabel={STAGE_LABEL[overdueCard.current_stage]}
+          overdueDays={placeCard(overdueCard, today).overdueDays}
+          onRestart={() => {
+            restart.mutate(overdueCard.id);
+            setOverdueCard(null);
+          }}
+          onErase={() => {
+            erase.mutate(overdueCard.id);
+            setOverdueCard(null);
+          }}
+          onClose={() => setOverdueCard(null)}
         />
       )}
     </DndContext>
