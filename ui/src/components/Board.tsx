@@ -149,6 +149,41 @@ const EMPTY_COLUMN_TEXT: Record<Column, string> = {
   concluidos: "Sessões concluídas aparecem aqui.",
 };
 
+/** "9 ago" style short day label in pt-BR. */
+function dayMon(iso: ISODate): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "short" })
+    .format(new Date(y, m - 1, d))
+    .replace(" de ", " ")
+    .replace(".", "");
+}
+
+/** The context line: "Segunda, 9 de agosto · N cards no quadro" (handoff). */
+function boardContext(count: number, today: ISODate): string {
+  const [y, m, d] = today.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  const weekdayLong = new Intl.DateTimeFormat("pt-BR", { weekday: "long" }).format(date);
+  const weekday = weekdayLong.split("-")[0];
+  const cap = weekday.charAt(0).toUpperCase() + weekday.slice(1);
+  const dm = new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "long" }).format(date);
+  const cards = count === 1 ? "1 card no quadro" : `${count} cards no quadro`;
+  return count === 0 ? `${cap}, ${dm} · nenhum card ainda` : `${cap}, ${dm} · ${cards}`;
+}
+
+/** The small DM-Mono date shown at the right of each column header (handoff). */
+function columnDate(column: Column, today: ISODate): string {
+  switch (column) {
+    case "hoje":
+      return dayMon(today);
+    case "amanha":
+      return dayMon(addDaysIso(today, 1));
+    case "proximos":
+      return "próximos 30 dias";
+    case "concluidos":
+      return "recentes";
+  }
+}
+
 export interface BoardProps {
   method: Method;
 }
@@ -192,6 +227,7 @@ export function Board({ method }: BoardProps) {
   );
 
   const groups = groupByColumn(cards, today, moves);
+  const contexto = boardContext(cards.length, today);
 
   function onDragEnd(event: DragEndEvent) {
     const cardId = Number(event.active.id);
@@ -221,14 +257,20 @@ export function Board({ method }: BoardProps) {
 
   return (
     <DndContext sensors={sensors} onDragEnd={onDragEnd}>
+      {/* Context line (handoff): "Segunda, 9 de agosto · N cards no quadro". */}
+      <div style={{ flex: "none", padding: "0 22px 12px", font: "400 12.5px/1.3 var(--font-sans)", color: "var(--text-2)" }}>
+        {contexto}
+      </div>
+
       <div
         style={{
+          flex: 1,
+          minHeight: 0,
           display: "grid",
           gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
           gap: 12,
-          alignItems: "start",
-          height: "100%",
-          minHeight: 0,
+          alignItems: "stretch",
+          padding: "0 22px 20px",
         }}
       >
         {COLUMN_ORDER.map((column) => (
@@ -402,33 +444,58 @@ function BoardColumn({ column, method, cards, today, onOpen }: BoardColumnProps)
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: 10,
         minWidth: 0,
-        padding: 12,
-        borderRadius: "var(--radius-xl)",
+        minHeight: 0,
+        borderRadius: 18,
         background: "var(--surface-2)",
         border: `1px solid ${isOver ? "var(--accent)" : "var(--border)"}`,
+        overflow: "hidden",
         transition: "var(--transition-fast)",
       }}
     >
-      <header style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 4px" }}>
-        <span style={{ font: "600 13.5px/1 var(--font-sans)", color: "var(--text)" }}>
-          {COLUMN_LABELS[column]}
-        </span>
-        <span
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          overflowY: "auto",
+          display: "flex",
+          flexDirection: "column",
+          gap: 9,
+          padding: "0 10px 12px",
+        }}
+      >
+        <header
           style={{
-            font: "600 11px/1.4 var(--font-mono, var(--font-sans))",
-            padding: "2px 7px",
-            borderRadius: "var(--radius-pill)",
-            background: "var(--surface-3)",
-            color: "var(--text-2)",
+            position: "sticky",
+            top: 0,
+            zIndex: 5,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "13px 3px 10px",
+            background: "var(--surface-2)",
           }}
         >
-          {cards.length}
-        </span>
-      </header>
+          <span style={{ font: "600 13.5px/1 var(--font-sans)", color: "var(--text)" }}>
+            {COLUMN_LABELS[column]}
+          </span>
+          <span
+            style={{
+              font: "600 10.5px/1.6 var(--font-mono)",
+              padding: "2px 7px",
+              borderRadius: 999,
+              background: "var(--surface-3)",
+              color: "var(--text-2)",
+            }}
+          >
+            {cards.length}
+          </span>
+          <span style={{ flex: 1 }} />
+          <span style={{ font: "400 10.5px/1 var(--font-mono)", color: "var(--text-3)" }}>
+            {columnDate(column, today)}
+          </span>
+        </header>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, minHeight: 130 }}>
         {cards.length === 0 ? (
           <EmptyState title={EMPTY_COLUMN_TEXT[column]} />
         ) : (
@@ -477,6 +544,7 @@ function DraggableCard({ card, column, method, today, onOpen }: DraggableCardPro
     >
       <Card
         title={card.title}
+        kind={card.current_stage === "Day0" ? "estudar" : "revisar"}
         badge={
           method === "SpacedRepetition" ? (
             <SpacedStageBadge stage={card.current_stage} />

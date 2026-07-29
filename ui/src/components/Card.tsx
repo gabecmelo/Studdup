@@ -1,116 +1,130 @@
-// Board card (handoff "Card do quadro"). The soft, rounded, elevated card that carries the drag
-// language (AD-008). Presentational only — it takes a stage badge slot, an optional technique +
-// duration line (active cards show the *estimate*, completed cards the *actual* focused time —
-// same slot, two meanings, AD-010), an optional overdue marker, and a primary action.
+// Board card (handoff "Card do quadro", design/handoff/project/Quadro.dc.html lines 143–167).
+// The soft, rounded, elevated tile that carries the drag language (AD-008). Presentational only:
+// a top row with the "A Estudar" / "A Revisar" pill and the stage badge, the title, an optional
+// overdue row, and a bottom row with the technique (icon + name) and the duration — active cards
+// show the *estimate*, completed cards the *actual* focused time (same slot, AD-010).
 
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import type { Technique } from "../lib/bindings";
 import { sessionDurationLabel } from "../lib/sessionEstimate";
-import { TECHNIQUE_LABEL } from "./TechniqueChip";
+import { TECHNIQUE_LABEL, TechniqueIcon } from "./TechniqueChip";
 
 export interface CardProps {
   title: string;
-  /** Stage badge slot (a `StageBadge` in practice). */
+  /** "A Estudar" (fresh study) vs "A Revisar" (a review) — the handoff card's leading pill. */
+  kind?: "estudar" | "revisar";
+  /** Stage badge slot (a `StageBadge` in practice), shown on the right of the top row. */
   badge?: ReactNode;
   technique?: Technique | null;
   /** Active card: estimated session length in minutes. */
   estMinutes?: number | null;
   /** Completed card: actual focused seconds recorded on the session (overrides the estimate). */
   focusedSecs?: number | null;
-  /** Whole days overdue; when > 0 an overdue badge is shown. */
+  /** Whole days overdue; when > 0 an overdue row is shown. */
   overdueDays?: number;
-  actionLabel?: string;
-  onAction?: () => void;
+  /** Optional pre-formatted overdue text (else a default "N dias de atraso"). */
+  overdueText?: string;
   onClick?: () => void;
 }
 
 export function Card({
   title,
+  kind = "estudar",
   badge,
   technique,
   estMinutes,
   focusedSecs,
   overdueDays = 0,
-  actionLabel,
-  onAction,
+  overdueText,
   onClick,
 }: CardProps) {
+  const [hover, setHover] = useState(false);
   const duration = sessionDurationLabel(estMinutes, focusedSecs);
-  const meta: string[] = [];
-  if (technique) meta.push(TECHNIQUE_LABEL[technique]);
-  if (duration) meta.push(duration);
+  const isEstudar = kind === "estudar";
 
   return (
     <div
       onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: 12,
-        padding: 16,
+        gap: 9,
+        padding: 13,
         background: "var(--surface)",
-        border: "1px solid var(--border)",
-        borderRadius: "var(--radius-lg)",
-        boxShadow: "var(--shadow-1)",
-        cursor: onClick ? "pointer" : "default",
+        border: `1px solid ${hover ? "var(--accent)" : "var(--border)"}`,
+        borderRadius: 15,
+        boxShadow: hover ? "var(--shadow-2)" : "var(--shadow-1)",
+        cursor: onClick ? "grab" : "default",
+        transition: "border-color var(--transition-fast), box-shadow var(--transition-fast)",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+        <span
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 5,
+            padding: "3px 8px 3px 6px",
+            borderRadius: 999,
+            background: isEstudar ? "var(--accent-soft)" : "var(--revisar-soft)",
+            color: isEstudar ? "var(--accent-soft-ink)" : "var(--revisar-ink)",
+            font: "600 10px/1.4 var(--font-sans)",
+            whiteSpace: "nowrap",
+          }}
+        >
+          <span style={{ width: 4, height: 4, borderRadius: 999, background: "currentColor" }} />
+          {isEstudar ? "A Estudar" : "A Revisar"}
+        </span>
         {badge}
-        {overdueDays > 0 && (
-          <span
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              font: "600 11px/1 var(--font-sans)",
-              padding: "5px 9px",
-              borderRadius: "var(--radius-pill)",
-              background: "var(--atraso-soft)",
-              color: "var(--atraso-ink)",
-            }}
-          >
-            {overdueDays} {overdueDays === 1 ? "dia" : "dias"} de atraso
-          </span>
-        )}
       </div>
 
-      <div
-        style={{
-          font: "600 16px/1.35 var(--font-sans)",
-          letterSpacing: "-.01em",
-          color: "var(--text)",
-        }}
-      >
+      <div style={{ font: "600 13.5px/1.35 var(--font-sans)", letterSpacing: "-.01em", color: "var(--text)" }}>
         {title}
       </div>
 
-      {(meta.length > 0 || actionLabel) && (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-          {meta.length > 0 && (
-            <span style={{ font: "500 12.5px/1 var(--font-sans)", color: "var(--text-2)" }}>
-              {meta.join(" · ")}
-            </span>
-          )}
-          {actionLabel && onAction && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onAction();
-              }}
+      {overdueDays > 0 && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "6px 9px",
+            borderRadius: 9,
+            background: "var(--atraso-soft)",
+            color: "var(--atraso-ink)",
+            font: "500 11px/1.3 var(--font-sans)",
+          }}
+        >
+          <span style={{ width: 4, height: 4, borderRadius: 999, background: "currentColor", flex: "none" }} />
+          {overdueText ?? `${overdueDays} ${overdueDays === 1 ? "dia" : "dias"} de atraso`}
+        </div>
+      )}
+
+      {(technique || duration) && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+          {technique && (
+            <span
               style={{
-                marginLeft: "auto",
-                font: "600 12.5px/1 var(--font-sans)",
-                padding: "8px 14px",
-                borderRadius: "var(--radius-pill)",
-                border: "none",
-                cursor: "pointer",
-                background: "var(--accent)",
-                color: "var(--accent-ink)",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                minWidth: 0,
+                font: "500 11px/1 var(--font-sans)",
+                color: "var(--text-2)",
               }}
             >
-              {actionLabel}
-            </button>
+              <TechniqueIcon technique={technique} size={13} />
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {TECHNIQUE_LABEL[technique]}
+              </span>
+            </span>
+          )}
+          {duration && (
+            <span style={{ font: "400 10.5px/1 var(--font-mono)", color: "var(--text-3)", whiteSpace: "nowrap" }}>
+              {duration}
+            </span>
           )}
         </div>
       )}
