@@ -27,6 +27,7 @@ import type { Card as CardModel, ISODate, Method, Stage } from "../lib/bindings"
 import {
   useBoard,
   useCompleteCard,
+  useDeleteCard,
   useEditCard,
   useEraseCard,
   useHistory,
@@ -48,6 +49,7 @@ import { LogCardModal } from "./modals/LogCard";
 import { EditarCardModal } from "./modals/EditarCard";
 import { CardAtrasadoModal } from "./modals/CardAtrasado";
 import { AdiarModal } from "./modals/Adiar";
+import { ExcluirCardModal } from "./modals/ExcluirCard";
 
 /** Spaced ladder stage → its "Dia N" label (mirrors the badge vocabulary, AD-003). */
 const STAGE_LABEL: Record<Stage, string> = {
@@ -167,12 +169,14 @@ export function Board({ method }: BoardProps) {
   const [editCard, setEditCard] = useState<CardModel | null>(null);
   const [overdueCard, setOverdueCard] = useState<CardModel | null>(null);
   const [postponeCard, setPostponeCard] = useState<CardModel | null>(null);
+  const [deleteCard, setDeleteCard] = useState<CardModel | null>(null);
 
   const postpone = usePostponeCard();
   const complete = useCompleteCard();
   const edit = useEditCard();
   const restart = useRestartCard();
   const erase = useEraseCard();
+  const remove = useDeleteCard();
   // The card's event log for the "Ver log" modal (filtered from the method's history by card id).
   const history = useHistory(method);
 
@@ -269,6 +273,10 @@ export function Board({ method }: BoardProps) {
             setLogCard(detailCard);
             setDetailCard(null);
           }}
+          onDelete={() => {
+            setDeleteCard(detailCard);
+            setDetailCard(null);
+          }}
         />
       )}
 
@@ -323,6 +331,18 @@ export function Board({ method }: BoardProps) {
             setPostponeCard(null);
           }}
           onClose={() => setPostponeCard(null)}
+        />
+      )}
+
+      {deleteCard && (
+        <ExcluirCardModal
+          cardTitle={deleteCard.title}
+          archived={deleteCard.archived}
+          onConfirm={() => {
+            remove.mutate(deleteCard.id);
+            setDeleteCard(null);
+          }}
+          onClose={() => setDeleteCard(null)}
         />
       )}
     </DndContext>
