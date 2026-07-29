@@ -67,7 +67,7 @@ export function Configuracoes() {
   }
 
   return (
-    <div style={{ maxWidth: 720, display: "flex", flexDirection: "column", gap: 28 }}>
+    <div style={{ width: "100%", maxWidth: 800, display: "flex", flexDirection: "column", gap: 24 }}>
       <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <span style={sectionTitle}>Padrões de técnica</span>

@@ -256,8 +256,10 @@ export function AppShell() {
             minHeight: 0,
             display: "flex",
             flexDirection: "column",
-            // The board owns its own padding and scrolls its columns internally; every other
-            // screen gets a standard content padding and scrolls the page area itself.
+            // The board owns its own padding and scrolls its columns internally; method-scoped
+            // screens (history) fill the width; standalone screens (config, técnicas, ajuda,
+            // início) center a max-width column (handoff `margin:0 auto`).
+            alignItems: isBoard || isMethodScoped ? "stretch" : "center",
             overflow: isBoard ? "hidden" : "auto",
             padding: isBoard ? 0 : isMethodScoped ? "0 22px 22px" : "22px 24px",
           }}
