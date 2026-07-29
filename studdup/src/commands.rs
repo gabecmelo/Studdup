@@ -112,8 +112,7 @@ pub fn delete_exam(state: State<'_, AppState>, exam_id: i64) -> Result<(), ApiEr
 
 #[tauri::command]
 pub fn list_board(state: State<'_, AppState>, method: Method) -> Result<Vec<Card>, ApiError> {
-    let db = state.db.lock().map_err(|_| poisoned())?;
-    api::list_board(db.conn(), method)
+    with_db!(state, |conn, today| api::list_board(conn, method, today))
 }
 
 /// Unified (`method = None`) or per-method history, optionally narrowed by technique. The command

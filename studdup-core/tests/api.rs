@@ -5,7 +5,8 @@ use studdup_core::api::{
     self, create_card, create_exam, delete_card, delete_exam, edit_card, ApiError, HistoryFilter,
 };
 use studdup_core::domain::{Card, Date, Method, PomodoroRhythm, Stage, Technique};
-use studdup_core::repository::exams::load_sessions;
+use studdup_core::repository::cards::load_card;
+use studdup_core::repository::exams::{load_exams, load_sessions};
 use studdup_core::repository::Db;
 use studdup_core::scheduler::spaced::due_date;
 
@@ -287,7 +288,7 @@ fn edit_card_persists_changes_and_validates_title() {
     let saved = edit_card(db.conn(), edited).unwrap();
     assert_eq!(saved.title, "Editado");
 
-    let board = api::list_board(db.conn(), Method::SpacedRepetition).unwrap();
+    let board = api::list_board(db.conn(), Method::SpacedRepetition, today).unwrap();
     assert_eq!(board.len(), 1);
     assert_eq!(board[0].title, "Editado");
     assert_eq!(board[0].technique, Some(Technique::Feynman));
@@ -305,7 +306,7 @@ fn delete_card_removes_it_from_the_board() {
     let today = ymd(2026, 5, 1);
     let card = create_card(db.conn(), new_spaced("Excluir"), today).unwrap();
     assert_eq!(
-        api::list_board(db.conn(), Method::SpacedRepetition)
+        api::list_board(db.conn(), Method::SpacedRepetition, today)
             .unwrap()
             .len(),
         1
@@ -313,7 +314,7 @@ fn delete_card_removes_it_from_the_board() {
 
     delete_card(db.conn(), card.id).unwrap();
     assert_eq!(
-        api::list_board(db.conn(), Method::SpacedRepetition)
+        api::list_board(db.conn(), Method::SpacedRepetition, today)
             .unwrap()
             .len(),
         0
@@ -469,7 +470,9 @@ fn delete_exam_cascades_to_its_cards_and_sessions() {
     delete_exam(db.conn(), exam.id).unwrap();
 
     assert_eq!(
-        api::list_board(db.conn(), Method::ExamPrep).unwrap().len(),
+        api::list_board(db.conn(), Method::ExamPrep, today)
+            .unwrap()
+            .len(),
         0
     );
     assert!(load_sessions(db.conn(), card.id).unwrap().is_empty());
@@ -602,4 +605,137 @@ fn record_session_persists_focused_seconds_on_the_event() {
     assert_eq!(ev.focused_secs, Some(1500));
     assert_eq!(ev.self_rating, Some(2));
     assert_eq!(ev.technique, Some(Technique::Pomodoro));
+}
+
+// ---- T38: auto-conclusion of lapsed exams (EXAM-01 AC#5) ----
+
+/// Create an exam `span` days out with one exam card materializing its sessions; returns
+/// `(exam_id, card_id)`.
+fn exam_with_card(db: &Db, name: &str, today: Date, span: i64) -> (i64, i64) {
+    let exam = create_exam(db.conn(), name.to_string(), today.add_days(span), today).unwrap();
+    let mut card = new_spaced("Conteúdo");
+    card.method = Method::ExamPrep;
+    card.exam_id = Some(exam.id);
+    let card = create_card(db.conn(), card, today).unwrap();
+    (exam.id, card.id)
+}
+
+/// Count archived history events for a specific card.
+fn archived_events_for(db: &Db, card_id: i64) -> usize {
+    api::list_history(db.conn(), HistoryFilter::all())
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == "archived" && e.card_id == card_id)
+        .count()
+}
+
+/// Read the stored `concluded` flag for an exam directly from the row (payload assertion).
+fn is_concluded(db: &Db, exam_id: i64) -> bool {
+    load_exams(db.conn())
+        .unwrap()
+        .into_iter()
+        .find(|e| e.id == exam_id)
+        .expect("exam exists")
+        .concluded
+}
+
+#[test]
+fn lapsed_exam_is_concluded_cards_archived_and_history_recorded() {
+    let db = db();
+    let today = ymd(2026, 5, 1);
+    // Exam 5 days out (S=5 → 3 sessions, all pending), created legitimately in the future.
+    let (exam_id, card_id) = exam_with_card(&db, "Cálculo", today, 5);
+    // Time passes: the day after the exam date.
+    let after = today.add_days(6);
+
+    let concluded = api::conclude_lapsed_exams(db.conn(), after).unwrap();
+    assert_eq!(concluded, 1, "the single lapsed exam is concluded");
+
+    // AC#5 part 1 — the exam row is marked concluded (stored value).
+    assert!(is_concluded(&db, exam_id), "exam row concluded = 1");
+
+    // AC#5 part 2 — its still-pending card is archived (stored value).
+    let card = load_card(db.conn(), card_id).unwrap().expect("card exists");
+    assert!(card.archived, "remaining card archived = 1");
+
+    // AC#5 part 3 — the outcome is recorded in history (an archived event for the card).
+    let ev = api::list_history(db.conn(), HistoryFilter::all())
+        .unwrap()
+        .into_iter()
+        .find(|e| e.kind == "archived" && e.card_id == card_id)
+        .expect("an archived history event exists for the card");
+    assert_eq!(ev.method, Method::ExamPrep, "event labeled with the method");
+    assert_eq!(ev.when, after, "event dated at the sweep day");
+    assert_eq!(
+        archived_events_for(&db, card_id),
+        1,
+        "exactly one archived event"
+    );
+
+    // Idempotency — a second sweep concludes nothing and records no further events.
+    let again = api::conclude_lapsed_exams(db.conn(), after).unwrap();
+    assert_eq!(again, 0, "second run is a no-op");
+    assert!(is_concluded(&db, exam_id));
+    assert_eq!(
+        archived_events_for(&db, card_id),
+        1,
+        "no duplicate archived event"
+    );
+}
+
+#[test]
+fn not_yet_lapsed_exam_is_left_untouched() {
+    let db = db();
+    let today = ymd(2026, 5, 1);
+    let (exam_id, card_id) = exam_with_card(&db, "Física", today, 30);
+
+    // On the exam date itself the final session is still due → not concluded (should_conclude).
+    let on_date = today.add_days(30);
+    assert_eq!(api::conclude_lapsed_exams(db.conn(), on_date).unwrap(), 0);
+    // And well before the date.
+    assert_eq!(api::conclude_lapsed_exams(db.conn(), today).unwrap(), 0);
+
+    assert!(!is_concluded(&db, exam_id), "exam stays not concluded");
+    let card = load_card(db.conn(), card_id).unwrap().expect("card exists");
+    assert!(!card.archived, "card stays active");
+    assert_eq!(
+        archived_events_for(&db, card_id),
+        0,
+        "no archived event recorded"
+    );
+}
+
+#[test]
+fn list_exams_read_path_sweeps_lapsed_exams() {
+    let db = db();
+    let today = ymd(2026, 5, 1);
+    let (exam_id, card_id) = exam_with_card(&db, "Química", today, 3);
+    let after = today.add_days(4);
+
+    // Calling the read path alone (no direct conclude call) must reflect the conclusion.
+    let views = api::list_exams(db.conn(), after).unwrap();
+    let view = views.into_iter().find(|v| v.id == exam_id).unwrap();
+    assert!(view.concluded, "list_exams reports the exam concluded");
+
+    // The card was archived by the sweep (stored value + drops off the active board).
+    let card = load_card(db.conn(), card_id).unwrap().expect("card exists");
+    assert!(card.archived);
+    assert_eq!(archived_events_for(&db, card_id), 1);
+}
+
+#[test]
+fn list_board_read_path_sweeps_lapsed_exam_cards() {
+    let db = db();
+    let today = ymd(2026, 5, 1);
+    let (_exam_id, card_id) = exam_with_card(&db, "Biologia", today, 3);
+    let after = today.add_days(4);
+
+    // The ExamPrep board read sweeps first, so the lapsed card is archived and excluded.
+    let board = api::list_board(db.conn(), Method::ExamPrep, after).unwrap();
+    assert!(
+        board.iter().all(|c| c.id != card_id),
+        "lapsed card no longer on the active board"
+    );
+    let card = load_card(db.conn(), card_id).unwrap().expect("card exists");
+    assert!(card.archived, "board read archived the lapsed card");
 }

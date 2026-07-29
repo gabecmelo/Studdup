@@ -454,10 +454,41 @@ pub fn delete_exam(conn: &Connection, exam_id: i64) -> Result<(), ApiError> {
     Ok(())
 }
 
+/// Sweep every exam whose date has passed with sessions still pending (EXAM-01.5): mark it
+/// concluded, archive each of its still-active cards, and record an `archived` history event per
+/// card so the outcome is recorded in history. Returns how many exams this call concluded.
+///
+/// Idempotent: [`exam::should_conclude`] returns `false` once an exam is concluded, and archived
+/// cards drop out of `load_active_for_exam`, so a second run concludes nothing new. Called at the
+/// start of the exam-board read path ([`list_board`] for ExamPrep, [`list_exams`]) so lapsed exams
+/// are swept whenever the board is loaded, without a manual action.
+pub fn conclude_lapsed_exams(conn: &Connection, today: Date) -> Result<u32, ApiError> {
+    let mut concluded = 0u32;
+    for exam in exams::load_exams(conn)? {
+        if !exam::should_conclude(&exam, today) {
+            continue;
+        }
+        for mut card in cards::load_active_for_exam(conn, exam.id)? {
+            let stage = card.current_stage;
+            card.archived = true;
+            cards::update_card(conn, &card)?;
+            log_event(conn, &card, "archived", stage, stage, today, None, None)?;
+        }
+        exams::set_exam_concluded(conn, exam.id, true)?;
+        concluded += 1;
+    }
+    Ok(concluded)
+}
+
 // ---- reads ----
 
 /// The active (non-archived) cards for a method — the kanban board's source (METH-02, KAN-01).
-pub fn list_board(conn: &Connection, method: Method) -> Result<Vec<Card>, ApiError> {
+/// For the ExamPrep method this first sweeps lapsed exams ([`conclude_lapsed_exams`]) so their
+/// cards are archived and drop out of the board before it is returned (EXAM-01.5).
+pub fn list_board(conn: &Connection, method: Method, today: Date) -> Result<Vec<Card>, ApiError> {
+    if method == Method::ExamPrep {
+        conclude_lapsed_exams(conn, today)?;
+    }
     Ok(cards::load_active(conn, method)?)
 }
 
@@ -507,6 +538,8 @@ pub fn set_setting(conn: &Connection, key: &str, value: &str) -> Result<(), ApiE
 /// completed-vs-total session progress (EXAM-01.6, EXAM-04). Surfaces the repository's `load_exams`
 /// + `exam_session_progress` that had no facade entry point before.
 pub fn list_exams(conn: &Connection, today: Date) -> Result<Vec<ExamView>, ApiError> {
+    // Sweep lapsed exams first so the rail/detail reflect `concluded` without a manual action.
+    conclude_lapsed_exams(conn, today)?;
     let mut views = Vec::new();
     for e in exams::load_exams(conn)? {
         let (completed, total) = exams::exam_session_progress(conn, e.id)?;

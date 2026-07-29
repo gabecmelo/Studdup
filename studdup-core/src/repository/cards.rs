@@ -99,6 +99,17 @@ pub fn load_active(conn: &Connection, method: Method) -> rusqlite::Result<Vec<Ca
     )
 }
 
+/// Active (non-archived) cards belonging to a specific exam, oldest first. Drives the
+/// auto-conclusion sweep (EXAM-01.5): when an exam lapses, these are the cards to archive.
+pub fn load_active_for_exam(conn: &Connection, exam_id: i64) -> rusqlite::Result<Vec<Card>> {
+    let sql = format!(
+        "SELECT {SELECT_COLS} FROM cards WHERE archived = 0 AND exam_id = ?1 ORDER BY id ASC"
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(params![exam_id], row_to_card)?;
+    rows.collect()
+}
+
 /// Archived cards for a method, most-recently-completed first (C++ history ordering).
 pub fn load_archived(conn: &Connection, method: Method) -> rusqlite::Result<Vec<Card>> {
     load_where(
