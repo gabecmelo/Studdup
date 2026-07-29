@@ -44,6 +44,8 @@ fn main() {
             commands::list_board,
             commands::list_history,
             commands::list_exams,
+            commands::get_setting,
+            commands::set_setting,
         ])
         .run(tauri::generate_context!())
         .expect("error while running studdup");

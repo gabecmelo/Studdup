@@ -30,6 +30,9 @@ export type { ModalShellProps } from "./ModalShell";
 export { Countdown, formatClock } from "./Countdown";
 export type { CountdownProps } from "./Countdown";
 
+export { RhythmPicker } from "./RhythmPicker";
+export type { RhythmPickerProps } from "./RhythmPicker";
+
 export { LinkRow } from "./LinkRow";
 export type { LinkRowProps } from "./LinkRow";
 

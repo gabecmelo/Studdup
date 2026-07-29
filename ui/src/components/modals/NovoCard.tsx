@@ -9,9 +9,17 @@
 // Pomodoro rhythm are applied in T31; this modal only records the technique choice.
 
 import { useState } from "react";
-import type { Card, Method, Technique } from "../../lib/bindings";
+import type { Card, Method, PomodoroRhythm, Technique } from "../../lib/bindings";
 import { ModalShell } from "../ModalShell";
+import { RhythmPicker } from "../RhythmPicker";
 import { TECHNIQUE_LABEL, TECHNIQUE_SUMMARY } from "../TechniqueChip";
+import {
+  DEFAULT_RHYTHM,
+  defaultEstForTechnique,
+  estFromRhythm,
+  isEstInRange,
+} from "../../lib/sessionEstimate";
+import { EstField } from "./EstField";
 import {
   TECHNIQUE_CHOICES,
   type TechniqueChoice,
@@ -32,6 +40,12 @@ export interface NovoCardModalProps {
   activeMethod: Method;
   /** Exams available to attach when the method is Prova (empty → the "create a prova first" hint). */
   exams?: ExamOption[];
+  /**
+   * Global per-technique default estimates (from settings, TECH-09.5). Applied to a new card when a
+   * technique is chosen; falls back to the built-in defaults when a technique has no global override.
+   * Only affects cards created afterwards (AD-010) — this modal reads it, never writes it.
+   */
+  defaultEst?: Partial<Record<Technique, number>>;
   onClose?: () => void;
   /** Emitted with the assembled card when "Criar card" is pressed on a valid form. */
   onCreate?: (card: Card) => void;
@@ -66,6 +80,7 @@ export function NovoCardModal({
   open = true,
   activeMethod,
   exams = [],
+  defaultEst,
   onClose,
   onCreate,
   onCreateExam,
@@ -76,13 +91,36 @@ export function NovoCardModal({
   const [method, setMethod] = useState<Method>(activeMethod);
   const [examId, setExamId] = useState<number | null>(null);
   const [choice, setChoice] = useState<TechniqueChoice>("none");
+  // Estimated session length + Pomodoro rhythm (TECH-09). `est` is null while no technique is chosen.
+  const [est, setEst] = useState<number | null>(null);
+  const [rhythm, setRhythm] = useState<PomodoroRhythm>(DEFAULT_RHYTHM);
   const [touched, setTouched] = useState(false);
 
   const titleCheck = validateTitle(title);
   const count = titleCharCount(title);
   const over = count > TITLE_MAX;
   const needsExam = method === "ExamPrep";
-  const valid = titleCheck.valid && (!needsExam || examId !== null);
+  const hasTechnique = choice !== "none";
+  // A chosen technique must carry a valid estimate (5–180); "none" has no estimate (TECH-09.2).
+  const estOk = !hasTechnique || (est !== null && isEstInRange(est));
+  const valid = titleCheck.valid && (!needsExam || examId !== null) && estOk;
+
+  /** Pick a technique: apply its default estimate (global override or built-in), TECH-09.1/5. */
+  function pickTechnique(next: TechniqueChoice) {
+    setChoice(next);
+    if (next === "none") {
+      setEst(null);
+      return;
+    }
+    const global = defaultEst?.[next];
+    setEst(global ?? defaultEstForTechnique(next, rhythm));
+  }
+
+  /** Changing the Pomodoro rhythm re-derives the estimate from its focus block (TECH-09.4). */
+  function pickRhythm(next: PomodoroRhythm) {
+    setRhythm(next);
+    setEst(estFromRhythm(next));
+  }
 
   function submit() {
     if (!valid) {
@@ -97,9 +135,8 @@ export function NovoCardModal({
       review_link: reviewLink.trim(),
       method,
       technique,
-      // Session-length default + Pomodoro rhythm are applied in T31; unset here.
-      est_minutes: null,
-      pomodoro: null,
+      est_minutes: technique === null ? null : est,
+      pomodoro: technique === "Pomodoro" ? rhythm : null,
       // Scheduling anchors are assigned by the backend (create_card sets today / Day 0).
       start_date: "",
       current_stage: "Day0",
@@ -271,7 +308,7 @@ export function NovoCardModal({
               key={c}
               type="button"
               aria-pressed={choice === c}
-              onClick={() => setChoice(c)}
+              onClick={() => pickTechnique(c)}
               style={{
                 display: "flex",
                 flexDirection: "column",
@@ -295,6 +332,17 @@ export function NovoCardModal({
           ))}
         </div>
       </Field>
+
+      {/* Ritmo Pomodoro + estimativa (TECH-09) — only when a technique is chosen */}
+      {choice === "Pomodoro" && (
+        <Field>
+          <span style={LABEL_CSS}>Ritmo</span>
+          <RhythmPicker value={rhythm} onChange={pickRhythm} />
+        </Field>
+      )}
+      {hasTechnique && (
+        <EstField value={est} onChange={setEst} />
+      )}
     </ModalShell>
   );
 }

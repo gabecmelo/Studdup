@@ -77,6 +77,14 @@ export const commands = {
   listExams(): Promise<ExamView[]> {
     return invoke("list_exams");
   },
+
+  getSetting(key: string): Promise<string | null> {
+    return invoke("get_setting", { key });
+  },
+
+  setSetting(key: string, value: string): Promise<void> {
+    return invoke("set_setting", { key, value });
+  },
 };
 
 export type Commands = typeof commands;

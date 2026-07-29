@@ -144,4 +144,6 @@ export interface Commands {
     returns: HistoryEvent[];
   };
   list_exams: { args: Record<string, never>; returns: ExamView[] };
+  get_setting: { args: { key: string }; returns: string | null };
+  set_setting: { args: { key: string; value: string }; returns: null };
 }

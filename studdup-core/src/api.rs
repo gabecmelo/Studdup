@@ -15,7 +15,7 @@ use rusqlite::Connection;
 use serde::Serialize;
 
 use crate::domain::{Card, Date, Exam, HistoryEvent, Method, Stage};
-use crate::repository::{cards, events, exams};
+use crate::repository::{cards, events, exams, settings};
 use crate::scheduler::{exam, spaced};
 
 pub use crate::repository::events::HistoryFilter;
@@ -486,6 +486,21 @@ pub struct ExamView {
     pub completed_sessions: i64,
     /// Total sessions materialized across every card of this exam.
     pub total_sessions: i64,
+}
+
+// ---- settings (global technique defaults, TECH-09.5 / AD-010) ----
+
+/// Read a global setting by key (e.g. a per-technique default estimate). `None` when never set.
+/// The UI owns the key namespace and value encoding; the facade just forwards to the repository.
+pub fn get_setting(conn: &Connection, key: &str) -> Result<Option<String>, ApiError> {
+    Ok(settings::get_setting(conn, key)?)
+}
+
+/// Write a global setting. Global defaults apply only to cards created afterwards, never
+/// retroactively (AD-010) — this stores the value; card creation reads it.
+pub fn set_setting(conn: &Connection, key: &str, value: &str) -> Result<(), ApiError> {
+    settings::set_setting(conn, key, value)?;
+    Ok(())
 }
 
 /// List every exam (soonest target date first) as a read projection carrying its days-remaining and

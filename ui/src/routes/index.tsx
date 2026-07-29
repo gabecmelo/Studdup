@@ -5,6 +5,7 @@
 import type { ReactNode } from "react";
 import { EmptyState } from "../components/EmptyState";
 import { Quadro } from "./Quadro";
+import { Configuracoes } from "./Configuracoes";
 
 export type RouteKey =
   | "inicio"
@@ -63,6 +64,7 @@ const PLACEHOLDER: Record<RouteKey, { title: string; description: string }> = {
  *  until their tasks build them. */
 export function RouteView({ route }: { route: RouteKey }): ReactNode {
   if (route === "quadro") return <Quadro />;
+  if (route === "configuracoes") return <Configuracoes />;
   const meta = PLACEHOLDER[route];
   return <EmptyState title={meta.title} description={meta.description} />;
 }

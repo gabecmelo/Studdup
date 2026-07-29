@@ -7,9 +7,17 @@
 // alterações?"). Composes the shared ModalShell.
 
 import { useState } from "react";
-import type { Card, Technique } from "../../lib/bindings";
+import type { Card, PomodoroRhythm, Technique } from "../../lib/bindings";
 import { ModalShell } from "../ModalShell";
+import { RhythmPicker } from "../RhythmPicker";
 import { TECHNIQUE_LABEL, TECHNIQUE_SUMMARY } from "../TechniqueChip";
+import {
+  DEFAULT_RHYTHM,
+  defaultEstForTechnique,
+  estFromRhythm,
+  isEstInRange,
+} from "../../lib/sessionEstimate";
+import { EstField } from "./EstField";
 import {
   TECHNIQUE_CHOICES,
   type TechniqueChoice,
@@ -64,17 +72,38 @@ export function EditarCardModal({ open = true, card, onClose, onSave }: EditarCa
   const [contentLink, setContentLink] = useState(card.content_link);
   const [reviewLink, setReviewLink] = useState(card.review_link);
   const [choice, setChoice] = useState<TechniqueChoice>(toChoice(card.technique));
+  const [est, setEst] = useState<number | null>(card.est_minutes);
+  const [rhythm, setRhythm] = useState<PomodoroRhythm>(card.pomodoro ?? DEFAULT_RHYTHM);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
 
   const titleCheck = validateTitle(title);
   const count = titleCharCount(title);
   const over = count > TITLE_MAX;
+  const hasTechnique = choice !== "none";
+  const estOk = !hasTechnique || (est !== null && isEstInRange(est));
 
   const dirty =
     title !== card.title ||
     contentLink !== card.content_link ||
     reviewLink !== card.review_link ||
-    choice !== toChoice(card.technique);
+    choice !== toChoice(card.technique) ||
+    est !== card.est_minutes;
+
+  /** Pick a technique: seed its default estimate when switching into it (TECH-09.1). */
+  function pickTechnique(next: TechniqueChoice) {
+    setChoice(next);
+    if (next === "none") {
+      setEst(null);
+    } else {
+      setEst(defaultEstForTechnique(next, rhythm));
+    }
+  }
+
+  /** Changing the Pomodoro rhythm re-derives the estimate from its focus block (TECH-09.4). */
+  function pickRhythm(next: PomodoroRhythm) {
+    setRhythm(next);
+    setEst(estFromRhythm(next));
+  }
 
   function requestClose() {
     if (dirty) {
@@ -85,7 +114,7 @@ export function EditarCardModal({ open = true, card, onClose, onSave }: EditarCa
   }
 
   function save() {
-    if (!titleCheck.valid) return;
+    if (!titleCheck.valid || !estOk) return;
     const technique: Technique | null = choice === "none" ? null : choice;
     onSave?.({
       ...card,
@@ -93,6 +122,8 @@ export function EditarCardModal({ open = true, card, onClose, onSave }: EditarCa
       content_link: contentLink.trim(),
       review_link: reviewLink.trim(),
       technique,
+      est_minutes: technique === null ? null : est,
+      pomodoro: technique === "Pomodoro" ? rhythm : null,
     });
   }
 
@@ -122,7 +153,7 @@ export function EditarCardModal({ open = true, card, onClose, onSave }: EditarCa
           <button type="button" onClick={requestClose} style={ghostBtn}>
             Cancelar
           </button>
-          <button type="button" onClick={save} disabled={!titleCheck.valid} style={primaryBtn(titleCheck.valid)}>
+          <button type="button" onClick={save} disabled={!titleCheck.valid || !estOk} style={primaryBtn(titleCheck.valid && estOk)}>
             Salvar
           </button>
         </>
@@ -223,7 +254,7 @@ export function EditarCardModal({ open = true, card, onClose, onSave }: EditarCa
               key={c}
               type="button"
               aria-pressed={choice === c}
-              onClick={() => setChoice(c)}
+              onClick={() => pickTechnique(c)}
               style={{
                 display: "flex",
                 flexDirection: "column",
@@ -247,6 +278,15 @@ export function EditarCardModal({ open = true, card, onClose, onSave }: EditarCa
           ))}
         </div>
       </Field>
+
+      {/* Ritmo Pomodoro + estimativa (TECH-09) */}
+      {choice === "Pomodoro" && (
+        <Field>
+          <span style={LABEL_CSS}>Ritmo</span>
+          <RhythmPicker value={rhythm} onChange={pickRhythm} />
+        </Field>
+      )}
+      {hasTechnique && <EstField value={est} onChange={setEst} />}
 
       {/* Discard-confirmation overlay (unsaved-changes warning) */}
       {confirmDiscard && (

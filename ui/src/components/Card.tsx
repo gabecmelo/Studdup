@@ -5,6 +5,7 @@
 
 import type { ReactNode } from "react";
 import type { Technique } from "../lib/bindings";
+import { sessionDurationLabel } from "../lib/sessionEstimate";
 import { TECHNIQUE_LABEL } from "./TechniqueChip";
 
 export interface CardProps {
@@ -23,16 +24,6 @@ export interface CardProps {
   onClick?: () => void;
 }
 
-function durationLabel(estMinutes?: number | null, focusedSecs?: number | null): string | null {
-  if (focusedSecs != null) {
-    return `${Math.round(focusedSecs / 60)} min estudados`;
-  }
-  if (estMinutes != null) {
-    return `~${estMinutes} min`;
-  }
-  return null;
-}
-
 export function Card({
   title,
   badge,
@@ -44,7 +35,7 @@ export function Card({
   onAction,
   onClick,
 }: CardProps) {
-  const duration = durationLabel(estMinutes, focusedSecs);
+  const duration = sessionDurationLabel(estMinutes, focusedSecs);
   const meta: string[] = [];
   if (technique) meta.push(TECHNIQUE_LABEL[technique]);
   if (duration) meta.push(duration);

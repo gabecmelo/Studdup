@@ -135,3 +135,17 @@ pub fn list_history(
 pub fn list_exams(state: State<'_, AppState>) -> Result<Vec<api::ExamView>, ApiError> {
     with_db!(state, |conn, today| api::list_exams(conn, today))
 }
+
+// ---- settings (global technique defaults, TECH-09.5) ----
+
+#[tauri::command]
+pub fn get_setting(state: State<'_, AppState>, key: String) -> Result<Option<String>, ApiError> {
+    let db = state.db.lock().map_err(|_| poisoned())?;
+    api::get_setting(db.conn(), &key)
+}
+
+#[tauri::command]
+pub fn set_setting(state: State<'_, AppState>, key: String, value: String) -> Result<(), ApiError> {
+    let db = state.db.lock().map_err(|_| poisoned())?;
+    api::set_setting(db.conn(), &key, &value)
+}
