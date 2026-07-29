@@ -50,6 +50,20 @@ jobs:
       - name: Cache cargo build
         uses: Swatinem/rust-cache@v2
 
+      # The `studdup` app crate embeds the frontend from `../ui/dist` at compile
+      # time (tauri-build), so the UI must be built before the workspace clippy/
+      # test steps below. `ui/dist` is gitignored, hence not present on checkout.
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Build UI (frontend embedded by the tauri app crate)
+        run: npm ci && npm run build
+        working-directory: ui
+
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
 

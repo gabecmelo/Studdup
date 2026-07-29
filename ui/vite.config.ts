@@ -5,6 +5,11 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   plugins: [react()],
   clearScreen: false,
+  // Fixed port so Tauri's devUrl can attach for `cargo tauri dev` (hot reload).
+  server: {
+    port: 1420,
+    strictPort: true,
+  },
   build: {
     outDir: "dist",
   },
