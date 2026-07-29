@@ -47,6 +47,7 @@ import { DetalheCardModal } from "./modals/DetalheCard";
 import { LogCardModal } from "./modals/LogCard";
 import { EditarCardModal } from "./modals/EditarCard";
 import { CardAtrasadoModal } from "./modals/CardAtrasado";
+import { AdiarModal } from "./modals/Adiar";
 
 /** Spaced ladder stage → its "Dia N" label (mirrors the badge vocabulary, AD-003). */
 const STAGE_LABEL: Record<Stage, string> = {
@@ -165,6 +166,7 @@ export function Board({ method }: BoardProps) {
   const [logCard, setLogCard] = useState<CardModel | null>(null);
   const [editCard, setEditCard] = useState<CardModel | null>(null);
   const [overdueCard, setOverdueCard] = useState<CardModel | null>(null);
+  const [postponeCard, setPostponeCard] = useState<CardModel | null>(null);
 
   const postpone = usePostponeCard();
   const complete = useCompleteCard();
@@ -259,6 +261,10 @@ export function Board({ method }: BoardProps) {
             setEditCard(detailCard);
             setDetailCard(null);
           }}
+          onPostpone={() => {
+            setPostponeCard(detailCard);
+            setDetailCard(null);
+          }}
           onViewLog={() => {
             setLogCard(detailCard);
             setDetailCard(null);
@@ -299,6 +305,24 @@ export function Board({ method }: BoardProps) {
             setOverdueCard(null);
           }}
           onClose={() => setOverdueCard(null)}
+        />
+      )}
+
+      {postponeCard && (
+        <AdiarModal
+          cardTitle={postponeCard.title}
+          stage={postponeCard.current_stage}
+          technique={postponeCard.technique}
+          dueDate={placeCard(postponeCard, today).dueDate}
+          onPostpone={(days) => {
+            postpone.mutate({ id: postponeCard.id, days });
+            setPostponeCard(null);
+          }}
+          onComplete={() => {
+            complete.mutate(postponeCard.id);
+            setPostponeCard(null);
+          }}
+          onClose={() => setPostponeCard(null)}
         />
       )}
     </DndContext>
