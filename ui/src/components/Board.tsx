@@ -32,6 +32,7 @@ import {
   useEraseCard,
   useHistory,
   usePostponeCard,
+  useRecordSession,
   useRestartCard,
 } from "../lib/queries";
 import {
@@ -50,6 +51,8 @@ import { EditarCardModal } from "./modals/EditarCard";
 import { CardAtrasadoModal } from "./modals/CardAtrasado";
 import { AdiarModal } from "./modals/Adiar";
 import { ExcluirCardModal } from "./modals/ExcluirCard";
+import { PomodoroSession } from "../sessions/Pomodoro";
+import { NoneSession } from "../sessions/None";
 
 /** Spaced ladder stage → its "Dia N" label (mirrors the badge vocabulary, AD-003). */
 const STAGE_LABEL: Record<Stage, string> = {
@@ -170,9 +173,12 @@ export function Board({ method }: BoardProps) {
   const [overdueCard, setOverdueCard] = useState<CardModel | null>(null);
   const [postponeCard, setPostponeCard] = useState<CardModel | null>(null);
   const [deleteCard, setDeleteCard] = useState<CardModel | null>(null);
+  // The card currently in a study session (T32/T33). Dispatched to the Pomodoro or plain screen.
+  const [sessionCard, setSessionCard] = useState<CardModel | null>(null);
 
   const postpone = usePostponeCard();
   const complete = useCompleteCard();
+  const record = useRecordSession();
   const edit = useEditCard();
   const restart = useRestartCard();
   const erase = useEraseCard();
@@ -255,11 +261,13 @@ export function Board({ method }: BoardProps) {
           onClose={() => setDetailCard(null)}
           onStudy={() => {
             // An overdue card first goes through the non-punitive Recomeçar/Apagar choice (T27);
-            // an on-time card would open its session (Batch 5).
+            // an on-time card opens its study session (T32 Pomodoro / T33 plain).
             if (placeCard(detailCard, today).overdueDays > 0) {
               setOverdueCard(detailCard);
-              setDetailCard(null);
+            } else {
+              setSessionCard(detailCard);
             }
+            setDetailCard(null);
           }}
           onEdit={() => {
             setEditCard(detailCard);
@@ -345,6 +353,34 @@ export function Board({ method }: BoardProps) {
           onClose={() => setDeleteCard(null)}
         />
       )}
+
+      {/* Study session (T32/T33): a Pomodoro card runs the guided timer and records its focused
+          seconds; every other card (no technique, or a technique whose guided screen ships later)
+          uses the plain session whose "Concluir" completes the card. */}
+      {sessionCard &&
+        (sessionCard.technique === "Pomodoro" && sessionCard.pomodoro ? (
+          <PomodoroSession
+            cardTitle={sessionCard.title}
+            rhythm={sessionCard.pomodoro}
+            contentLink={sessionCard.content_link || undefined}
+            onComplete={(focusedSecs) => {
+              record.mutate({ id: sessionCard.id, focusedSecs, selfRating: null });
+              setSessionCard(null);
+            }}
+            onExit={() => setSessionCard(null)}
+          />
+        ) : (
+          <NoneSession
+            cardTitle={sessionCard.title}
+            contentLink={sessionCard.content_link || undefined}
+            reviewLink={sessionCard.review_link || undefined}
+            onConcluir={() => {
+              complete.mutate(sessionCard.id);
+              setSessionCard(null);
+            }}
+            onExit={() => setSessionCard(null)}
+          />
+        ))}
     </DndContext>
   );
 }
