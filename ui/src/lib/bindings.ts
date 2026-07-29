@@ -55,6 +55,19 @@ export interface Exam {
   concluded: boolean;
 }
 
+/** A read projection of an exam for the list/detail/rail — exam + days-remaining + session progress. */
+export interface ExamView {
+  id: number;
+  name: string;
+  exam_date: ISODate;
+  created_at: ISODate;
+  concluded: boolean;
+  /** Whole days from today to the exam date (negative once past). */
+  days_remaining: number;
+  completed_sessions: number;
+  total_sessions: number;
+}
+
 /** A materialized study session for an exam card — frozen at card creation. */
 export interface ExamSession {
   id: number;
@@ -130,4 +143,5 @@ export interface Commands {
     args: { method: Method | null; technique: Technique | null };
     returns: HistoryEvent[];
   };
+  list_exams: { args: Record<string, never>; returns: ExamView[] };
 }

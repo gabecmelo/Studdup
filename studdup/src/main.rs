@@ -43,6 +43,7 @@ fn main() {
             commands::delete_exam,
             commands::list_board,
             commands::list_history,
+            commands::list_exams,
         ])
         .run(tauri::generate_context!())
         .expect("error while running studdup");

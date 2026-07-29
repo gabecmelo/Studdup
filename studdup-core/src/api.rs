@@ -469,3 +469,42 @@ pub fn list_history(
 ) -> Result<Vec<HistoryEvent>, ApiError> {
     Ok(events::load_history(conn, &filter)?)
 }
+
+/// A read projection of an exam for the exams list / detail (EXAM-01.6, EXAM-04): the exam plus the
+/// whole days remaining until its target date and the completed/total session counts across all of
+/// its cards. Composed from `load_exams` + `exam_session_progress`. Serializable for the bridge.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ExamView {
+    pub id: i64,
+    pub name: String,
+    pub exam_date: Date,
+    pub created_at: Date,
+    pub concluded: bool,
+    /// Whole days from `today` to the exam date (negative once the date has passed).
+    pub days_remaining: i64,
+    /// Sessions already completed across every card of this exam.
+    pub completed_sessions: i64,
+    /// Total sessions materialized across every card of this exam.
+    pub total_sessions: i64,
+}
+
+/// List every exam (soonest target date first) as a read projection carrying its days-remaining and
+/// completed-vs-total session progress (EXAM-01.6, EXAM-04). Surfaces the repository's `load_exams`
+/// + `exam_session_progress` that had no facade entry point before.
+pub fn list_exams(conn: &Connection, today: Date) -> Result<Vec<ExamView>, ApiError> {
+    let mut views = Vec::new();
+    for e in exams::load_exams(conn)? {
+        let (completed, total) = exams::exam_session_progress(conn, e.id)?;
+        views.push(ExamView {
+            id: e.id,
+            name: e.name,
+            exam_date: e.exam_date,
+            created_at: e.created_at,
+            concluded: e.concluded,
+            days_remaining: today.days_until(e.exam_date),
+            completed_sessions: completed,
+            total_sessions: total,
+        });
+    }
+    Ok(views)
+}

@@ -26,7 +26,16 @@ export const queryKeys = {
   board: (method: Method) => ["board", method] as const,
   history: (method: Method | null, technique: Technique | null) =>
     ["history", method, technique] as const,
+  exams: () => ["exams"] as const,
 };
+
+/** All exams as read projections (progress + days-remaining), for the list/detail/rail (EXAM-04). */
+export function useExams() {
+  return useQuery({
+    queryKey: queryKeys.exams(),
+    queryFn: () => commands.listExams(),
+  });
+}
 
 /** Active cards for a method — the kanban board source (KAN-01). */
 export function useBoard(method: Method) {
@@ -54,6 +63,7 @@ function useInvalidateAll() {
     Promise.all([
       qc.invalidateQueries({ queryKey: ["board"] }),
       qc.invalidateQueries({ queryKey: ["history"] }),
+      qc.invalidateQueries({ queryKey: ["exams"] }),
     ]);
 }
 

@@ -4,7 +4,15 @@
 // hand-kept `bindings.ts`.
 
 import { invoke } from "@tauri-apps/api/core";
-import type { Card, Exam, HistoryEvent, ISODate, Method, Technique } from "./bindings";
+import type {
+  Card,
+  Exam,
+  ExamView,
+  HistoryEvent,
+  ISODate,
+  Method,
+  Technique,
+} from "./bindings";
 
 export const commands = {
   createCard(card: Card): Promise<Card> {
@@ -64,6 +72,10 @@ export const commands = {
     technique: Technique | null,
   ): Promise<HistoryEvent[]> {
     return invoke("list_history", { method, technique });
+  },
+
+  listExams(): Promise<ExamView[]> {
+    return invoke("list_exams");
   },
 };
 

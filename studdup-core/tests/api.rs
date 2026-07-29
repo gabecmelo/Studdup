@@ -475,6 +475,63 @@ fn delete_exam_cascades_to_its_cards_and_sessions() {
     assert!(load_sessions(db.conn(), card.id).unwrap().is_empty());
 }
 
+// ---- list_exams read projection (T30, EXAM-01.6 / EXAM-04) ----
+
+#[test]
+fn list_exams_on_empty_db_returns_no_exams() {
+    let db = db();
+    let today = ymd(2026, 5, 1);
+    assert!(api::list_exams(db.conn(), today).unwrap().is_empty());
+}
+
+#[test]
+fn list_exams_reports_days_remaining_and_session_progress() {
+    let db = db();
+    let today = ymd(2026, 5, 1);
+
+    // An exam 30 days out with one card → 5 materialized sessions ([0,13,20,25,30]).
+    let exam = create_exam(db.conn(), "Cálculo".to_string(), today.add_days(30), today).unwrap();
+    let mut card = new_spaced("Integrais");
+    card.method = Method::ExamPrep;
+    card.exam_id = Some(exam.id);
+    let card = create_card(db.conn(), card, today).unwrap();
+    assert_eq!(load_sessions(db.conn(), card.id).unwrap().len(), 5);
+
+    // Before any completion: 0/5 done, 30 days remaining, name + date carried through.
+    let views = api::list_exams(db.conn(), today).unwrap();
+    assert_eq!(views.len(), 1);
+    let v = &views[0];
+    assert_eq!(v.id, exam.id);
+    assert_eq!(v.name, "Cálculo");
+    assert_eq!(v.exam_date, today.add_days(30));
+    assert_eq!(v.days_remaining, 30);
+    assert_eq!(v.completed_sessions, 0);
+    assert_eq!(v.total_sessions, 5);
+    assert!(!v.concluded);
+
+    // Completing one session bumps the completed count to 1 of 5.
+    api::complete_card(db.conn(), card.id, today).unwrap();
+    let after = api::list_exams(db.conn(), today).unwrap();
+    assert_eq!(after[0].completed_sessions, 1);
+    assert_eq!(after[0].total_sessions, 5);
+}
+
+#[test]
+fn list_exams_orders_by_soonest_target_date() {
+    let db = db();
+    let today = ymd(2026, 5, 1);
+    // Created out of order; the read must return the sooner exam first.
+    create_exam(db.conn(), "Depois".to_string(), today.add_days(40), today).unwrap();
+    create_exam(db.conn(), "Antes".to_string(), today.add_days(5), today).unwrap();
+
+    let views = api::list_exams(db.conn(), today).unwrap();
+    assert_eq!(views.len(), 2);
+    assert_eq!(views[0].name, "Antes");
+    assert_eq!(views[0].days_remaining, 5);
+    assert_eq!(views[1].name, "Depois");
+    assert_eq!(views[1].days_remaining, 40);
+}
+
 // ---- history scope + session recording ----
 
 #[test]

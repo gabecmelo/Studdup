@@ -128,3 +128,10 @@ pub fn list_history(
     let db = state.db.lock().map_err(|_| poisoned())?;
     api::list_history(db.conn(), HistoryFilter { method, technique })
 }
+
+/// All exams as read projections (days remaining + completed/total session progress), soonest first
+/// (EXAM-01.6, EXAM-04). Drives the exams list/detail and the Prova board's rail.
+#[tauri::command]
+pub fn list_exams(state: State<'_, AppState>) -> Result<Vec<api::ExamView>, ApiError> {
+    with_db!(state, |conn, today| api::list_exams(conn, today))
+}
