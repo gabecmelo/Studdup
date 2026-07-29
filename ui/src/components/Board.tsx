@@ -1,18 +1,40 @@
-// Kanban board (KAN-01, AD-004): the four fixed columns — Hoje / Amanhã / Próximos / Concluídos —
-// for both methods. Each card is placed by comparing its due date to today; overdue cards fall
-// into "Hoje" with a badge; archived cards into "Concluídos". Empty columns keep their footprint
-// with a visible placeholder rather than collapsing (KAN-01 §6).
+// Kanban board (KAN-01/02/03, AD-004): the four fixed columns — Hoje / Amanhã / Próximos /
+// Concluídos — for both methods. Each card is placed by comparing its due date to today; overdue
+// cards fall into "Hoje" with a badge; archived cards into "Concluídos". Empty columns keep their
+// footprint with a visible placeholder rather than collapsing (KAN-01 §6).
 //
 // Placement reuses the pure `columns.ts` helpers (T19). Because `list_board` returns only the
 // active `Card[]` (no materialized session dates), the board derives each card's due date from the
-// spaced ladder anchor `start_date + stage offset` (AD-003). Exam-prep grouping and the exams rail
-// are layered on in T24; drag-to-reschedule/complete is added in T23 (cards are static here).
+// spaced ladder anchor `start_date + stage offset` (AD-003).
+//
+// Drag (T23, dnd-kit): dropping Hoje→Amanhã reschedules (+1 day), dropping into Concluídos
+// completes, a same-column drop is a no-op, and a drop outside any column reverts — all decided by
+// the pure `resolveDrag` (lib/dnd.ts). The move shows optimistically and rolls back with a toast
+// if the command fails. Exam-prep grouping and the exams rail are layered on in T24.
 
+import { useState } from "react";
+import {
+  DndContext,
+  type DragEndEvent,
+  PointerSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
 import type { Card as CardModel, ISODate, Method, Stage } from "../lib/bindings";
-import { useBoard } from "../lib/queries";
+import { useBoard, useCompleteCard, usePostponeCard } from "../lib/queries";
+import {
+  applyOptimisticMove,
+  type OptimisticMoves,
+  resolveDrag,
+  rollbackMove,
+} from "../lib/dnd";
 import { Card } from "./Card";
 import { SpacedStageBadge } from "./StageBadge";
 import { EmptyState } from "./EmptyState";
+import { Toast } from "./Toast";
 import {
   COLUMN_LABELS,
   COLUMN_ORDER,
@@ -72,8 +94,12 @@ export function placeCard(card: CardModel, today: ISODate): BoardPlacement {
   return { column, dueDate, overdueDays };
 }
 
-/** Group the active cards into the four columns, preserving load order within each. */
-function groupByColumn(cards: CardModel[], today: ISODate): Record<Column, CardModel[]> {
+/** Group the active cards into the four columns, honoring pending optimistic moves (KAN-02/03). */
+function groupByColumn(
+  cards: CardModel[],
+  today: ISODate,
+  moves: OptimisticMoves,
+): Record<Column, CardModel[]> {
   const groups: Record<Column, CardModel[]> = {
     hoje: [],
     amanha: [],
@@ -81,7 +107,8 @@ function groupByColumn(cards: CardModel[], today: ISODate): Record<Column, CardM
     concluidos: [],
   };
   for (const card of cards) {
-    groups[placeCard(card, today).column].push(card);
+    const column = moves[card.id] ?? placeCard(card, today).column;
+    groups[column].push(card);
   }
   return groups;
 }
@@ -97,34 +124,88 @@ export interface BoardProps {
   method: Method;
 }
 
-/** The four-column kanban board for the active method (METH-02, KAN-01). */
+/** The four-column kanban board for the active method (METH-02, KAN-01/02/03). */
 export function Board({ method }: BoardProps) {
   const today = todayIso();
   const query = useBoard(method);
   const cards = query.data ?? [];
-  const groups = groupByColumn(cards, today);
+
+  // Optimistic overrides (card id → column) held locally while a drag's command is in flight;
+  // cleared on settle, rolled back on error. The Zustand store carries only durable prefs (T21),
+  // so this transient board state stays in the component.
+  const [moves, setMoves] = useState<OptimisticMoves>({});
+  const [toast, setToast] = useState<string | null>(null);
+
+  const postpone = usePostponeCard();
+  const complete = useCompleteCard();
+
+  const sensors = useSensors(
+    // A small activation distance so a click to open a card is not read as a drag.
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+  );
+
+  const groups = groupByColumn(cards, today, moves);
+
+  function onDragEnd(event: DragEndEvent) {
+    const cardId = Number(event.active.id);
+    const from = event.active.data.current?.column as Column | undefined;
+    const to = (event.over?.id as Column | undefined) ?? null;
+    if (from === undefined) return;
+
+    const resolution = resolveDrag(from, to);
+    if (resolution.kind === "noop") return; // same-column or dropped outside → revert, no command
+
+    // Show the move immediately, then reconcile with the command result.
+    setMoves((m) => applyOptimisticMove(m, cardId, resolution.to));
+    const settle = {
+      onError: () => {
+        setMoves((m) => rollbackMove(m, cardId));
+        setToast("Não foi possível mover o card. Nada mudou.");
+      },
+      onSettled: () => setMoves((m) => rollbackMove(m, cardId)),
+    };
+
+    if (resolution.kind === "postpone") {
+      postpone.mutate({ id: cardId, days: resolution.days }, settle);
+    } else {
+      complete.mutate(cardId, settle);
+    }
+  }
 
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-        gap: 12,
-        alignItems: "start",
-        height: "100%",
-        minHeight: 0,
-      }}
-    >
-      {COLUMN_ORDER.map((column) => (
-        <BoardColumn
-          key={column}
-          column={column}
-          method={method}
-          cards={groups[column]}
-          today={today}
-        />
-      ))}
-    </div>
+    <DndContext sensors={sensors} onDragEnd={onDragEnd}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+          gap: 12,
+          alignItems: "start",
+          height: "100%",
+          minHeight: 0,
+        }}
+      >
+        {COLUMN_ORDER.map((column) => (
+          <BoardColumn
+            key={column}
+            column={column}
+            method={method}
+            cards={groups[column]}
+            today={today}
+          />
+        ))}
+      </div>
+
+      {toast && (
+        <div style={{ position: "fixed", left: 24, bottom: 24, zIndex: 50 }}>
+          <Toast
+            message={toast}
+            variant="danger"
+            actionLabel="Fechar"
+            onAction={() => setToast(null)}
+          />
+        </div>
+      )}
+    </DndContext>
   );
 }
 
@@ -136,8 +217,10 @@ interface BoardColumnProps {
 }
 
 function BoardColumn({ column, method, cards, today }: BoardColumnProps) {
+  const { setNodeRef, isOver } = useDroppable({ id: column });
   return (
     <section
+      ref={setNodeRef}
       aria-label={COLUMN_LABELS[column]}
       style={{
         display: "flex",
@@ -147,7 +230,8 @@ function BoardColumn({ column, method, cards, today }: BoardColumnProps) {
         padding: 12,
         borderRadius: "var(--radius-xl)",
         background: "var(--surface-2)",
-        border: "1px solid var(--border)",
+        border: `1px solid ${isOver ? "var(--accent)" : "var(--border)"}`,
+        transition: "var(--transition-fast)",
       }}
     >
       <header style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 4px" }}>
@@ -171,26 +255,53 @@ function BoardColumn({ column, method, cards, today }: BoardColumnProps) {
         {cards.length === 0 ? (
           <EmptyState title={EMPTY_COLUMN_TEXT[column]} />
         ) : (
-          cards.map((card) => {
-            const { overdueDays } = placeCard(card, today);
-            return (
-              <Card
-                key={card.id}
-                title={card.title}
-                badge={
-                  method === "SpacedRepetition" ? (
-                    <SpacedStageBadge stage={card.current_stage} />
-                  ) : undefined
-                }
-                technique={card.technique}
-                estMinutes={card.est_minutes}
-                focusedSecs={card.archived ? null : undefined}
-                overdueDays={overdueDays}
-              />
-            );
-          })
+          cards.map((card) => (
+            <DraggableCard key={card.id} card={card} column={column} method={method} today={today} />
+          ))
         )}
       </div>
     </section>
+  );
+}
+
+interface DraggableCardProps {
+  card: CardModel;
+  column: Column;
+  method: Method;
+  today: ISODate;
+}
+
+function DraggableCard({ card, column, method, today }: DraggableCardProps) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: card.id,
+    data: { column },
+  });
+  const { overdueDays } = placeCard(card, today);
+
+  return (
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      style={{
+        transform: CSS.Translate.toString(transform),
+        opacity: isDragging ? 0.5 : 1,
+        cursor: "grab",
+        touchAction: "none",
+      }}
+    >
+      <Card
+        title={card.title}
+        badge={
+          method === "SpacedRepetition" ? (
+            <SpacedStageBadge stage={card.current_stage} />
+          ) : undefined
+        }
+        technique={card.technique}
+        estMinutes={card.est_minutes}
+        focusedSecs={card.archived ? null : undefined}
+        overdueDays={overdueDays}
+      />
+    </div>
   );
 }
