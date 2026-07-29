@@ -24,7 +24,13 @@ import {
 } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import type { Card as CardModel, ISODate, Method, Stage } from "../lib/bindings";
-import { useBoard, useCompleteCard, usePostponeCard } from "../lib/queries";
+import {
+  useBoard,
+  useCompleteCard,
+  useEditCard,
+  useHistory,
+  usePostponeCard,
+} from "../lib/queries";
 import {
   applyOptimisticMove,
   type OptimisticMoves,
@@ -35,6 +41,9 @@ import { Card } from "./Card";
 import { SpacedStageBadge } from "./StageBadge";
 import { EmptyState } from "./EmptyState";
 import { Toast } from "./Toast";
+import { DetalheCardModal } from "./modals/DetalheCard";
+import { LogCardModal } from "./modals/LogCard";
+import { EditarCardModal } from "./modals/EditarCard";
 import {
   COLUMN_LABELS,
   COLUMN_ORDER,
@@ -136,8 +145,17 @@ export function Board({ method }: BoardProps) {
   const [moves, setMoves] = useState<OptimisticMoves>({});
   const [toast, setToast] = useState<string | null>(null);
 
+  // Modal hub: clicking a card opens its detail; the detail routes to the log and edit modals
+  // (T26). The overdue / postpone / delete flows (T27–T29) mount from the same detail buttons.
+  const [detailCard, setDetailCard] = useState<CardModel | null>(null);
+  const [logCard, setLogCard] = useState<CardModel | null>(null);
+  const [editCard, setEditCard] = useState<CardModel | null>(null);
+
   const postpone = usePostponeCard();
   const complete = useCompleteCard();
+  const edit = useEditCard();
+  // The card's event log for the "Ver log" modal (filtered from the method's history by card id).
+  const history = useHistory(method);
 
   const sensors = useSensors(
     // A small activation distance so a click to open a card is not read as a drag.
@@ -191,6 +209,7 @@ export function Board({ method }: BoardProps) {
             method={method}
             cards={groups[column]}
             today={today}
+            onOpen={setDetailCard}
           />
         ))}
       </div>
@@ -205,6 +224,41 @@ export function Board({ method }: BoardProps) {
           />
         </div>
       )}
+
+      {detailCard && (
+        <DetalheCardModal
+          card={detailCard}
+          today={today}
+          onClose={() => setDetailCard(null)}
+          onEdit={() => {
+            setEditCard(detailCard);
+            setDetailCard(null);
+          }}
+          onViewLog={() => {
+            setLogCard(detailCard);
+            setDetailCard(null);
+          }}
+        />
+      )}
+
+      {logCard && (
+        <LogCardModal
+          cardTitle={logCard.title}
+          events={(history.data ?? []).filter((e) => e.card_id === logCard.id)}
+          onClose={() => setLogCard(null)}
+        />
+      )}
+
+      {editCard && (
+        <EditarCardModal
+          card={editCard}
+          onClose={() => setEditCard(null)}
+          onSave={(updated) => {
+            edit.mutate(updated);
+            setEditCard(null);
+          }}
+        />
+      )}
     </DndContext>
   );
 }
@@ -214,9 +268,10 @@ interface BoardColumnProps {
   method: Method;
   cards: CardModel[];
   today: ISODate;
+  onOpen: (card: CardModel) => void;
 }
 
-function BoardColumn({ column, method, cards, today }: BoardColumnProps) {
+function BoardColumn({ column, method, cards, today, onOpen }: BoardColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: column });
   return (
     <section
@@ -256,7 +311,14 @@ function BoardColumn({ column, method, cards, today }: BoardColumnProps) {
           <EmptyState title={EMPTY_COLUMN_TEXT[column]} />
         ) : (
           cards.map((card) => (
-            <DraggableCard key={card.id} card={card} column={column} method={method} today={today} />
+            <DraggableCard
+              key={card.id}
+              card={card}
+              column={column}
+              method={method}
+              today={today}
+              onOpen={onOpen}
+            />
           ))
         )}
       </div>
@@ -269,9 +331,10 @@ interface DraggableCardProps {
   column: Column;
   method: Method;
   today: ISODate;
+  onOpen: (card: CardModel) => void;
 }
 
-function DraggableCard({ card, column, method, today }: DraggableCardProps) {
+function DraggableCard({ card, column, method, today, onOpen }: DraggableCardProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: card.id,
     data: { column },
@@ -301,6 +364,7 @@ function DraggableCard({ card, column, method, today }: DraggableCardProps) {
         estMinutes={card.est_minutes}
         focusedSecs={card.archived ? null : undefined}
         overdueDays={overdueDays}
+        onClick={() => onOpen(card)}
       />
     </div>
   );
