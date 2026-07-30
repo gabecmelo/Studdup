@@ -9,8 +9,9 @@
 // The detail is wider than the shared ModalShell (min 480px) allows, so it uses its own overlay
 // panel; the narrower LogCard composes ModalShell.
 
+import { useState } from "react";
 import type { AttemptKind, Card, ISODate, Stage } from "../../lib/bindings";
-import { useAttempts } from "../../lib/queries";
+import { useAddLeitnerItem, useAttempts, useLeitnerItems } from "../../lib/queries";
 import { useEscapeToClose } from "../../lib/useEscapeToClose";
 import { STAGE_OFFSET, addDaysIso, spacedDueDate } from "../Board";
 import { daysBetween } from "../columns";
@@ -270,6 +271,9 @@ export function DetalheCardModal({
             <AttemptsPanel cardId={card.id} />
           )}
 
+          {/* Front/back item editor, for Leitner cards (TECH-08.1). */}
+          {card.technique === "Leitner" && <LeitnerItemsPanel cardId={card.id} />}
+
           {card.method === "SpacedRepetition" && (
             <Panel title="Agenda completa">
               <div style={{ display: "flex", flexDirection: "column" }}>
@@ -383,6 +387,131 @@ function AttemptsPanel({ cardId }: { cardId: number }) {
     </Panel>
   );
 }
+
+/**
+ * "Itens Leitner" — the front/back item editor for a Leitner card (TECH-08.1). Lists the card's
+ * existing items (front, back, current box) and adds new pairs via `useAddLeitnerItem`; the Adicionar
+ * button stays disabled until both fields are filled. New items enter box 1 due today (backend).
+ */
+function LeitnerItemsPanel({ cardId }: { cardId: number }) {
+  const items = useLeitnerItems(cardId);
+  const add = useAddLeitnerItem();
+  const [front, setFront] = useState("");
+  const [back, setBack] = useState("");
+
+  const rows = items.data ?? [];
+  const canAdd = front.trim().length > 0 && back.trim().length > 0 && !add.isPending;
+
+  function submit() {
+    if (!canAdd) return;
+    add.mutate(
+      { cardId, front: front.trim(), back: back.trim() },
+      {
+        onSuccess: () => {
+          setFront("");
+          setBack("");
+        },
+      },
+    );
+  }
+
+  return (
+    <Panel title="Itens Leitner (frente / verso)">
+      {items.isLoading ? (
+        <span style={{ font: "500 12px/1.4 var(--font-sans)", color: "var(--text-2)" }}>Carregando…</span>
+      ) : rows.length === 0 ? (
+        <span style={{ font: "500 12px/1.4 var(--font-sans)", color: "var(--text-2)" }}>
+          Nenhum item ainda. Adicione pares de frente e verso pra revisar por caixas.
+        </span>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {rows.map((it) => (
+            <div
+              key={it.id}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "10px 13px",
+                borderRadius: "var(--radius-md)",
+                background: "var(--surface-2)",
+                border: "1px solid var(--border)",
+              }}
+            >
+              <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+                <span style={{ font: "600 13px/1.3 var(--font-sans)", color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {it.front}
+                </span>
+                <span style={{ font: "400 12px/1.3 var(--font-sans)", color: "var(--text-2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {it.back}
+                </span>
+              </div>
+              <span
+                style={{
+                  flex: "none",
+                  padding: "3px 9px",
+                  borderRadius: "var(--radius-pill)",
+                  background: "var(--accent-soft)",
+                  color: "var(--accent-soft-ink)",
+                  font: "600 10.5px/1.4 var(--font-mono, var(--font-sans))",
+                }}
+              >
+                Caixa {it.box_no}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Add form: front + back, both required. */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <input
+          value={front}
+          onChange={(e) => setFront(e.target.value)}
+          placeholder="Frente (pergunta)"
+          aria-label="Frente do item"
+          style={leitnerInput}
+        />
+        <input
+          value={back}
+          onChange={(e) => setBack(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") submit();
+          }}
+          placeholder="Verso (resposta)"
+          aria-label="Verso do item"
+          style={leitnerInput}
+        />
+        <button
+          type="button"
+          onClick={submit}
+          disabled={!canAdd}
+          style={{
+            ...baseBtn,
+            alignSelf: "flex-start",
+            padding: "10px 18px",
+            background: canAdd ? "var(--accent)" : "var(--surface-3)",
+            color: canAdd ? "var(--accent-ink)" : "var(--text-3)",
+            cursor: canAdd ? "pointer" : "not-allowed",
+            boxShadow: canAdd ? "var(--shadow-accent)" : "none",
+          }}
+        >
+          Adicionar item
+        </button>
+      </div>
+    </Panel>
+  );
+}
+
+const leitnerInput: React.CSSProperties = {
+  padding: "10px 13px",
+  borderRadius: "var(--radius-md)",
+  border: "1px solid var(--border)",
+  background: "var(--surface)",
+  color: "var(--text)",
+  font: "400 13px/1.4 var(--font-sans)",
+  outline: "none",
+};
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
