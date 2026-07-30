@@ -9,7 +9,9 @@
 // interactive control carries a hover state (nav rows, buttons, theme pills, search/filter chips).
 
 import { useCallback, useEffect, useState } from "react";
+import type { Technique } from "../lib/bindings";
 import { MethodSwitcher } from "./MethodSwitcher";
+import { TECHNIQUE_LABEL } from "./TechniqueChip";
 import {
   NavGlyph,
   PlusIcon,
@@ -157,10 +159,13 @@ export function AppShell() {
             }}
           >
             <MethodSwitcher value={method} onChange={setMethod} />
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "none" }}>
-              <SearchField />
-              <FilterChip />
-            </div>
+            {/* Search + technique filter act on the board's cards, so they show only there. */}
+            {isBoard && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "none" }}>
+                <SearchField />
+                <FilterMenu />
+              </div>
+            )}
           </div>
         )}
 
@@ -186,52 +191,170 @@ export function AppShell() {
   );
 }
 
-/** Board search field (chrome — wiring deferred). Hovers to a stronger border. */
+/** Board search field — filters the board's cards by title (KAN). Focus/hover strengthen the border. */
 function SearchField() {
-  const { hover, bind } = useHover();
+  const [focus, setFocus] = useState(false);
+  const query = useStore((s) => s.boardSearch);
+  const setQuery = useStore((s) => s.setBoardSearch);
   return (
     <div
-      {...bind}
       style={{
         display: "flex",
         alignItems: "center",
         gap: 8,
         padding: "9px 13px",
         background: "var(--surface)",
-        border: `1px solid ${hover ? "var(--border-strong)" : "var(--border)"}`,
+        border: `1px solid ${focus ? "var(--accent)" : "var(--border)"}`,
         borderRadius: 11,
         width: 172,
         color: "var(--text-3)",
-        cursor: "text",
         transition: "border-color var(--transition-fast)",
       }}
     >
       <SearchIcon size={14} />
-      <span style={{ font: "400 12.5px/1 var(--font-sans)" }}>Buscar card…</span>
+      <input
+        type="text"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        onFocus={() => setFocus(true)}
+        onBlur={() => setFocus(false)}
+        placeholder="Buscar card…"
+        aria-label="Buscar card"
+        style={{
+          flex: 1,
+          minWidth: 0,
+          border: "none",
+          outline: "none",
+          background: "transparent",
+          color: "var(--text)",
+          font: "400 12.5px/1 var(--font-sans)",
+        }}
+      />
+      {query && (
+        <button
+          type="button"
+          onClick={() => setQuery("")}
+          aria-label="Limpar busca"
+          style={{ border: "none", background: "transparent", color: "var(--text-3)", cursor: "pointer", padding: 0, font: "400 13px/1 var(--font-sans)", flex: "none" }}
+        >
+          ✕
+        </button>
+      )}
     </div>
   );
 }
 
-/** Technique filter chip (chrome — wiring deferred). Hovers to a stronger border + darker text. */
-function FilterChip() {
+/** The techniques offered in the board filter (+ the "all" reset). */
+const FILTER_TECHNIQUES: readonly Technique[] = ["Pomodoro", "ActiveRecall", "Feynman", "Leitner"];
+
+/** Technique filter dropdown — narrows the board to one technique (KAN). */
+function FilterMenu() {
+  const { hover, bind } = useHover();
+  const [open, setOpen] = useState(false);
+  const value = useStore((s) => s.boardTechnique);
+  const setValue = useStore((s) => s.setBoardTechnique);
+  const active = value !== null;
+  const label = value ? TECHNIQUE_LABEL[value] : "Todas as técnicas";
+
+  // Close on outside click / Escape.
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest("[data-filter-menu]")) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div data-filter-menu style={{ position: "relative", flex: "none" }}>
+      <button
+        type="button"
+        {...bind}
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        style={{
+          padding: "9px 13px",
+          background: active ? "var(--accent-soft)" : "var(--surface)",
+          border: `1px solid ${active ? "var(--accent)" : hover ? "var(--border-strong)" : "var(--border)"}`,
+          borderRadius: 11,
+          font: "500 12.5px/1 var(--font-sans)",
+          color: active ? "var(--accent-soft-ink)" : hover ? "var(--text)" : "var(--text-2)",
+          cursor: "pointer",
+          whiteSpace: "nowrap",
+          transition: "border-color var(--transition-fast), color var(--transition-fast)",
+        }}
+      >
+        {label} ▾
+      </button>
+      {open && (
+        <div
+          role="listbox"
+          style={{
+            position: "absolute",
+            top: "calc(100% + 6px)",
+            right: 0,
+            zIndex: 40,
+            minWidth: 170,
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+            padding: 5,
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            borderRadius: 12,
+            boxShadow: "var(--shadow-2)",
+          }}
+        >
+          <FilterOption label="Todas as técnicas" selected={value === null} onClick={() => { setValue(null); setOpen(false); }} />
+          {FILTER_TECHNIQUES.map((t) => (
+            <FilterOption
+              key={t}
+              label={TECHNIQUE_LABEL[t]}
+              selected={value === t}
+              onClick={() => { setValue(t); setOpen(false); }}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FilterOption({ label, selected, onClick }: { label: string; selected: boolean; onClick: () => void }) {
   const { hover, bind } = useHover();
   return (
-    <div
+    <button
+      type="button"
+      role="option"
+      aria-selected={selected}
+      onClick={onClick}
       {...bind}
       style={{
-        padding: "9px 13px",
-        background: "var(--surface)",
-        border: `1px solid ${hover ? "var(--border-strong)" : "var(--border)"}`,
-        borderRadius: 11,
-        font: "500 12.5px/1 var(--font-sans)",
-        color: hover ? "var(--text)" : "var(--text-2)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 10,
+        padding: "8px 10px",
+        borderRadius: 8,
+        border: "none",
         cursor: "pointer",
-        whiteSpace: "nowrap",
-        transition: "border-color var(--transition-fast), color var(--transition-fast)",
+        textAlign: "left",
+        background: selected ? "var(--accent-soft)" : hover ? "var(--surface-2)" : "transparent",
+        color: selected ? "var(--accent-soft-ink)" : "var(--text)",
+        font: `${selected ? 600 : 500} 12.5px/1 var(--font-sans)`,
+        transition: "background var(--transition-fast)",
       }}
     >
-      Todas as técnicas ▾
-    </div>
+      {label}
+      {selected && <span aria-hidden>✓</span>}
+    </button>
   );
 }
 

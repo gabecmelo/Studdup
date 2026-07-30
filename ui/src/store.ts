@@ -23,6 +23,14 @@ export interface StuddupState {
   setSidebarCollapsed: (collapsed: boolean) => void;
   toggleSidebar: () => void;
 
+  // Ephemeral board filters (KAN — the header search + technique filter). Not persisted: they reset
+  // each launch and are cleared when leaving the board.
+  boardSearch: string;
+  setBoardSearch: (query: string) => void;
+  boardTechnique: Technique | null;
+  setBoardTechnique: (technique: Technique | null) => void;
+  clearBoardFilters: () => void;
+
   session: LiveSession | null;
   startSession: (session: LiveSession) => void;
   endSession: () => void;
@@ -40,6 +48,12 @@ export const useStore = create<StuddupState>()(
       setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
       toggleSidebar: () =>
         set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+
+      boardSearch: "",
+      setBoardSearch: (query) => set({ boardSearch: query }),
+      boardTechnique: null,
+      setBoardTechnique: (technique) => set({ boardTechnique: technique }),
+      clearBoardFilters: () => set({ boardSearch: "", boardTechnique: null }),
 
       session: null,
       startSession: (session) => set({ session }),

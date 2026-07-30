@@ -12,6 +12,8 @@
 import { useState } from "react";
 import type { Card as CardModel, ExamView, ISODate } from "../lib/bindings";
 import { useBoard, useCreateExam, useDeleteExam, useExams } from "../lib/queries";
+import { filterBoardCards } from "../lib/boardFilter";
+import { useStore } from "../store";
 import { EmptyState } from "../components/EmptyState";
 import { ExamsRail, type ExamRailItem } from "../components/ExamsRail";
 import { ProvaCard } from "../components/ProvaCard";
@@ -102,7 +104,9 @@ export function QuadroProva() {
   const createExam = useCreateExam();
   const deleteExam = useDeleteExam();
 
-  const cards = board.data ?? [];
+  const boardSearch = useStore((s) => s.boardSearch);
+  const boardTechnique = useStore((s) => s.boardTechnique);
+  const cards = filterBoardCards(board.data ?? [], boardSearch, boardTechnique);
   const exams = examsQuery.data ?? [];
   const meta = new Map<number, ExamMeta>(
     exams.map(

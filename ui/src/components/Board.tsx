@@ -41,6 +41,8 @@ import {
   resolveDrag,
   rollbackMove,
 } from "../lib/dnd";
+import { filterBoardCards } from "../lib/boardFilter";
+import { useStore } from "../store";
 import { Card } from "./Card";
 import { SpacedStageBadge } from "./StageBadge";
 import { EmptyState } from "./EmptyState";
@@ -192,7 +194,9 @@ export interface BoardProps {
 export function Board({ method }: BoardProps) {
   const today = todayIso();
   const query = useBoard(method);
-  const cards = query.data ?? [];
+  const boardSearch = useStore((s) => s.boardSearch);
+  const boardTechnique = useStore((s) => s.boardTechnique);
+  const cards = filterBoardCards(query.data ?? [], boardSearch, boardTechnique);
 
   // Optimistic overrides (card id → column) held locally while a drag's command is in flight;
   // cleared on settle, rolled back on error. The Zustand store carries only durable prefs (T21),
