@@ -9,7 +9,8 @@
 // The detail is wider than the shared ModalShell (min 480px) allows, so it uses its own overlay
 // panel; the narrower LogCard composes ModalShell.
 
-import type { Card, ISODate, Stage } from "../../lib/bindings";
+import type { AttemptKind, Card, ISODate, Stage } from "../../lib/bindings";
+import { useAttempts } from "../../lib/queries";
 import { useEscapeToClose } from "../../lib/useEscapeToClose";
 import { STAGE_OFFSET, addDaysIso, spacedDueDate } from "../Board";
 import { daysBetween } from "../columns";
@@ -264,6 +265,11 @@ export function DetalheCardModal({
             )}
           </Panel>
 
+          {/* Previous written attempts, for the retrieval techniques (TECH-04.4). */}
+          {(card.technique === "ActiveRecall" || card.technique === "Feynman") && (
+            <AttemptsPanel cardId={card.id} />
+          )}
+
           {card.method === "SpacedRepetition" && (
             <Panel title="Agenda completa">
               <div style={{ display: "flex", flexDirection: "column" }}>
@@ -311,6 +317,70 @@ function StatCard({
       </span>
       {note && <span style={{ font: "400 11.5px/1.3 var(--font-sans)", color: "var(--text-3)" }}>{note}</span>}
     </div>
+  );
+}
+
+const ATTEMPT_KIND_LABEL: Record<AttemptKind, string> = {
+  active_recall: "Active Recall",
+  feynman: "Feynman",
+};
+
+/**
+ * "Tentativas anteriores" — the card's past written attempts, newest first (the api returns them in
+ * reverse-chronological order). Shown only for Active Recall / Feynman cards; empty until the first
+ * session records one.
+ */
+function AttemptsPanel({ cardId }: { cardId: number }) {
+  const attempts = useAttempts(cardId);
+  const rows = attempts.data ?? [];
+  return (
+    <Panel title="Tentativas anteriores">
+      {attempts.isLoading ? (
+        <span style={{ font: "500 12px/1.4 var(--font-sans)", color: "var(--text-2)" }}>Carregando…</span>
+      ) : rows.length === 0 ? (
+        <span style={{ font: "500 12px/1.4 var(--font-sans)", color: "var(--text-2)" }}>
+          Nenhuma tentativa ainda. Suas respostas escritas aparecem aqui depois da primeira sessão.
+        </span>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {rows.map((a) => (
+            <div
+              key={a.id}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+                padding: "13px 15px",
+                borderRadius: "var(--radius-md)",
+                background: "var(--surface-2)",
+                border: "1px solid var(--border)",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                <span
+                  style={{
+                    padding: "2px 9px",
+                    borderRadius: "var(--radius-pill)",
+                    background: "var(--accent-soft)",
+                    color: "var(--accent-soft-ink)",
+                    font: "600 10.5px/1.4 var(--font-sans)",
+                  }}
+                >
+                  {ATTEMPT_KIND_LABEL[a.kind]}
+                </span>
+                <span style={{ flex: 1 }} />
+                <span style={{ font: "400 11px/1 var(--font-mono, var(--font-sans))", color: "var(--text-3)" }}>
+                  {a.created_at}
+                </span>
+              </div>
+              <span style={{ font: "400 13px/1.55 var(--font-sans)", color: "var(--text)", whiteSpace: "pre-wrap" }}>
+                {a.text}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </Panel>
   );
 }
 
