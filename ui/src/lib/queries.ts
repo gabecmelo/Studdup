@@ -15,6 +15,7 @@ import type {
   Card,
   Exam,
   ISODate,
+  LeitnerItem,
   Method,
   Technique,
 } from "./bindings";
@@ -37,6 +38,8 @@ export const queryKeys = {
   exams: () => ["exams"] as const,
   sessionCursors: () => ["sessionCursors"] as const,
   attempts: (cardId: number) => ["attempts", cardId] as const,
+  leitnerItems: (cardId: number) => ["leitnerItems", cardId] as const,
+  dueLeitnerItems: (cardId: number) => ["dueLeitnerItems", cardId] as const,
 };
 
 /** All exams as read projections (progress + days-remaining), for the list/detail/rail (EXAM-04). */
@@ -196,5 +199,53 @@ export function useRecordAttempt() {
       commands.recordAttempt(vars.cardId, vars.kind, vars.text),
     onSuccess: (_data, vars) =>
       qc.invalidateQueries({ queryKey: queryKeys.attempts(vars.cardId) }),
+  });
+}
+
+// ---- Leitner items (P3, TECH-08) ----
+
+/** A Leitner card's items, oldest first — the item editor list. Fetched once a card is selected. */
+export function useLeitnerItems(cardId: number | null) {
+  return useQuery({
+    queryKey: queryKeys.leitnerItems(cardId ?? 0),
+    queryFn: () => commands.listLeitnerItems(cardId as number),
+    enabled: cardId != null,
+  });
+}
+
+/** A Leitner card's due items — the session queue (TECH-08.4). Fetched once a session opens. */
+export function useDueLeitnerItems(cardId: number | null) {
+  return useQuery({
+    queryKey: queryKeys.dueLeitnerItems(cardId ?? 0),
+    queryFn: () => commands.listDueLeitnerItems(cardId as number),
+    enabled: cardId != null,
+  });
+}
+
+/** Add a Leitner item; invalidates that card's item + due lists so both refresh. */
+export function useAddLeitnerItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { cardId: number; front: string; back: string }): Promise<LeitnerItem> =>
+      commands.addLeitnerItem(vars.cardId, vars.front, vars.back),
+    onSuccess: (_data, vars) =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: queryKeys.leitnerItems(vars.cardId) }),
+        qc.invalidateQueries({ queryKey: queryKeys.dueLeitnerItems(vars.cardId) }),
+      ]),
+  });
+}
+
+/** Review a Leitner item; invalidates that card's item + due lists so the queue reflects the move. */
+export function useReviewLeitnerItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { cardId: number; itemId: number; correct: boolean }): Promise<LeitnerItem> =>
+      commands.reviewLeitnerItem(vars.itemId, vars.correct),
+    onSuccess: (_data, vars) =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: queryKeys.leitnerItems(vars.cardId) }),
+        qc.invalidateQueries({ queryKey: queryKeys.dueLeitnerItems(vars.cardId) }),
+      ]),
   });
 }

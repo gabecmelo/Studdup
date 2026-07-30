@@ -14,8 +14,8 @@ use std::fmt;
 use rusqlite::Connection;
 use serde::Serialize;
 
-use crate::domain::{Attempt, AttemptKind, Card, Date, Exam, HistoryEvent, Method, Stage};
-use crate::repository::{attempts, cards, events, exams, settings};
+use crate::domain::{Attempt, AttemptKind, Card, Date, Exam, HistoryEvent, LeitnerItem, Method, Stage};
+use crate::repository::{attempts, cards, events, exams, leitner, settings};
 use crate::scheduler::{exam, spaced};
 
 pub use crate::repository::events::HistoryFilter;
@@ -51,6 +51,10 @@ pub enum ApiError {
     CardNotFound(i64),
     /// A written attempt (Active Recall / Feynman) had empty or whitespace-only text.
     EmptyAttemptText,
+    /// A Leitner item was saved with an empty/whitespace-only front or back.
+    EmptyLeitnerItem,
+    /// No Leitner item exists with the referenced id.
+    LeitnerItemNotFound(i64),
     /// An underlying SQLite error (stringified — `rusqlite::Error` is not `Serialize`).
     Database(String),
 }
@@ -74,6 +78,8 @@ impl fmt::Display for ApiError {
             ApiError::ExamNotFound(id) => write!(f, "prova {id} não encontrada"),
             ApiError::CardNotFound(id) => write!(f, "card {id} não encontrado"),
             ApiError::EmptyAttemptText => write!(f, "a tentativa não pode ficar vazia"),
+            ApiError::EmptyLeitnerItem => write!(f, "a frente e o verso não podem ficar vazios"),
+            ApiError::LeitnerItemNotFound(id) => write!(f, "item leitner {id} não encontrado"),
             ApiError::Database(msg) => write!(f, "erro de banco de dados: {msg}"),
         }
     }
@@ -591,6 +597,61 @@ pub fn record_attempt(
 /// A card's written attempts, newest first (TECH-04.4) — the "previous attempts" list.
 pub fn list_attempts(conn: &Connection, card_id: i64) -> Result<Vec<Attempt>, ApiError> {
     Ok(attempts::load_attempts(conn, card_id)?)
+}
+
+// ---- Leitner items (P3, TECH-08) ----
+
+/// Add a front/back item to a Leitner card at box 1 due today (TECH-08.1). Rejects an empty/
+/// whitespace-only front or back, and returns `CardNotFound` when the card is gone. Returns the
+/// persisted item (with its new id, box 1 and today's due date).
+pub fn add_leitner_item(
+    conn: &Connection,
+    card_id: i64,
+    front: String,
+    back: String,
+    today: Date,
+) -> Result<LeitnerItem, ApiError> {
+    if front.trim().is_empty() || back.trim().is_empty() {
+        return Err(ApiError::EmptyLeitnerItem);
+    }
+    // Validate the card exists so a missing card is a typed error, not a raw FK failure.
+    cards::load_card(conn, card_id)?.ok_or(ApiError::CardNotFound(card_id))?;
+    let id = leitner::add_leitner_item(conn, card_id, &front, &back, today)?;
+    Ok(LeitnerItem {
+        id,
+        card_id,
+        front,
+        back,
+        box_no: 1,
+        due_date: today,
+    })
+}
+
+/// All of a Leitner card's items, oldest first — the item editor list (TECH-08.1).
+pub fn list_leitner_items(conn: &Connection, card_id: i64) -> Result<Vec<LeitnerItem>, ApiError> {
+    Ok(leitner::load_items(conn, card_id)?)
+}
+
+/// A Leitner card's items that are due in a session started on `today` (TECH-08.4).
+pub fn list_due_leitner_items(
+    conn: &Connection,
+    card_id: i64,
+    today: Date,
+) -> Result<Vec<LeitnerItem>, ApiError> {
+    Ok(leitner::load_due(conn, card_id, today)?)
+}
+
+/// Review a Leitner item (TECH-08.2/3): correct promotes one box (capped at 5), wrong resets it to
+/// box 1; the new due date follows the box interval (AD-012). Returns the updated item, or
+/// `LeitnerItemNotFound` when no item has that id.
+pub fn review_leitner_item(
+    conn: &Connection,
+    item_id: i64,
+    correct: bool,
+    today: Date,
+) -> Result<LeitnerItem, ApiError> {
+    leitner::review_item(conn, item_id, correct, today)?
+        .ok_or(ApiError::LeitnerItemNotFound(item_id))
 }
 
 /// List every exam (soonest target date first) as a read projection carrying its days-remaining and

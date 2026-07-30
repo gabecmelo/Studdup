@@ -8,7 +8,9 @@
 use tauri::State;
 
 use studdup_core::api::{self, ApiError, HistoryFilter};
-use studdup_core::domain::{Attempt, AttemptKind, Card, Date, Exam, HistoryEvent, Method, Technique};
+use studdup_core::domain::{
+    Attempt, AttemptKind, Card, Date, Exam, HistoryEvent, LeitnerItem, Method, Technique,
+};
 
 use crate::state::AppState;
 
@@ -177,4 +179,53 @@ pub fn record_attempt(
 pub fn list_attempts(state: State<'_, AppState>, card_id: i64) -> Result<Vec<Attempt>, ApiError> {
     let db = state.db.lock().map_err(|_| poisoned())?;
     api::list_attempts(db.conn(), card_id)
+}
+
+// ---- Leitner items (P3, TECH-08) ----
+
+/// Add a front/back item to a Leitner card at box 1 due today (TECH-08.1).
+#[tauri::command]
+pub fn add_leitner_item(
+    state: State<'_, AppState>,
+    card_id: i64,
+    front: String,
+    back: String,
+) -> Result<LeitnerItem, ApiError> {
+    with_db!(state, |conn, today| api::add_leitner_item(
+        conn, card_id, front, back, today
+    ))
+}
+
+/// All of a Leitner card's items, oldest first — the item editor list (TECH-08.1).
+#[tauri::command]
+pub fn list_leitner_items(
+    state: State<'_, AppState>,
+    card_id: i64,
+) -> Result<Vec<LeitnerItem>, ApiError> {
+    let db = state.db.lock().map_err(|_| poisoned())?;
+    api::list_leitner_items(db.conn(), card_id)
+}
+
+/// A Leitner card's items due in a session started today (TECH-08.4).
+#[tauri::command]
+pub fn list_due_leitner_items(
+    state: State<'_, AppState>,
+    card_id: i64,
+) -> Result<Vec<LeitnerItem>, ApiError> {
+    with_db!(state, |conn, today| api::list_due_leitner_items(
+        conn, card_id, today
+    ))
+}
+
+/// Review a Leitner item (TECH-08.2/3): correct promotes one box (capped at 5), wrong resets to
+/// box 1; the due date follows the box interval. Returns the updated item.
+#[tauri::command]
+pub fn review_leitner_item(
+    state: State<'_, AppState>,
+    item_id: i64,
+    correct: bool,
+) -> Result<LeitnerItem, ApiError> {
+    with_db!(state, |conn, today| api::review_leitner_item(
+        conn, item_id, correct, today
+    ))
 }

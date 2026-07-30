@@ -140,6 +140,8 @@ export type ApiError =
   | { kind: "ExamNotFound"; detail: number }
   | { kind: "CardNotFound"; detail: number }
   | { kind: "EmptyAttemptText" }
+  | { kind: "EmptyLeitnerItem" }
+  | { kind: "LeitnerItemNotFound"; detail: number }
   | { kind: "Database"; detail: string };
 
 /**
@@ -175,4 +177,14 @@ export interface Commands {
     returns: Attempt;
   };
   list_attempts: { args: { cardId: number }; returns: Attempt[] };
+  add_leitner_item: {
+    args: { cardId: number; front: string; back: string };
+    returns: LeitnerItem;
+  };
+  list_leitner_items: { args: { cardId: number }; returns: LeitnerItem[] };
+  list_due_leitner_items: { args: { cardId: number }; returns: LeitnerItem[] };
+  review_leitner_item: {
+    args: { itemId: number; correct: boolean };
+    returns: LeitnerItem;
+  };
 }

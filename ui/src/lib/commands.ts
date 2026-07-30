@@ -12,6 +12,7 @@ import type {
   ExamView,
   HistoryEvent,
   ISODate,
+  LeitnerItem,
   Method,
   SessionCursor,
   Technique,
@@ -103,6 +104,26 @@ export const commands = {
 
   listAttempts(cardId: number): Promise<Attempt[]> {
     return invoke("list_attempts", { cardId });
+  },
+
+  addLeitnerItem(
+    cardId: number,
+    front: string,
+    back: string,
+  ): Promise<LeitnerItem> {
+    return invoke("add_leitner_item", { cardId, front, back });
+  },
+
+  listLeitnerItems(cardId: number): Promise<LeitnerItem[]> {
+    return invoke("list_leitner_items", { cardId });
+  },
+
+  listDueLeitnerItems(cardId: number): Promise<LeitnerItem[]> {
+    return invoke("list_due_leitner_items", { cardId });
+  },
+
+  reviewLeitnerItem(itemId: number, correct: boolean): Promise<LeitnerItem> {
+    return invoke("review_leitner_item", { itemId, correct });
   },
 };
 

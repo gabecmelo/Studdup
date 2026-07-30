@@ -810,3 +810,104 @@ fn record_attempt_on_a_missing_card_is_card_not_found() {
     .unwrap_err();
     assert_eq!(err, ApiError::CardNotFound(999));
 }
+
+// ---- Leitner items (T55, TECH-08) ----
+
+/// A Leitner-technique card created through the facade (owns the FK the items need).
+fn leitner_card(db: &Db, title: &str, today: Date) -> Card {
+    let mut card = new_spaced(title);
+    card.technique = Some(Technique::Leitner);
+    create_card(db.conn(), card, today).unwrap()
+}
+
+#[test]
+fn add_leitner_item_persists_at_box_one_due_today_and_lists() {
+    let db = db();
+    let today = ymd(2026, 5, 1);
+    let card = leitner_card(&db, "Capitais", today);
+
+    let item =
+        api::add_leitner_item(db.conn(), card.id, "França".to_string(), "Paris".to_string(), today)
+            .unwrap();
+    assert!(item.id > 0);
+    assert_eq!(item.box_no, 1);
+    assert_eq!(item.due_date, today);
+    assert_eq!(item.front, "França");
+
+    let items = api::list_leitner_items(db.conn(), card.id).unwrap();
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0].back, "Paris");
+}
+
+#[test]
+fn add_leitner_item_rejects_empty_front_or_back() {
+    let db = db();
+    let today = ymd(2026, 5, 1);
+    let card = leitner_card(&db, "Vazios", today);
+
+    let empty_front =
+        api::add_leitner_item(db.conn(), card.id, "  ".to_string(), "verso".to_string(), today)
+            .unwrap_err();
+    assert_eq!(empty_front, ApiError::EmptyLeitnerItem);
+    let empty_back =
+        api::add_leitner_item(db.conn(), card.id, "frente".to_string(), "".to_string(), today)
+            .unwrap_err();
+    assert_eq!(empty_back, ApiError::EmptyLeitnerItem);
+    // Nothing was persisted.
+    assert_eq!(api::list_leitner_items(db.conn(), card.id).unwrap().len(), 0);
+}
+
+#[test]
+fn add_leitner_item_on_a_missing_card_is_card_not_found() {
+    let db = db();
+    let err = api::add_leitner_item(
+        db.conn(),
+        999,
+        "frente".to_string(),
+        "verso".to_string(),
+        ymd(2026, 5, 1),
+    )
+    .unwrap_err();
+    assert_eq!(err, ApiError::CardNotFound(999));
+}
+
+#[test]
+fn list_due_leitner_items_filters_by_due_date() {
+    let db = db();
+    let today = ymd(2026, 5, 1);
+    let card = leitner_card(&db, "Devidos", today);
+    api::add_leitner_item(db.conn(), card.id, "hoje".to_string(), "a".to_string(), today).unwrap();
+    let future =
+        api::add_leitner_item(db.conn(), card.id, "depois".to_string(), "b".to_string(), today)
+            .unwrap();
+    // Reviewing the second correct moves it to today + 2, out of today's session.
+    api::review_leitner_item(db.conn(), future.id, true, today).unwrap();
+
+    let due = api::list_due_leitner_items(db.conn(), card.id, today).unwrap();
+    assert_eq!(due.len(), 1);
+    assert_eq!(due[0].front, "hoje");
+}
+
+#[test]
+fn review_leitner_item_promotes_and_resets() {
+    let db = db();
+    let today = ymd(2026, 5, 1);
+    let card = leitner_card(&db, "Revisão", today);
+    let item =
+        api::add_leitner_item(db.conn(), card.id, "q".to_string(), "a".to_string(), today).unwrap();
+
+    let promoted = api::review_leitner_item(db.conn(), item.id, true, today).unwrap();
+    assert_eq!(promoted.box_no, 2);
+    assert_eq!(promoted.due_date, today.add_days(2));
+
+    let reset = api::review_leitner_item(db.conn(), item.id, false, today).unwrap();
+    assert_eq!(reset.box_no, 1);
+    assert_eq!(reset.due_date, today.add_days(1));
+}
+
+#[test]
+fn review_missing_leitner_item_is_not_found() {
+    let db = db();
+    let err = api::review_leitner_item(db.conn(), 999, true, ymd(2026, 5, 1)).unwrap_err();
+    assert_eq!(err, ApiError::LeitnerItemNotFound(999));
+}

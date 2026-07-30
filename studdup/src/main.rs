@@ -49,6 +49,10 @@ fn main() {
             commands::set_setting,
             commands::record_attempt,
             commands::list_attempts,
+            commands::add_leitner_item,
+            commands::list_leitner_items,
+            commands::list_due_leitner_items,
+            commands::review_leitner_item,
         ])
         .run(tauri::generate_context!())
         .expect("error while running studdup");
