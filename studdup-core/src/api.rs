@@ -14,8 +14,8 @@ use std::fmt;
 use rusqlite::Connection;
 use serde::Serialize;
 
-use crate::domain::{Card, Date, Exam, HistoryEvent, Method, Stage};
-use crate::repository::{cards, events, exams, settings};
+use crate::domain::{Attempt, AttemptKind, Card, Date, Exam, HistoryEvent, Method, Stage};
+use crate::repository::{attempts, cards, events, exams, settings};
 use crate::scheduler::{exam, spaced};
 
 pub use crate::repository::events::HistoryFilter;
@@ -49,6 +49,8 @@ pub enum ApiError {
     ExamNotFound(i64),
     /// No card exists with the referenced id.
     CardNotFound(i64),
+    /// A written attempt (Active Recall / Feynman) had empty or whitespace-only text.
+    EmptyAttemptText,
     /// An underlying SQLite error (stringified — `rusqlite::Error` is not `Serialize`).
     Database(String),
 }
@@ -71,6 +73,7 @@ impl fmt::Display for ApiError {
             }
             ApiError::ExamNotFound(id) => write!(f, "prova {id} não encontrada"),
             ApiError::CardNotFound(id) => write!(f, "card {id} não encontrado"),
+            ApiError::EmptyAttemptText => write!(f, "a tentativa não pode ficar vazia"),
             ApiError::Database(msg) => write!(f, "erro de banco de dados: {msg}"),
         }
     }
@@ -557,6 +560,37 @@ pub fn get_setting(conn: &Connection, key: &str) -> Result<Option<String>, ApiEr
 pub fn set_setting(conn: &Connection, key: &str, value: &str) -> Result<(), ApiError> {
     settings::set_setting(conn, key, value)?;
     Ok(())
+}
+
+// ---- written attempts (Active Recall / Feynman, AD-011) ----
+
+/// Record a written attempt for a card (TECH-04.4). Rejects empty/whitespace-only text and returns
+/// `CardNotFound` when the card is gone. Returns the persisted attempt (with its new id + date).
+pub fn record_attempt(
+    conn: &Connection,
+    card_id: i64,
+    kind: AttemptKind,
+    text: String,
+    today: Date,
+) -> Result<Attempt, ApiError> {
+    if text.trim().is_empty() {
+        return Err(ApiError::EmptyAttemptText);
+    }
+    // Validate the card exists so a missing card is a typed error, not a raw FK failure.
+    cards::load_card(conn, card_id)?.ok_or(ApiError::CardNotFound(card_id))?;
+    let id = attempts::record_attempt(conn, card_id, kind, &text, today)?;
+    Ok(Attempt {
+        id,
+        card_id,
+        kind,
+        text,
+        created_at: today,
+    })
+}
+
+/// A card's written attempts, newest first (TECH-04.4) — the "previous attempts" list.
+pub fn list_attempts(conn: &Connection, card_id: i64) -> Result<Vec<Attempt>, ApiError> {
+    Ok(attempts::load_attempts(conn, card_id)?)
 }
 
 /// List every exam (soonest target date first) as a read projection carrying its days-remaining and

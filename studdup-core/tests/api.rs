@@ -4,7 +4,7 @@
 use studdup_core::api::{
     self, create_card, create_exam, delete_card, delete_exam, edit_card, ApiError, HistoryFilter,
 };
-use studdup_core::domain::{Card, Date, Method, PomodoroRhythm, Stage, Technique};
+use studdup_core::domain::{AttemptKind, Card, Date, Method, PomodoroRhythm, Stage, Technique};
 use studdup_core::repository::cards::load_card;
 use studdup_core::repository::exams::{load_exams, load_sessions};
 use studdup_core::repository::Db;
@@ -738,4 +738,75 @@ fn list_board_read_path_sweeps_lapsed_exam_cards() {
     );
     let card = load_card(db.conn(), card_id).unwrap().expect("card exists");
     assert!(card.archived, "board read archived the lapsed card");
+}
+
+// ---- written attempts (T44, TECH-04.4 / AD-011) ----
+
+#[test]
+fn record_attempt_persists_and_lists_newest_first() {
+    let db = db();
+    let today = ymd(2026, 5, 1);
+    let card = create_card(db.conn(), new_spaced("Mitose"), today).unwrap();
+
+    let first = api::record_attempt(
+        db.conn(),
+        card.id,
+        AttemptKind::ActiveRecall,
+        "o que eu lembro".to_string(),
+        today,
+    )
+    .unwrap();
+    assert!(first.id > 0);
+    assert_eq!(first.kind, AttemptKind::ActiveRecall);
+    assert_eq!(first.created_at, today);
+
+    let later = today.add_days(1);
+    api::record_attempt(
+        db.conn(),
+        card.id,
+        AttemptKind::Feynman,
+        "explicação".to_string(),
+        later,
+    )
+    .unwrap();
+
+    let attempts = api::list_attempts(db.conn(), card.id).unwrap();
+    assert_eq!(attempts.len(), 2);
+    // Newest first (TECH-04.4).
+    assert_eq!(attempts[0].text, "explicação");
+    assert_eq!(attempts[0].kind, AttemptKind::Feynman);
+    assert_eq!(attempts[1].text, "o que eu lembro");
+}
+
+#[test]
+fn record_attempt_rejects_empty_text() {
+    let db = db();
+    let today = ymd(2026, 5, 1);
+    let card = create_card(db.conn(), new_spaced("Meiose"), today).unwrap();
+
+    let err = api::record_attempt(
+        db.conn(),
+        card.id,
+        AttemptKind::Feynman,
+        "   ".to_string(),
+        today,
+    )
+    .unwrap_err();
+    assert_eq!(err, ApiError::EmptyAttemptText);
+    // Nothing was persisted.
+    assert_eq!(api::list_attempts(db.conn(), card.id).unwrap().len(), 0);
+}
+
+#[test]
+fn record_attempt_on_a_missing_card_is_card_not_found() {
+    let db = db();
+    let err = api::record_attempt(
+        db.conn(),
+        999,
+        AttemptKind::ActiveRecall,
+        "texto".to_string(),
+        ymd(2026, 5, 1),
+    )
+    .unwrap_err();
+    assert_eq!(err, ApiError::CardNotFound(999));
 }
