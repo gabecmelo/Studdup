@@ -10,12 +10,13 @@
 // route).
 
 import { useState } from "react";
-import type { Card as CardModel, ExamView } from "../lib/bindings";
+import type { Card as CardModel, ExamView, ISODate } from "../lib/bindings";
 import { useBoard, useCreateExam, useDeleteExam, useExams } from "../lib/queries";
-import { Card } from "../components/Card";
 import { EmptyState } from "../components/EmptyState";
 import { ExamsRail, type ExamRailItem } from "../components/ExamsRail";
-import { placeCard, todayIso } from "../components/Board";
+import { ProvaCard } from "../components/ProvaCard";
+import { examColor } from "../components/examColor";
+import { addDaysIso, placeCard, todayIso } from "../components/Board";
 import { COLUMN_LABELS, COLUMN_ORDER, type Column } from "../components/columns";
 import { NovaProvaModal } from "../components/modals/NovaProva";
 import { ExcluirProvaModal } from "../components/modals/ExcluirProva";
@@ -27,14 +28,21 @@ function examKey(card: CardModel): number {
   return card.exam_id ?? -1;
 }
 
+/** Per-exam heading metadata used by the board (name + whether the exam is in its reta final). */
+interface ExamMeta {
+  name: string;
+  urgent: boolean;
+}
+
 interface ExamGroup {
   key: number;
   name: string;
+  urgent: boolean;
   cards: CardModel[];
 }
 
 /** Group a column's cards by exam, labeling each heading from the real exam names. */
-function groupByExam(cards: CardModel[], nameById: Map<number, string>): ExamGroup[] {
+function groupByExam(cards: CardModel[], meta: Map<number, ExamMeta>): ExamGroup[] {
   const order: number[] = [];
   const byKey = new Map<number, CardModel[]>();
   for (const card of cards) {
@@ -47,9 +55,30 @@ function groupByExam(cards: CardModel[], nameById: Map<number, string>): ExamGro
   }
   return order.map((key) => ({
     key,
-    name: nameById.get(key) ?? (key < 0 ? "Sem prova" : `Prova #${key}`),
+    name: meta.get(key)?.name ?? (key < 0 ? "Sem prova" : `Prova #${key}`),
+    urgent: meta.get(key)?.urgent ?? false,
     cards: byKey.get(key)!,
   }));
+}
+
+/** The small DM-Mono date shown at the right of each Prova column header (handoff QuadroProva). */
+const PROVA_COLUMN_DATE: Record<Column, string> = {
+  hoje: "hoje",
+  amanha: "amanhã",
+  proximos: "próx. dias",
+  concluidos: "feitas",
+};
+
+/** A short "ontem" / "27 jul" completion label for a concluded card. */
+function completedLabel(iso: ISODate | null, today: ISODate): string | undefined {
+  if (!iso) return undefined;
+  if (iso === today) return "hoje";
+  if (iso === addDaysIso(today, -1)) return "ontem";
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "short" })
+    .format(new Date(y, m - 1, d))
+    .replace(" de ", " ")
+    .replace(".", "");
 }
 
 /** Rail items straight from the exam read projections (name / date / progress / concluded). */
@@ -75,7 +104,12 @@ export function QuadroProva() {
 
   const cards = board.data ?? [];
   const exams = examsQuery.data ?? [];
-  const nameById = new Map(exams.map((e) => [e.id, e.name] as const));
+  const meta = new Map<number, ExamMeta>(
+    exams.map(
+      (e) =>
+        [e.id, { name: e.name, urgent: !e.concluded && e.days_remaining >= 0 && e.days_remaining <= 3 }] as const,
+    ),
+  );
 
   const [view, setView] = useState<View>({ kind: "board" });
   const [showNova, setShowNova] = useState(false);
@@ -170,41 +204,29 @@ export function QuadroProva() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14, height: "100%", minHeight: 0 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
-        <button
-          type="button"
-          onClick={() => setView({ kind: "lista" })}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 7,
-            padding: "9px 15px",
-            borderRadius: "var(--radius-md)",
-            border: "1px solid var(--border)",
-            background: "var(--surface)",
-            color: "var(--text)",
-            font: "600 12.5px/1 var(--font-sans)",
-            cursor: "pointer",
-          }}
-        >
-          Gerenciar provas
-        </button>
+        <GerenciarButton onClick={() => setView({ kind: "lista" })} />
       </div>
 
       <div style={{ display: "flex", gap: 12, flex: 1, minHeight: 0, alignItems: "stretch" }}>
-        <ExamsRail exams={railItems(exams)} today={today} />
+        <ExamsRail
+          exams={railItems(exams)}
+          today={today}
+          onOpenExam={(examId) => setView({ kind: "detalhe", examId })}
+        />
 
         <div
           style={{
             flex: 1,
             minWidth: 0,
+            minHeight: 0,
             display: "grid",
             gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
             gap: 12,
-            alignItems: "start",
+            alignItems: "stretch",
           }}
         >
           {COLUMN_ORDER.map((column) => (
-            <ProvaColumn key={column} column={column} groups={groupByExam(columns[column], nameById)} today={today} />
+            <ProvaColumn key={column} column={column} groups={groupByExam(columns[column], meta)} today={today} />
           ))}
         </div>
       </div>
@@ -215,14 +237,45 @@ export function QuadroProva() {
   );
 }
 
+/** "Gerenciar provas" — a secondary action that opens the exam list; hovers to a stronger border. */
+function GerenciarButton({ onClick }: { onClick: () => void }) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 7,
+        padding: "9px 15px",
+        borderRadius: "var(--radius-md)",
+        border: `1px solid ${hover ? "var(--border-strong)" : "var(--border)"}`,
+        background: "var(--surface)",
+        color: "var(--text)",
+        font: "600 12.5px/1 var(--font-sans)",
+        cursor: "pointer",
+        transition: "border-color var(--transition-fast)",
+      }}
+    >
+      Gerenciar provas
+    </button>
+  );
+}
+
 interface ProvaColumnProps {
   column: Column;
   groups: ExamGroup[];
-  today: string;
+  today: ISODate;
 }
 
+/** A Prova board column — the same chrome as the spaced board (radius 18, sticky header, internal
+ *  scroll), but its cards are grouped under a coloured exam heading. */
 function ProvaColumn({ column, groups, today }: ProvaColumnProps) {
   const count = groups.reduce((n, g) => n + g.cards.length, 0);
+  const showUrgent = column === "hoje" || column === "amanha";
 
   return (
     <section
@@ -230,70 +283,118 @@ function ProvaColumn({ column, groups, today }: ProvaColumnProps) {
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: 12,
         minWidth: 0,
-        padding: 12,
-        borderRadius: "var(--radius-xl)",
+        minHeight: 0,
+        borderRadius: 18,
         background: "var(--surface-2)",
         border: "1px solid var(--border)",
+        overflow: "hidden",
       }}
     >
-      <header style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 4px" }}>
-        <span style={{ font: "600 13.5px/1 var(--font-sans)", color: "var(--text)" }}>
-          {COLUMN_LABELS[column]}
-        </span>
-        <span
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          overflowY: "auto",
+          display: "flex",
+          flexDirection: "column",
+          gap: 14,
+          padding: "0 10px 12px",
+        }}
+      >
+        <header
           style={{
-            font: "600 11px/1.4 var(--font-mono, var(--font-sans))",
-            padding: "2px 7px",
-            borderRadius: "var(--radius-pill)",
-            background: "var(--surface-3)",
-            color: "var(--text-2)",
+            position: "sticky",
+            top: 0,
+            zIndex: 5,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "13px 3px 10px",
+            background: "var(--surface-2)",
           }}
         >
-          {count}
-        </span>
-      </header>
+          <span style={{ font: "600 13.5px/1 var(--font-sans)", color: "var(--text)" }}>
+            {COLUMN_LABELS[column]}
+          </span>
+          <span
+            style={{
+              font: "600 10.5px/1.6 var(--font-mono)",
+              padding: "2px 7px",
+              borderRadius: 999,
+              background: "var(--surface-3)",
+              color: "var(--text-2)",
+            }}
+          >
+            {count}
+          </span>
+          <span style={{ flex: 1 }} />
+          <span style={{ font: "400 10.5px/1 var(--font-mono)", color: "var(--text-3)" }}>
+            {PROVA_COLUMN_DATE[column]}
+          </span>
+        </header>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 14, minHeight: 130 }}>
         {groups.length === 0 ? (
-          <EmptyState title="Sem sessões aqui." />
+          <EmptyState title={column === "amanha" ? "Nada marcado pra amanhã — respira." : "Sem sessões aqui."} />
         ) : (
-          groups.map((group) => (
-            <div key={group.key} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "0 3px" }}>
-                <span
-                  aria-hidden
-                  style={{ width: 7, height: 7, borderRadius: "var(--radius-pill)", background: "var(--accent)", flex: "none" }}
-                />
-                <span
-                  style={{
-                    font: "600 11px/1.2 var(--font-sans)",
-                    color: "var(--text-2)",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {group.name}
-                </span>
-              </div>
-
-              {group.cards.map((card) => {
-                const { overdueDays } = placeCard(card, today);
-                return (
-                  <Card
-                    key={card.id}
-                    title={card.title}
-                    technique={card.technique}
-                    estMinutes={card.est_minutes}
-                    focusedSecs={card.archived ? null : undefined}
-                    overdueDays={overdueDays}
+          groups.map((group) => {
+            const color = examColor(group.key);
+            return (
+              <div key={group.key} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "0 3px" }}>
+                  <span
+                    aria-hidden
+                    style={{ width: 7, height: 7, borderRadius: 999, background: color, flex: "none" }}
                   />
-                );
-              })}
-            </div>
-          ))
+                  <span
+                    style={{
+                      font: "600 11px/1.2 var(--font-sans)",
+                      color: "var(--text-2)",
+                      letterSpacing: "-.005em",
+                      minWidth: 0,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {group.name}
+                  </span>
+                  {group.urgent && showUrgent && (
+                    <span
+                      style={{
+                        padding: "2px 7px",
+                        borderRadius: 999,
+                        background: "var(--atraso-soft)",
+                        color: "var(--atraso-ink)",
+                        font: "600 9.5px/1.3 var(--font-mono)",
+                        whiteSpace: "nowrap",
+                        flex: "none",
+                      }}
+                    >
+                      reta final
+                    </span>
+                  )}
+                </div>
+
+                {group.cards.map((card) => {
+                  const { overdueDays } = placeCard(card, today);
+                  return (
+                    <ProvaCard
+                      key={card.id}
+                      title={card.title}
+                      color={color}
+                      technique={card.technique}
+                      estMinutes={card.est_minutes}
+                      focusedSecs={card.archived ? null : undefined}
+                      overdueDays={overdueDays}
+                      completed={card.archived}
+                      completedLabel={completedLabel(card.last_completed_at, today)}
+                    />
+                  );
+                })}
+              </div>
+            );
+          })
         )}
       </div>
     </section>

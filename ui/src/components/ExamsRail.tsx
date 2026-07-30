@@ -6,7 +6,9 @@
 // Presentational + a pure `examRailViewModel` that derives days-left / urgency / progress / status
 // from an exam item, so the rail is ready to render real data once a `list_exams` read lands.
 
+import { useState } from "react";
 import type { ISODate } from "../lib/bindings";
+import { examColor } from "./examColor";
 import { daysBetween } from "./columns";
 
 /** Threshold (in days) at or below which an upcoming exam is flagged urgent (KAN-04 "urgency"). */
@@ -73,9 +75,11 @@ export function examRailViewModel(item: ExamRailItem, today: ISODate): ExamRailV
 export interface ExamsRailProps {
   exams: ExamRailItem[];
   today: ISODate;
+  /** Open an exam's detail (the rail rows are the handoff's contextual navigation into a prova). */
+  onOpenExam?: (examId: number) => void;
 }
 
-export function ExamsRail({ exams, today }: ExamsRailProps) {
+export function ExamsRail({ exams, today, onOpenExam }: ExamsRailProps) {
   const models = exams.map((e) => examRailViewModel(e, today));
 
   return (
@@ -96,16 +100,21 @@ export function ExamsRail({ exams, today }: ExamsRailProps) {
         overflowY: "auto",
       }}
     >
-      <div
-        style={{
-          font: "600 10.5px/1 var(--font-sans)",
-          letterSpacing: ".12em",
-          textTransform: "uppercase",
-          color: "var(--text-3)",
-          padding: "2px 2px 4px",
-        }}
-      >
-        Trilha de provas
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 2px 4px" }}>
+        <span
+          style={{
+            font: "600 10.5px/1 var(--font-sans)",
+            letterSpacing: ".12em",
+            textTransform: "uppercase",
+            color: "var(--text-3)",
+          }}
+        >
+          Trilha de provas
+        </span>
+        <span style={{ flex: 1 }} />
+        {models.length > 0 && (
+          <span style={{ font: "500 10.5px/1 var(--font-mono)", color: "var(--text-3)" }}>{models.length}</span>
+        )}
       </div>
 
       {models.length === 0 ? (
@@ -113,19 +122,24 @@ export function ExamsRail({ exams, today }: ExamsRailProps) {
           Nenhuma prova ainda. Cadastre a data e o Studdup distribui as sessões até lá.
         </div>
       ) : (
-        models.map((m) => <ExamRow key={m.id} model={m} />)
+        models.map((m) => <ExamRow key={m.id} model={m} onOpen={onOpenExam} />)
       )}
     </aside>
   );
 }
 
-function ExamRow({ model }: { model: ExamRailViewModel }) {
-  const accent = model.ended ? "var(--text-3)" : model.urgent ? "var(--atraso-ink)" : "var(--accent)";
+function ExamRow({ model, onOpen }: { model: ExamRailViewModel; onOpen?: (examId: number) => void }) {
+  const [hover, setHover] = useState(false);
+  // The dot/progress take the exam's colour thread; ended exams mute, urgent exams flag atraso.
+  const accent = model.ended ? "var(--text-3)" : model.urgent ? "var(--atraso-ink)" : examColor(model.id);
   const chipBg = model.urgent ? "var(--atraso-soft)" : "var(--surface-3)";
   const chipInk = model.urgent ? "var(--atraso-ink)" : model.ended ? "var(--text-3)" : "var(--text-2)";
 
   return (
     <div
+      onClick={onOpen ? () => onOpen(model.id) : undefined}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
       style={{
         display: "flex",
         flexDirection: "column",
@@ -133,8 +147,10 @@ function ExamRow({ model }: { model: ExamRailViewModel }) {
         padding: 13,
         borderRadius: "var(--radius-lg)",
         background: "var(--surface)",
-        border: "1px solid var(--border)",
+        border: `1px solid ${hover ? "var(--border-strong)" : "var(--border)"}`,
         opacity: model.ended ? 0.7 : 1,
+        cursor: onOpen ? "pointer" : "default",
+        transition: "border-color var(--transition-fast)",
       }}
     >
       <div style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>
