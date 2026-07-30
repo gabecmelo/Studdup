@@ -44,6 +44,7 @@ fn main() {
             commands::list_board,
             commands::list_history,
             commands::list_exams,
+            commands::list_session_cursors,
             commands::get_setting,
             commands::set_setting,
         ])

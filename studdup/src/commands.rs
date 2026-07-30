@@ -135,6 +135,14 @@ pub fn list_exams(state: State<'_, AppState>) -> Result<Vec<api::ExamView>, ApiE
     with_db!(state, |conn, today| api::list_exams(conn, today))
 }
 
+/// Per-card "Sessão N de M" cursors for the Prova board (KAN-04). Keyed by card id on the frontend.
+#[tauri::command]
+pub fn list_session_cursors(
+    state: State<'_, AppState>,
+) -> Result<Vec<api::SessionCursor>, ApiError> {
+    with_db!(state, |conn, _today| api::list_session_cursors(conn))
+}
+
 // ---- settings (global technique defaults, TECH-09.5) ----
 
 #[tauri::command]

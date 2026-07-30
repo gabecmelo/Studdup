@@ -11,6 +11,7 @@ import type {
   HistoryEvent,
   ISODate,
   Method,
+  SessionCursor,
   Technique,
 } from "./bindings";
 
@@ -76,6 +77,10 @@ export const commands = {
 
   listExams(): Promise<ExamView[]> {
     return invoke("list_exams");
+  },
+
+  listSessionCursors(): Promise<SessionCursor[]> {
+    return invoke("list_session_cursors");
   },
 
   getSetting(key: string): Promise<string | null> {

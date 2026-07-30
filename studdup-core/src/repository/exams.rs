@@ -92,6 +92,20 @@ pub fn set_session_due_date(conn: &Connection, session_id: i64, due: Date) -> ru
     Ok(())
 }
 
+/// Per-card session cursor for the Prova board: `(card_id, next_incomplete_seq, total)`. `seq` is
+/// the 0-based index of the earliest not-yet-completed session (None when every session is done);
+/// `total` is the card's session count. The api turns this into a 1-based "Sessão N de M".
+pub fn session_cursors(conn: &Connection) -> rusqlite::Result<Vec<(i64, Option<i64>, i64)>> {
+    let mut stmt = conn.prepare(
+        "SELECT card_id, \
+                MIN(CASE WHEN completed_at IS NULL THEN seq END) AS next_incomplete, \
+                COUNT(*) AS total \
+         FROM exam_sessions GROUP BY card_id",
+    )?;
+    let rows = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?;
+    rows.collect()
+}
+
 /// `(completed, total)` session counts across all cards of an exam (EXAM-01.6 progress).
 pub fn exam_session_progress(conn: &Connection, exam_id: i64) -> rusqlite::Result<(i64, i64)> {
     conn.query_row(

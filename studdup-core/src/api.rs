@@ -520,6 +520,30 @@ pub struct ExamView {
     pub total_sessions: i64,
 }
 
+/// The session cursor of one exam-prep card for the Prova board (a "Sessão N de M" badge): `seq` is
+/// the 1-based current session (the earliest incomplete one, or the last when all are done) and
+/// `total` its session count. Only exam cards with materialized sessions appear.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct SessionCursor {
+    pub card_id: i64,
+    pub seq: i64,
+    pub total: i64,
+}
+
+/// Session cursors for every exam card, keyed by card id on the frontend (KAN-04). Derived from
+/// `exams::session_cursors`: the 0-based earliest incomplete session becomes a 1-based `seq`, and an
+/// all-complete card reports its last session (`seq == total`).
+pub fn list_session_cursors(conn: &Connection) -> Result<Vec<SessionCursor>, ApiError> {
+    Ok(exams::session_cursors(conn)?
+        .into_iter()
+        .map(|(card_id, next_incomplete, total)| SessionCursor {
+            card_id,
+            seq: next_incomplete.map(|s| s + 1).unwrap_or(total),
+            total,
+        })
+        .collect())
+}
+
 // ---- settings (global technique defaults, TECH-09.5 / AD-010) ----
 
 /// Read a global setting by key (e.g. a per-technique default estimate). `None` when never set.

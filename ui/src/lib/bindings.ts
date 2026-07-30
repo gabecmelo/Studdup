@@ -68,6 +68,14 @@ export interface ExamView {
   total_sessions: number;
 }
 
+/** A Prova board card's "Sessão N de M" cursor: `seq` is the 1-based current session, `total` its
+ *  count. Only exam cards with materialized sessions appear (keyed by `card_id` on the frontend). */
+export interface SessionCursor {
+  card_id: number;
+  seq: number;
+  total: number;
+}
+
 /** A materialized study session for an exam card — frozen at card creation. */
 export interface ExamSession {
   id: number;
@@ -146,6 +154,7 @@ export interface Commands {
     returns: HistoryEvent[];
   };
   list_exams: { args: Record<string, never>; returns: ExamView[] };
+  list_session_cursors: { args: Record<string, never>; returns: SessionCursor[] };
   get_setting: { args: { key: string }; returns: string | null };
   set_setting: { args: { key: string; value: string }; returns: null };
 }

@@ -10,8 +10,8 @@
 // route).
 
 import { useState } from "react";
-import type { Card as CardModel, ExamView, ISODate } from "../lib/bindings";
-import { useBoard, useCreateExam, useDeleteExam, useExams } from "../lib/queries";
+import type { Card as CardModel, ExamView, ISODate, SessionCursor } from "../lib/bindings";
+import { useBoard, useCreateExam, useDeleteExam, useExams, useSessionCursors } from "../lib/queries";
 import { filterBoardCards } from "../lib/boardFilter";
 import { useStore } from "../store";
 import { EmptyState } from "../components/EmptyState";
@@ -101,6 +101,7 @@ export function QuadroProva() {
   const today = todayIso();
   const board = useBoard("ExamPrep");
   const examsQuery = useExams();
+  const cursorsQuery = useSessionCursors();
   const createExam = useCreateExam();
   const deleteExam = useDeleteExam();
 
@@ -108,6 +109,8 @@ export function QuadroProva() {
   const boardTechnique = useStore((s) => s.boardTechnique);
   const cards = filterBoardCards(board.data ?? [], boardSearch, boardTechnique);
   const exams = examsQuery.data ?? [];
+  // Card id → its "Sessão N de M" cursor, for the ProvaCard badge (KAN-04).
+  const cursorById = new Map((cursorsQuery.data ?? []).map((c) => [c.card_id, c] as const));
   const meta = new Map<number, ExamMeta>(
     exams.map(
       (e) =>
@@ -230,7 +233,13 @@ export function QuadroProva() {
           }}
         >
           {COLUMN_ORDER.map((column) => (
-            <ProvaColumn key={column} column={column} groups={groupByExam(columns[column], meta)} today={today} />
+            <ProvaColumn
+              key={column}
+              column={column}
+              groups={groupByExam(columns[column], meta)}
+              today={today}
+              cursors={cursorById}
+            />
           ))}
         </div>
       </div>
@@ -273,11 +282,12 @@ interface ProvaColumnProps {
   column: Column;
   groups: ExamGroup[];
   today: ISODate;
+  cursors: Map<number, SessionCursor>;
 }
 
 /** A Prova board column — the same chrome as the spaced board (radius 18, sticky header, internal
  *  scroll), but its cards are grouped under a coloured exam heading. */
-function ProvaColumn({ column, groups, today }: ProvaColumnProps) {
+function ProvaColumn({ column, groups, today, cursors }: ProvaColumnProps) {
   const count = groups.reduce((n, g) => n + g.cards.length, 0);
   const showUrgent = column === "hoje" || column === "amanha";
 
@@ -382,6 +392,7 @@ function ProvaColumn({ column, groups, today }: ProvaColumnProps) {
 
                 {group.cards.map((card) => {
                   const { overdueDays } = placeCard(card, today);
+                  const cursor = cursors.get(card.id);
                   return (
                     <ProvaCard
                       key={card.id}
@@ -391,6 +402,8 @@ function ProvaColumn({ column, groups, today }: ProvaColumnProps) {
                       estMinutes={card.est_minutes}
                       focusedSecs={card.archived ? null : undefined}
                       overdueDays={overdueDays}
+                      seq={card.archived ? null : cursor?.seq ?? null}
+                      total={card.archived ? null : cursor?.total ?? null}
                       completed={card.archived}
                       completedLabel={completedLabel(card.last_completed_at, today)}
                     />

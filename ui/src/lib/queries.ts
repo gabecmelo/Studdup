@@ -27,6 +27,7 @@ export const queryKeys = {
   history: (method: Method | null, technique: Technique | null) =>
     ["history", method, technique] as const,
   exams: () => ["exams"] as const,
+  sessionCursors: () => ["sessionCursors"] as const,
 };
 
 /** All exams as read projections (progress + days-remaining), for the list/detail/rail (EXAM-04). */
@@ -34,6 +35,14 @@ export function useExams() {
   return useQuery({
     queryKey: queryKeys.exams(),
     queryFn: () => commands.listExams(),
+  });
+}
+
+/** Per-card "Sessão N de M" cursors for the Prova board (KAN-04). */
+export function useSessionCursors() {
+  return useQuery({
+    queryKey: queryKeys.sessionCursors(),
+    queryFn: () => commands.listSessionCursors(),
   });
 }
 
@@ -56,7 +65,7 @@ export function useHistory(
   });
 }
 
-/** Invalidate every board + history query after a card/exam mutation. */
+/** Invalidate every board + history + exam query after a card/exam mutation. */
 function useInvalidateAll() {
   const qc = useQueryClient();
   return () =>
@@ -64,6 +73,7 @@ function useInvalidateAll() {
       qc.invalidateQueries({ queryKey: ["board"] }),
       qc.invalidateQueries({ queryKey: ["history"] }),
       qc.invalidateQueries({ queryKey: ["exams"] }),
+      qc.invalidateQueries({ queryKey: ["sessionCursors"] }),
     ]);
 }
 

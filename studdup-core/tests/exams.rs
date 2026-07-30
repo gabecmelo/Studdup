@@ -7,7 +7,7 @@ use studdup_core::domain::{Exam, Method};
 use studdup_core::repository::cards::insert_card;
 use studdup_core::repository::exams::{
     advance_session, delete_exam_cascade, exam_session_progress, insert_exam, insert_sessions,
-    load_exams, load_sessions,
+    load_exams, load_sessions, session_cursors,
 };
 use studdup_core::repository::Db;
 
@@ -130,6 +130,46 @@ fn progress_counts_completed_versus_total_across_all_cards() {
     advance_session(db.conn(), b_sessions[1].id, ymd(2026, 5, 7)).unwrap();
 
     assert_eq!(exam_session_progress(db.conn(), exam_id).unwrap(), (3, 5));
+}
+
+#[test]
+fn session_cursors_report_next_incomplete_and_total() {
+    let (_temp, db) = fresh_db();
+    let exam_id = insert_exam(db.conn(), &sample_exam("Biologia", (2026, 6, 20))).unwrap();
+    let card_a = insert_exam_card(&db, "Célula", exam_id);
+    let card_b = insert_exam_card(&db, "Genética", exam_id);
+    insert_sessions(db.conn(), card_a, &[ymd(2026, 5, 1), ymd(2026, 5, 6)]).unwrap();
+    insert_sessions(
+        db.conn(),
+        card_b,
+        &[ymd(2026, 5, 2), ymd(2026, 5, 7), ymd(2026, 5, 12)],
+    )
+    .unwrap();
+
+    // Complete card A's first session and both of card B's first two.
+    let a = load_sessions(db.conn(), card_a).unwrap();
+    advance_session(db.conn(), a[0].id, ymd(2026, 5, 1)).unwrap();
+    let b = load_sessions(db.conn(), card_b).unwrap();
+    advance_session(db.conn(), b[0].id, ymd(2026, 5, 2)).unwrap();
+    advance_session(db.conn(), b[1].id, ymd(2026, 5, 7)).unwrap();
+
+    let mut cursors = session_cursors(db.conn()).unwrap();
+    cursors.sort_by_key(|c| c.0);
+    // 0-based next-incomplete seq: card A → seq 1 of 2; card B → seq 2 of 3.
+    assert_eq!(cursors, vec![(card_a, Some(1), 2), (card_b, Some(2), 3)]);
+}
+
+#[test]
+fn session_cursors_report_none_when_all_sessions_are_done() {
+    let (_temp, db) = fresh_db();
+    let exam_id = insert_exam(db.conn(), &sample_exam("Física", (2026, 6, 10))).unwrap();
+    let card = insert_exam_card(&db, "Cinemática", exam_id);
+    insert_sessions(db.conn(), card, &[ymd(2026, 5, 1), ymd(2026, 5, 6)]).unwrap();
+    for s in load_sessions(db.conn(), card).unwrap() {
+        advance_session(db.conn(), s.id, ymd(2026, 5, 8)).unwrap();
+    }
+
+    assert_eq!(session_cursors(db.conn()).unwrap(), vec![(card, None, 2)]);
 }
 
 #[test]

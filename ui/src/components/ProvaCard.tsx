@@ -12,6 +12,7 @@ import { useState } from "react";
 import type { Technique } from "../lib/bindings";
 import { sessionDurationLabel } from "../lib/sessionEstimate";
 import { TECHNIQUE_LABEL, TechniqueIcon } from "./TechniqueChip";
+import { ExamStageBadge } from "./StageBadge";
 
 export interface ProvaCardProps {
   title: string;
@@ -23,6 +24,9 @@ export interface ProvaCardProps {
   focusedSecs?: number | null;
   /** Whole days overdue; when > 0 an urgent chip is shown on an active card. */
   overdueDays?: number;
+  /** The card's session cursor — renders a "Sessão N de M" badge when both are present. */
+  seq?: number | null;
+  total?: number | null;
   /** Completed (archived) card → the muted "✓ Concluído" variant. */
   completed?: boolean;
   /** Short completion label for the completed variant (e.g. "ontem", "27 jul"). */
@@ -37,6 +41,8 @@ export function ProvaCard({
   estMinutes,
   focusedSecs,
   overdueDays = 0,
+  seq,
+  total,
   completed = false,
   completedLabel,
   onClick,
@@ -108,24 +114,28 @@ export function ProvaCard({
         transition: "box-shadow var(--transition-fast)",
       }}
     >
-      {overdueDays > 0 && (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
-          <span
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-              padding: "3px 8px",
-              borderRadius: 999,
-              background: "var(--atraso-soft)",
-              color: "var(--atraso-ink)",
-              font: "600 9.5px/1.3 var(--font-sans)",
-              whiteSpace: "nowrap",
-            }}
-          >
-            <span style={{ width: 4, height: 4, borderRadius: 999, background: "currentColor" }} />
-            {overdueDays} {overdueDays === 1 ? "dia" : "dias"} de atraso
-          </span>
+      {((seq != null && total != null) || overdueDays > 0) && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+          {seq != null && total != null ? <ExamStageBadge seq={seq} total={total} /> : <span />}
+          {overdueDays > 0 && (
+            <span
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                padding: "3px 8px",
+                borderRadius: 999,
+                background: "var(--atraso-soft)",
+                color: "var(--atraso-ink)",
+                font: "600 9.5px/1.3 var(--font-sans)",
+                whiteSpace: "nowrap",
+                flex: "none",
+              }}
+            >
+              <span style={{ width: 4, height: 4, borderRadius: 999, background: "currentColor" }} />
+              {overdueDays} {overdueDays === 1 ? "dia" : "dias"} de atraso
+            </span>
+          )}
         </div>
       )}
 
