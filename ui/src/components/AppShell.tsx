@@ -4,11 +4,20 @@
 // auto-collapses below ~1024px, and Ctrl/⌘+B toggles it.
 //
 // Styled 1:1 with the handoff (design/handoff/project/Quadro.dc.html): sidebar on var(--surface-2),
-// the Studdup mark, "Novo Card" with --shadow-accent, CSS-shape nav icons, a Claro/Escuro theme pill
-// and the "Offline" line; the collapsed rail is 66px with tooltips.
+// the "A Pilha" mark + "Studd·up" wordmark, "Novo Card" with --shadow-accent, real line nav icons,
+// a Claro/Escuro theme pill and the "Offline" line; the collapsed rail is 66px with tooltips. Every
+// interactive control carries a hover state (nav rows, buttons, theme pills, search/filter chips).
 
 import { useCallback, useEffect, useState } from "react";
 import { MethodSwitcher } from "./MethodSwitcher";
+import {
+  NavGlyph,
+  PlusIcon,
+  SearchIcon,
+  SidebarToggleIcon,
+  StuddupMark,
+  Wordmark,
+} from "./brand";
 import {
   getStoredPreference,
   resolveTheme,
@@ -24,6 +33,9 @@ const AUTO_COLLAPSE_WIDTH = 1024;
 const EXPANDED_WIDTH = 250;
 const RAIL_WIDTH = 66;
 
+/** The brand mark keeps one size in both the expanded sidebar and the collapsed rail. */
+const MARK_SIZE = 26;
+
 function readCollapsedPref(): boolean {
   if (typeof localStorage === "undefined") return false;
   return localStorage.getItem(COLLAPSE_KEY) === "1";
@@ -38,92 +50,13 @@ function writeCollapsedPref(collapsed: boolean): void {
 /** Routes that show the promoted method switcher above their content. */
 const METHOD_SCOPED: ReadonlySet<RouteKey> = new Set<RouteKey>(["quadro", "historico"]);
 
-/** A "toggle sidebar" glyph: a rounded panel with a divided-off left rail. */
-function SidebarToggleIcon() {
-  return (
-    <span
-      aria-hidden
-      style={{
-        width: 15,
-        height: 13,
-        borderRadius: 3.5,
-        border: "1.6px solid currentColor",
-        display: "flex",
-        overflow: "hidden",
-        flex: "none",
-      }}
-    >
-      <span style={{ width: 5, background: "currentColor" }} />
-    </span>
-  );
-}
-
-/** The nav glyphs, reproduced as CSS shapes exactly as the handoff `IconeNav` component. */
-function NavIcon({ route, size = 15 }: { route: RouteKey; size?: number }) {
-  const s = { flex: "none" as const };
-  switch (route) {
-    case "inicio":
-      return (
-        <span
-          style={{ ...s, width: 13, height: 13, borderRadius: 4, background: "currentColor", opacity: 0.85 }}
-        />
-      );
-    case "quadro":
-      return (
-        <span style={{ ...s, display: "flex", gap: 2, alignItems: "stretch", height: 13 }}>
-          <span style={{ width: 4, borderRadius: 2, background: "currentColor" }} />
-          <span style={{ width: 4, borderRadius: 2, background: "currentColor", opacity: 0.55 }} />
-          <span style={{ width: 4, borderRadius: 2, background: "currentColor", opacity: 0.3 }} />
-        </span>
-      );
-    case "historico":
-      return (
-        <span style={{ ...s, width: 13, height: 13, borderRadius: 999, border: "1.6px solid currentColor" }} />
-      );
-    case "tecnicas":
-      return (
-        <span
-          style={{ ...s, width: 14, height: 12, clipPath: "polygon(50% 0,100% 100%,0 100%)", background: "currentColor" }}
-        />
-      );
-    case "ajuda":
-      return (
-        <span
-          style={{
-            ...s,
-            width: 14,
-            height: 14,
-            borderRadius: 999,
-            border: "1.6px solid currentColor",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            font: "700 9px/1 var(--font-sans)",
-          }}
-        >
-          ?
-        </span>
-      );
-    case "configuracoes":
-      return (
-        <span
-          style={{
-            ...s,
-            width: 13,
-            height: 13,
-            borderRadius: 5,
-            border: "1.6px solid currentColor",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <span style={{ width: 4, height: 4, borderRadius: 999, background: "currentColor" }} />
-        </span>
-      );
-    default:
-      return <span style={{ ...s, width: size, height: size }} />;
-  }
+/** Tiny hover helper — the same pattern the board card uses (useState + mouse handlers). */
+function useHover() {
+  const [hover, setHover] = useState(false);
+  return {
+    hover,
+    bind: { onMouseEnter: () => setHover(true), onMouseLeave: () => setHover(false) },
+  };
 }
 
 export function AppShell() {
@@ -201,7 +134,7 @@ export function AppShell() {
           background: "var(--bg)",
         }}
       >
-        {METHOD_SCOPED.has(route) && (
+        {isMethodScoped && (
           <div
             style={{
               flex: "none",
@@ -214,37 +147,8 @@ export function AppShell() {
           >
             <MethodSwitcher value={method} onChange={setMethod} />
             <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "none" }}>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "9px 13px",
-                  background: "var(--surface)",
-                  border: "1px solid var(--border)",
-                  borderRadius: 11,
-                  width: 172,
-                }}
-              >
-                <span
-                  style={{ width: 11, height: 11, borderRadius: 999, border: "1.5px solid var(--text-3)", flex: "none" }}
-                />
-                <span style={{ font: "400 12.5px/1 var(--font-sans)", color: "var(--text-3)" }}>Buscar card…</span>
-              </div>
-              <div
-                style={{
-                  padding: "9px 13px",
-                  background: "var(--surface)",
-                  border: "1px solid var(--border)",
-                  borderRadius: 11,
-                  font: "500 12.5px/1 var(--font-sans)",
-                  color: "var(--text-2)",
-                  cursor: "pointer",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                Todas as técnicas ▾
-              </div>
+              <SearchField />
+              <FilterChip />
             </div>
           </div>
         )}
@@ -271,6 +175,55 @@ export function AppShell() {
   );
 }
 
+/** Board search field (chrome — wiring deferred). Hovers to a stronger border. */
+function SearchField() {
+  const { hover, bind } = useHover();
+  return (
+    <div
+      {...bind}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "9px 13px",
+        background: "var(--surface)",
+        border: `1px solid ${hover ? "var(--border-strong)" : "var(--border)"}`,
+        borderRadius: 11,
+        width: 172,
+        color: "var(--text-3)",
+        cursor: "text",
+        transition: "border-color var(--transition-fast)",
+      }}
+    >
+      <SearchIcon size={14} />
+      <span style={{ font: "400 12.5px/1 var(--font-sans)" }}>Buscar card…</span>
+    </div>
+  );
+}
+
+/** Technique filter chip (chrome — wiring deferred). Hovers to a stronger border + darker text. */
+function FilterChip() {
+  const { hover, bind } = useHover();
+  return (
+    <div
+      {...bind}
+      style={{
+        padding: "9px 13px",
+        background: "var(--surface)",
+        border: `1px solid ${hover ? "var(--border-strong)" : "var(--border)"}`,
+        borderRadius: 11,
+        font: "500 12.5px/1 var(--font-sans)",
+        color: hover ? "var(--text)" : "var(--text-2)",
+        cursor: "pointer",
+        whiteSpace: "nowrap",
+        transition: "border-color var(--transition-fast), color var(--transition-fast)",
+      }}
+    >
+      Todas as técnicas ▾
+    </div>
+  );
+}
+
 interface SidebarProps {
   collapsed: boolean;
   canToggle: boolean;
@@ -279,6 +232,213 @@ interface SidebarProps {
   onNavigate: (route: RouteKey) => void;
   onToggle: () => void;
   onChooseTheme: (t: Theme) => void;
+}
+
+/** The brand lockup: the "A Pilha" mark (accent) plus, when expanded, the "Studd·up" wordmark. */
+function BrandLockup({ withWordmark }: { withWordmark: boolean }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, color: "var(--accent)", flex: "none" }}>
+      <StuddupMark size={MARK_SIZE} />
+      {withWordmark && (
+        <Wordmark style={{ font: "700 17px/1 var(--font-sans)", color: "var(--text)" }} />
+      )}
+    </div>
+  );
+}
+
+/** The collapse/expand toggle — hovers to a filled chip. */
+function ToggleButton({
+  collapsed,
+  onToggle,
+  size,
+}: {
+  collapsed: boolean;
+  onToggle: () => void;
+  size: number;
+}) {
+  const { hover, bind } = useHover();
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-label={collapsed ? "Expandir a barra lateral" : "Recolher a barra lateral"}
+      title={`${collapsed ? "Expandir" : "Recolher"} a barra lateral (Ctrl+B)`}
+      {...bind}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: 10,
+        border: "none",
+        background: hover ? "var(--surface-3)" : "transparent",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        color: hover ? "var(--text)" : "var(--text-3)",
+        cursor: "pointer",
+        flex: "none",
+        transition: "background var(--transition-fast), color var(--transition-fast)",
+      }}
+    >
+      <SidebarToggleIcon size={16} />
+    </button>
+  );
+}
+
+/** The "Novo Card" primary action — icon-only in the rail, labelled when expanded. */
+function NovoCardButton({ collapsed }: { collapsed: boolean }) {
+  const { hover, bind } = useHover();
+  const shared: React.CSSProperties = {
+    border: "none",
+    background: hover ? "var(--accent-hover)" : "var(--accent)",
+    color: "var(--accent-ink)",
+    cursor: "pointer",
+    boxShadow: "var(--shadow-accent)",
+    transition: "background var(--transition-fast)",
+  };
+  if (collapsed) {
+    return (
+      <button
+        type="button"
+        title="Novo Card"
+        aria-label="Novo Card"
+        {...bind}
+        style={{
+          ...shared,
+          width: 38,
+          height: 38,
+          borderRadius: 12,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <PlusIcon size={17} />
+      </button>
+    );
+  }
+  return (
+    <button
+      type="button"
+      title="Novo Card"
+      {...bind}
+      style={{
+        ...shared,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 7,
+        padding: 11,
+        borderRadius: 13,
+        font: "600 13.5px/1 var(--font-sans)",
+      }}
+    >
+      <PlusIcon size={15} />
+      Novo Card
+    </button>
+  );
+}
+
+/** A nav row/button — icon-only in the rail, icon+label when expanded, with a hover fill. */
+function NavButton({
+  item,
+  active,
+  collapsed,
+  onNavigate,
+}: {
+  item: (typeof ROUTES)[number];
+  active: boolean;
+  collapsed: boolean;
+  onNavigate: (route: RouteKey) => void;
+}) {
+  const { hover, bind } = useHover();
+  const bg = active ? "var(--accent-soft)" : hover ? "var(--surface-3)" : "transparent";
+  const fg = active ? "var(--accent-soft-ink)" : hover ? "var(--text)" : "var(--text-2)";
+
+  if (collapsed) {
+    return (
+      <button
+        type="button"
+        onClick={() => onNavigate(item.key)}
+        aria-current={active ? "page" : undefined}
+        title={item.label}
+        {...bind}
+        style={{
+          width: 38,
+          height: 38,
+          borderRadius: 11,
+          border: "none",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "pointer",
+          background: bg,
+          color: fg,
+          transition: "background var(--transition-fast), color var(--transition-fast)",
+        }}
+      >
+        <NavGlyph route={item.key} size={18} />
+      </button>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => onNavigate(item.key)}
+      aria-current={active ? "page" : undefined}
+      {...bind}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 11,
+        padding: "9px 11px",
+        borderRadius: 11,
+        border: "none",
+        cursor: "pointer",
+        textAlign: "left",
+        font: `${active ? 600 : 500} 13px/1 var(--font-sans)`,
+        background: bg,
+        color: fg,
+        transition: "background var(--transition-fast), color var(--transition-fast)",
+      }}
+    >
+      <NavGlyph route={item.key} size={17} />
+      {item.label}
+    </button>
+  );
+}
+
+/** A Claro/Escuro theme pill — hovers to darker text when inactive. */
+function ThemePill({
+  value,
+  active,
+  onChoose,
+}: {
+  value: Theme;
+  active: boolean;
+  onChoose: (t: Theme) => void;
+}) {
+  const { hover, bind } = useHover();
+  return (
+    <button
+      type="button"
+      onClick={() => onChoose(value)}
+      {...bind}
+      style={{
+        flex: 1,
+        textAlign: "center",
+        padding: 6,
+        borderRadius: 8,
+        border: "none",
+        cursor: "pointer",
+        font: `${active ? 600 : 500} 11.5px/1 var(--font-sans)`,
+        background: active ? (value === "light" ? "var(--surface)" : "var(--bg)") : "transparent",
+        color: active ? "var(--text)" : hover ? "var(--text)" : "var(--text-2)",
+        transition: "background var(--transition-fast), color var(--transition-fast)",
+      }}
+    >
+      {value === "light" ? "Claro" : "Escuro"}
+    </button>
+  );
 }
 
 function Sidebar({ collapsed, canToggle, route, theme, onNavigate, onToggle, onChooseTheme }: SidebarProps) {
@@ -298,89 +458,19 @@ function Sidebar({ collapsed, canToggle, route, theme, onNavigate, onToggle, onC
           borderRight: "1px solid var(--border)",
         }}
       >
-        <div
-          style={{
-            width: 29,
-            height: 29,
-            borderRadius: 9,
-            background: "var(--accent)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flex: "none",
-          }}
-        >
-          <span style={{ width: 10, height: 10, borderRadius: 999, background: "var(--accent-ink)" }} />
-        </div>
-        {canToggle && (
-          <button
-            type="button"
-            onClick={onToggle}
-            aria-label="Expandir a barra lateral"
-            title="Expandir a barra lateral (Ctrl+B)"
-            style={{
-              width: 38,
-              height: 38,
-              borderRadius: 11,
-              border: "none",
-              background: "transparent",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "var(--text-2)",
-              cursor: "pointer",
-            }}
-          >
-            <SidebarToggleIcon />
-          </button>
-        )}
-        <button
-          type="button"
-          title="Novo Card"
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 12,
-            background: "var(--accent)",
-            color: "var(--accent-ink)",
-            border: "none",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            font: "600 17px/1 var(--font-sans)",
-            cursor: "pointer",
-            boxShadow: "var(--shadow-accent)",
-          }}
-        >
-          ＋
-        </button>
+        <BrandLockup withWordmark={false} />
+        {canToggle && <ToggleButton collapsed onToggle={onToggle} size={38} />}
+        <NovoCardButton collapsed />
         <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "center" }}>
-          {ROUTES.map((item) => {
-            const active = item.key === route;
-            return (
-              <button
-                key={item.key}
-                type="button"
-                onClick={() => onNavigate(item.key)}
-                aria-current={active ? "page" : undefined}
-                title={item.label}
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 11,
-                  border: "none",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  background: active ? "var(--accent-soft)" : "transparent",
-                  color: active ? "var(--accent-soft-ink)" : "var(--text-2)",
-                }}
-              >
-                <NavIcon route={item.key} size={16} />
-              </button>
-            );
-          })}
+          {ROUTES.map((item) => (
+            <NavButton
+              key={item.key}
+              item={item}
+              active={item.key === route}
+              collapsed
+              onNavigate={onNavigate}
+            />
+          ))}
         </div>
       </nav>
     );
@@ -401,123 +491,33 @@ function Sidebar({ collapsed, canToggle, route, theme, onNavigate, onToggle, onC
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 2px" }}>
-        <div
-          style={{
-            width: 27,
-            height: 27,
-            borderRadius: 9,
-            background: "var(--accent)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flex: "none",
-          }}
-        >
-          <span style={{ width: 9, height: 9, borderRadius: 999, background: "var(--accent-ink)" }} />
-        </div>
-        <span style={{ font: "600 16.5px/1 var(--font-sans)", letterSpacing: "-.02em", flex: 1 }}>Studdup</span>
+        <BrandLockup withWordmark />
         {canToggle && (
-          <button
-            type="button"
-            onClick={onToggle}
-            aria-label="Recolher menu"
-            title="Recolher a barra lateral (Ctrl+B)"
-            style={{
-              width: 26,
-              height: 26,
-              borderRadius: 8,
-              border: "none",
-              background: "transparent",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "var(--text-3)",
-              cursor: "pointer",
-              flex: "none",
-            }}
-          >
-            <SidebarToggleIcon />
-          </button>
+          <div style={{ marginLeft: "auto" }}>
+            <ToggleButton collapsed={false} onToggle={onToggle} size={26} />
+          </div>
         )}
       </div>
 
-      <button
-        type="button"
-        title="Novo Card"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 7,
-          padding: 11,
-          borderRadius: 13,
-          border: "none",
-          background: "var(--accent)",
-          color: "var(--accent-ink)",
-          font: "600 13.5px/1 var(--font-sans)",
-          cursor: "pointer",
-          boxShadow: "var(--shadow-accent)",
-        }}
-      >
-        <span aria-hidden>＋</span>
-        Novo Card
-      </button>
+      <NovoCardButton collapsed={false} />
 
       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-        {ROUTES.map((item) => {
-          const active = item.key === route;
-          return (
-            <button
-              key={item.key}
-              type="button"
-              onClick={() => onNavigate(item.key)}
-              aria-current={active ? "page" : undefined}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 11,
-                padding: "9px 11px",
-                borderRadius: 11,
-                border: "none",
-                cursor: "pointer",
-                textAlign: "left",
-                font: active ? "600 13px/1 var(--font-sans)" : "500 13px/1 var(--font-sans)",
-                background: active ? "var(--accent-soft)" : "transparent",
-                color: active ? "var(--accent-soft-ink)" : "var(--text-2)",
-              }}
-            >
-              <NavIcon route={item.key} />
-              {item.label}
-            </button>
-          );
-        })}
+        {ROUTES.map((item) => (
+          <NavButton
+            key={item.key}
+            item={item}
+            active={item.key === route}
+            collapsed={false}
+            onNavigate={onNavigate}
+          />
+        ))}
       </div>
 
       <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 9 }}>
         <div style={{ display: "flex", gap: 4, padding: 4, background: "var(--surface-3)", borderRadius: 11 }}>
-          {(["light", "dark"] as const).map((t) => {
-            const active = theme === t;
-            return (
-              <button
-                key={t}
-                type="button"
-                onClick={() => onChooseTheme(t)}
-                style={{
-                  flex: 1,
-                  textAlign: "center",
-                  padding: 6,
-                  borderRadius: 8,
-                  border: "none",
-                  cursor: "pointer",
-                  font: active ? "600 11.5px/1 var(--font-sans)" : "500 11.5px/1 var(--font-sans)",
-                  background: active ? (t === "light" ? "var(--surface)" : "var(--bg)") : "transparent",
-                  color: active ? "var(--text)" : "var(--text-2)",
-                }}
-              >
-                {t === "light" ? "Claro" : "Escuro"}
-              </button>
-            );
-          })}
+          {(["light", "dark"] as const).map((t) => (
+            <ThemePill key={t} value={t} active={theme === t} onChoose={onChooseTheme} />
+          ))}
         </div>
         <div
           style={{
