@@ -8,4 +8,5 @@
 //! the C++ reference used, which keeps desynchronized state unrepresentable.
 
 pub mod exam;
+pub mod leitner;
 pub mod spaced;
