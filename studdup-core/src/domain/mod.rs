@@ -1,11 +1,13 @@
 //! Pure domain types and the two study vocabularies — no I/O.
 
+pub mod attempt;
 pub mod card;
 pub mod date;
 pub mod enums;
 pub mod event;
 pub mod exam;
 
+pub use attempt::{Attempt, AttemptKind};
 pub use card::{Card, LeitnerItem};
 pub use date::Date;
 pub use enums::{next_stage, stage_label, Method, PomodoroRhythm, Stage, Technique};

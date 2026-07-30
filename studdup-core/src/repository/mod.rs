@@ -13,6 +13,7 @@ use crate::domain::{Date, Method, Stage, Technique};
 
 // Submodules are wired in as their tasks land (cards → T11, exams → T12, events → T13,
 // migration → T14), keeping each task's build self-contained.
+pub mod attempts;
 pub mod cards;
 pub mod events;
 pub mod exams;
