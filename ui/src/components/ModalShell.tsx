@@ -3,6 +3,7 @@
 // body, and a distinct footer bar (surface-2, or danger-soft when destructive). Feature modals
 // compose this + the `ModalButton` helpers.
 
+import { useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 
 export interface ModalShellProps {
@@ -143,7 +144,14 @@ const BUTTON_STYLE: Record<ModalButtonKind, CSSProperties> = {
   },
 };
 
-/** A footer button styled 1:1 with the handoff modal actions. */
+/** Hover background per kind — primary deepens to accent-hover, danger darkens, secondary fills. */
+const BUTTON_HOVER: Record<ModalButtonKind, string> = {
+  primary: "var(--accent-hover)",
+  danger: "var(--danger)",
+  secondary: "var(--surface-2)",
+};
+
+/** A footer button styled 1:1 with the handoff modal actions, with a hover state. */
 export function ModalButton({
   kind = "secondary",
   onClick,
@@ -155,17 +163,25 @@ export function ModalButton({
   disabled?: boolean;
   children: ReactNode;
 }) {
+  const [hover, setHover] = useState(false);
+  const active = hover && !disabled;
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
       style={{
         ...BUTTON_STYLE[kind],
         borderRadius: 11,
         border: "none",
         cursor: disabled ? "not-allowed" : "pointer",
         opacity: disabled ? 0.5 : 1,
+        background: active ? BUTTON_HOVER[kind] : BUTTON_STYLE[kind].background,
+        color: active && kind === "secondary" ? "var(--text)" : BUTTON_STYLE[kind].color,
+        filter: active && kind === "danger" ? "brightness(0.94)" : "none",
+        transition: "background var(--transition-fast), color var(--transition-fast), filter var(--transition-fast)",
       }}
     >
       {children}

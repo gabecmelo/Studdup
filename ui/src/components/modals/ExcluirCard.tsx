@@ -5,6 +5,8 @@
 // items in the core (delete_card). "Excluir card" is the only destructive control; "Cancelar" closes
 // without change.
 
+import { GhostBtn, DangerBtn } from "./confirmButtons";
+
 const OVERLAY: React.CSSProperties = {
   position: "fixed",
   inset: 0,
@@ -118,35 +120,10 @@ export function ExcluirCardModal({
             background: "var(--surface-2)",
           }}
         >
-          <button type="button" onClick={onClose} style={ghostBtn}>
-            Cancelar
-          </button>
-          <button type="button" onClick={onConfirm} style={dangerBtn}>
-            Excluir card
-          </button>
+          <GhostBtn onClick={onClose}>Cancelar</GhostBtn>
+          <DangerBtn onClick={onConfirm}>Excluir card</DangerBtn>
         </div>
       </div>
     </div>
   );
 }
-
-const ghostBtn: React.CSSProperties = {
-  padding: "10px 18px",
-  borderRadius: 11,
-  border: "none",
-  background: "transparent",
-  color: "var(--text-2)",
-  font: "600 13px/1 var(--font-sans)",
-  cursor: "pointer",
-};
-
-const dangerBtn: React.CSSProperties = {
-  padding: "10px 20px",
-  borderRadius: 11,
-  border: "none",
-  background: "var(--danger)",
-  color: "var(--accent-ink)",
-  font: "600 13px/1 var(--font-sans)",
-  cursor: "pointer",
-  boxShadow: "0 6px 18px -8px var(--danger)",
-};
