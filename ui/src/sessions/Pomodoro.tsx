@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import type { PomodoroRhythm } from "../lib/bindings";
 import { Countdown } from "../components/Countdown";
 import { EscapeCloser, useEscapeToClose } from "../lib/useEscapeToClose";
+import { TechniqueReminder } from "./TechniqueReminder";
 import {
   createPomodoro,
   isComplete,
@@ -146,6 +147,9 @@ export function PomodoroSession({
           Sair
         </HoverButton>
       </div>
+
+      {/* How-to reminder for this technique (TECH-07.3) */}
+      <TechniqueReminder technique="Pomodoro" />
 
       {/* Center: the countdown + controls */}
       <div

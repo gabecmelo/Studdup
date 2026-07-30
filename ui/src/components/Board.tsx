@@ -445,6 +445,7 @@ export function Board({ method }: BoardProps) {
             cardTitle={sessionCard.title}
             contentLink={sessionCard.content_link || undefined}
             reviewLink={sessionCard.review_link || undefined}
+            technique={sessionCard.technique || undefined}
             onConcluir={() => {
               complete.mutate(sessionCard.id);
               setSessionCard(null);

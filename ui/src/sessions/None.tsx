@@ -4,14 +4,21 @@
 // material and mark it done. Also used as the stopgap session for techniques whose guided screens
 // ship later (Active Recall / Feynman / Leitner are P2/P3).
 
+import type { Technique } from "../lib/bindings";
 import { LinkRow } from "../components/LinkRow";
 import { useEscapeToClose } from "../lib/useEscapeToClose";
 import { SessionExitButton, SessionPrimaryButton } from "./sessionButtons";
+import { TechniqueReminder } from "./TechniqueReminder";
 
 export interface NoneSessionProps {
   cardTitle: string;
   contentLink?: string;
   reviewLink?: string;
+  /**
+   * The card's technique, when it has one whose guided screen is not yet shipped — surfaces the
+   * how-to reminder (TECH-07.3). Omitted for genuinely no-technique cards.
+   */
+  technique?: Technique;
   /** Complete the card (advances the spaced ladder / exam cursor). */
   onConcluir: () => void;
   onExit: () => void;
@@ -21,6 +28,7 @@ export function NoneSession({
   cardTitle,
   contentLink,
   reviewLink,
+  technique,
   onConcluir,
   onExit,
 }: NoneSessionProps) {
@@ -54,6 +62,8 @@ export function NoneSession({
         <span style={{ flex: 1 }} />
         <SessionExitButton onClick={onExit} />
       </div>
+
+      {technique && <TechniqueReminder technique={technique} />}
 
       <div
         style={{
