@@ -181,9 +181,9 @@ function Header({ title, subtitle, onClose }: { title: string; subtitle: string;
         </span>
         <span style={{ font: "400 12.5px/1.45 var(--font-sans)", color: "var(--text-2)" }}>{subtitle}</span>
       </div>
-      <button type="button" onClick={onClose} aria-label="Fechar" style={closeBtn}>
+      <HoverButton onClick={onClose} base={closeBtn} hoverPatch={PATCH_GHOST} ariaLabel="Fechar">
         ✕
-      </button>
+      </HoverButton>
     </div>
   );
 }
@@ -211,12 +211,11 @@ function ChooseMode({
         {POSTPONE_OPTIONS.map((o) => {
           const selected = o.days === days;
           return (
-            <button
+            <HoverButton
               key={o.days}
-              type="button"
-              aria-pressed={selected}
+              ariaPressed={selected}
               onClick={() => onPick(o.days)}
-              style={{
+              base={{
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
@@ -229,12 +228,13 @@ function ChooseMode({
                 color: selected ? "var(--accent-soft-ink)" : "var(--text)",
                 font: "600 13.5px/1 var(--font-sans)",
               }}
+              hoverPatch={selected ? {} : { background: "var(--surface-2)" }}
             >
               {o.label}
               <span style={{ font: "400 11px/1 var(--font-mono, var(--font-sans))", color: "var(--text-3)" }}>
                 +{o.days} {o.days === 1 ? "dia" : "dias"}
               </span>
-            </button>
+            </HoverButton>
           );
         })}
       </div>
@@ -254,12 +254,12 @@ function ChooseMode({
         <span style={{ font: "600 13.5px/1 var(--font-sans)", color: "var(--accent-soft-ink)" }}>{target}</span>
       </div>
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
-        <button type="button" onClick={onCancel} style={ghostBtn}>
+        <HoverButton onClick={onCancel} base={ghostBtn} hoverPatch={PATCH_GHOST}>
           Cancelar
-        </button>
-        <button type="button" onClick={onConfirm} style={primaryBtn}>
+        </HoverButton>
+        <HoverButton onClick={onConfirm} base={primaryBtn} hoverPatch={PATCH_PRIMARY}>
           Adiar para {target}
-        </button>
+        </HoverButton>
       </div>
     </div>
   );
@@ -290,12 +290,12 @@ function ChallengeMode({
       </span>
       <Countdown seconds={300} label="a começar" running={false} />
       <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 9 }}>
-        <button type="button" onClick={onStudy} style={bigPrimary}>
+        <HoverButton onClick={onStudy} base={bigPrimary} hoverPatch={PATCH_PRIMARY}>
           Estudar 5 minutos agora
-        </button>
-        <button type="button" onClick={onSkip} style={bigGhost}>
+        </HoverButton>
+        <HoverButton onClick={onSkip} base={bigGhost} hoverPatch={PATCH_GHOST}>
           Prefiro adiar mesmo assim
-        </button>
+        </HoverButton>
       </div>
     </div>
   );
@@ -325,12 +325,12 @@ function TimerMode({
         <Countdown seconds={timer.remaining} label={paused ? "pausado" : "restam"} running={!paused} />
       </div>
       <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 9 }}>
-        <button type="button" onClick={onPauseToggle} style={bigPrimary}>
+        <HoverButton onClick={onPauseToggle} base={bigPrimary} hoverPatch={PATCH_PRIMARY}>
           {paused ? "Retomar" : "Pausar"}
-        </button>
-        <button type="button" onClick={onGiveUp} style={bigGhost}>
+        </HoverButton>
+        <HoverButton onClick={onGiveUp} base={bigGhost} hoverPatch={PATCH_GHOST}>
           Desistir e adiar
-        </button>
+        </HoverButton>
       </div>
     </div>
   );
@@ -349,10 +349,9 @@ function QuestionMode({ onYes, onNo }: { onYes?: () => void; onNo: () => void })
         Sem pressão pela resposta certa — responda de verdade, é assim que o Studdup aprende o seu ritmo.
       </span>
       <div style={{ width: "100%", display: "flex", gap: 11, marginTop: 2 }}>
-        <button
-          type="button"
+        <HoverButton
           onClick={onYes}
-          style={{
+          base={{
             flex: 1,
             display: "flex",
             flexDirection: "column",
@@ -366,16 +365,16 @@ function QuestionMode({ onYes, onNo }: { onYes?: () => void; onNo: () => void })
             boxShadow: "var(--shadow-accent)",
             textAlign: "left",
           }}
+          hoverPatch={PATCH_PRIMARY}
         >
           <span style={{ font: "600 15px/1.2 var(--font-sans)" }}>Sim, revisei</span>
           <span style={{ font: "400 11px/1.4 var(--font-sans)", opacity: 0.9 }}>
             Marca a revisão como feita e agenda o próximo estágio.
           </span>
-        </button>
-        <button
-          type="button"
+        </HoverButton>
+        <HoverButton
           onClick={onNo}
-          style={{
+          base={{
             flex: 1,
             display: "flex",
             flexDirection: "column",
@@ -388,16 +387,53 @@ function QuestionMode({ onYes, onNo }: { onYes?: () => void; onNo: () => void })
             color: "var(--text)",
             textAlign: "left",
           }}
+          hoverPatch={PATCH_LIFT}
         >
           <span style={{ font: "600 15px/1.2 var(--font-sans)" }}>Não consegui</span>
           <span style={{ font: "400 11px/1.4 var(--font-sans)", color: "var(--text-2)" }}>
             Tudo bem — vamos adiar então, sem contar como revisão.
           </span>
-        </button>
+        </HoverButton>
       </div>
     </div>
   );
 }
+
+/** A button with a base style plus a hover patch, shared by this modal's controls. */
+function HoverButton({
+  onClick,
+  base,
+  hoverPatch,
+  ariaPressed,
+  ariaLabel,
+  children,
+}: {
+  onClick?: () => void;
+  base: React.CSSProperties;
+  hoverPatch: React.CSSProperties;
+  ariaPressed?: boolean;
+  ariaLabel?: string;
+  children: React.ReactNode;
+}) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={ariaPressed}
+      aria-label={ariaLabel}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{ ...base, ...(hover ? hoverPatch : null), transition: "background var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast)" }}
+    >
+      {children}
+    </button>
+  );
+}
+
+const PATCH_PRIMARY: React.CSSProperties = { background: "var(--accent-hover)" };
+const PATCH_GHOST: React.CSSProperties = { background: "var(--surface-2)", color: "var(--text)" };
+const PATCH_LIFT: React.CSSProperties = { boxShadow: "var(--shadow-2)" };
 
 function Pill({ children, bg, ink }: { children: React.ReactNode; bg: string; ink: string }) {
   return (
