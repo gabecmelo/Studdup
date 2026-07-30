@@ -5,6 +5,7 @@
 // ship later (Active Recall / Feynman / Leitner are P2/P3).
 
 import { LinkRow } from "../components/LinkRow";
+import { SessionExitButton, SessionPrimaryButton } from "./sessionButtons";
 
 export interface NoneSessionProps {
   cardTitle: string;
@@ -49,21 +50,7 @@ export function NoneSession({
           Estudo livre
         </span>
         <span style={{ flex: 1 }} />
-        <button
-          type="button"
-          onClick={onExit}
-          style={{
-            padding: "8px 13px",
-            borderRadius: 11,
-            border: "none",
-            background: "transparent",
-            color: "var(--text-3)",
-            font: "500 12px/1 var(--font-sans)",
-            cursor: "pointer",
-          }}
-        >
-          Sair
-        </button>
+        <SessionExitButton onClick={onExit} />
       </div>
 
       <div
@@ -97,25 +84,7 @@ export function NoneSession({
         )}
 
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-          <button
-            type="button"
-            onClick={onConcluir}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 9,
-              padding: "15px 40px",
-              borderRadius: 15,
-              border: "none",
-              cursor: "pointer",
-              background: "var(--accent)",
-              color: "var(--accent-ink)",
-              font: "600 15px/1 var(--font-sans)",
-              boxShadow: "var(--shadow-accent)",
-            }}
-          >
-            Concluir estudo
-          </button>
+          <SessionPrimaryButton onClick={onConcluir}>Concluir estudo</SessionPrimaryButton>
           <span style={{ font: "400 11.5px/1 var(--font-sans)", color: "var(--text-3)" }}>
             agenda a próxima revisão automaticamente
           </span>

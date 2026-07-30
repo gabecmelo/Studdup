@@ -139,9 +139,9 @@ export function PomodoroSession({
             Abrir material ↗
           </a>
         )}
-        <button type="button" onClick={requestExit} style={exitBtn}>
+        <HoverButton onClick={requestExit} base={exitBtn} hoverPatch={PATCH_EXIT}>
           Sair
-        </button>
+        </HoverButton>
       </div>
 
       {/* Center: the countdown + controls */}
@@ -199,26 +199,26 @@ export function PomodoroSession({
 
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           {done ? (
-            <button type="button" onClick={() => onComplete(timer.focusedSecs)} style={primaryBtn}>
+            <HoverButton onClick={() => onComplete(timer.focusedSecs)} base={primaryBtn} hoverPatch={PATCH_PRIMARY}>
               Concluir estudo
-            </button>
+            </HoverButton>
           ) : !timer.running ? (
-            <button
-              type="button"
+            <HoverButton
               onClick={() => setTimer((t) => (t.focusedSecs === 0 && t.phase === "focus" ? start(t) : resume(t)))}
-              style={primaryBtn}
+              base={primaryBtn}
+              hoverPatch={PATCH_PRIMARY}
             >
               {timer.focusedSecs === 0 && timer.phase === "focus" ? "Começar foco" : "Retomar"}
-            </button>
+            </HoverButton>
           ) : (
-            <button type="button" onClick={() => setTimer((t) => pause(t))} style={secondaryBtn}>
+            <HoverButton onClick={() => setTimer((t) => pause(t))} base={secondaryBtn} hoverPatch={PATCH_SECONDARY}>
               Pausar
-            </button>
+            </HoverButton>
           )}
           {!done && (
-            <button type="button" onClick={requestExit} style={secondaryBtn}>
+            <HoverButton onClick={requestExit} base={secondaryBtn} hoverPatch={PATCH_SECONDARY}>
               Sair
-            </button>
+            </HoverButton>
           )}
         </div>
       </div>
@@ -262,30 +262,29 @@ export function PomodoroSession({
               </span>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-              <button
-                type="button"
+              <HoverButton
                 onClick={() => {
                   setConfirmExit(false);
                   onComplete(timer.focusedSecs);
                 }}
-                style={{ ...primaryBtn, padding: 11, textAlign: "center" }}
+                base={{ ...primaryBtn, padding: 11, textAlign: "center" }}
+                hoverPatch={PATCH_PRIMARY}
               >
                 Marcar como concluído
-              </button>
-              <button
-                type="button"
+              </HoverButton>
+              <HoverButton
                 onClick={() => {
                   setConfirmExit(false);
                   onExit();
                 }}
-                style={{ ...secondaryBtn, padding: 11, textAlign: "center" }}
+                base={{ ...secondaryBtn, padding: 11, textAlign: "center" }}
+                hoverPatch={PATCH_SECONDARY}
               >
                 Sair sem concluir
-              </button>
-              <button
-                type="button"
+              </HoverButton>
+              <HoverButton
                 onClick={() => setConfirmExit(false)}
-                style={{
+                base={{
                   padding: 9,
                   borderRadius: 11,
                   border: "none",
@@ -294,9 +293,10 @@ export function PomodoroSession({
                   font: "600 12.5px/1 var(--font-sans)",
                   cursor: "pointer",
                 }}
+                hoverPatch={PATCH_EXIT}
               >
                 Continuar estudando
-              </button>
+              </HoverButton>
             </div>
           </div>
         </div>
@@ -341,3 +341,33 @@ const exitBtn: React.CSSProperties = {
   font: "500 12px/1 var(--font-sans)",
   cursor: "pointer",
 };
+
+/** A button with a base style plus a hover patch (the timer controls all share this). */
+function HoverButton({
+  onClick,
+  base,
+  hoverPatch,
+  children,
+}: {
+  onClick?: () => void;
+  base: React.CSSProperties;
+  hoverPatch: React.CSSProperties;
+  children: React.ReactNode;
+}) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{ ...base, ...(hover ? hoverPatch : null), transition: "background var(--transition-fast), color var(--transition-fast)" }}
+    >
+      {children}
+    </button>
+  );
+}
+
+const PATCH_PRIMARY: React.CSSProperties = { background: "var(--accent-hover)" };
+const PATCH_SECONDARY: React.CSSProperties = { background: "var(--surface-3)" };
+const PATCH_EXIT: React.CSSProperties = { background: "var(--surface-2)", color: "var(--text)" };

@@ -7,6 +7,8 @@
 //
 // Presentational: restart/erase are callbacks the board wires to the mutations.
 
+import { useState } from "react";
+
 const OVERLAY: React.CSSProperties = {
   position: "fixed",
   inset: 0,
@@ -129,7 +131,7 @@ export function CardAtrasadoModal({
 
         {/* Two paths */}
         <div style={{ display: "flex", gap: 12, padding: "16px 28px 6px" }}>
-          <button type="button" onClick={onRestart} style={{ ...optionCard, background: "var(--accent-soft)", border: "1.5px solid var(--accent)" }}>
+          <PathCard onClick={onRestart} baseStyle={{ background: "var(--accent-soft)", border: "1.5px solid var(--accent)" }}>
             <span style={{ font: "600 14.5px/1.2 var(--font-sans)", color: "var(--accent-soft-ink)" }}>
               Recomeçar o estudo
             </span>
@@ -140,16 +142,16 @@ export function CardAtrasadoModal({
               <Consequence ink="var(--accent-soft-ink)">Mantém o estágio {stageLabel}</Consequence>
               <Consequence ink="var(--accent-soft-ink)">Vence hoje · nada se perde</Consequence>
             </span>
-          </button>
+          </PathCard>
 
-          <button type="button" onClick={onErase} style={{ ...optionCard, background: "var(--bg)", border: "1.5px solid var(--border-strong)" }}>
+          <PathCard onClick={onErase} baseStyle={{ background: "var(--bg)", border: "1.5px solid var(--border-strong)" }}>
             <span style={{ font: "600 14.5px/1.2 var(--font-sans)", color: "var(--text)" }}>Apagar o progresso</span>
             <span style={{ font: "400 12px/1.5 var(--font-sans)", color: "var(--text-2)" }}>{eraseText}</span>
             <span style={{ display: "flex", flexDirection: "column", gap: 5, marginTop: 2 }}>
               <Consequence ink="var(--text-2)">Volta ao Dia 0</Consequence>
               <Consequence ink="var(--text-2)">Recomeça a trilha inteira</Consequence>
             </span>
-          </button>
+          </PathCard>
         </div>
 
         {/* Footer */}
@@ -157,24 +159,63 @@ export function CardAtrasadoModal({
           <span style={{ font: "400 11px/1.4 var(--font-sans)", color: "var(--text-3)", maxWidth: 300 }}>
             Sem certo ou errado — os dois caminhos são normais. Você decide o que faz sentido hoje.
           </span>
-          <button
-            type="button"
-            onClick={onClose}
-            style={{
-              padding: "10px 18px",
-              borderRadius: "var(--radius-md)",
-              border: "none",
-              background: "transparent",
-              color: "var(--text-2)",
-              font: "600 12.5px/1 var(--font-sans)",
-              cursor: "pointer",
-            }}
-          >
-            Agora não
-          </button>
+          <AgoraNaoButton onClick={onClose} />
         </div>
       </div>
     </div>
+  );
+}
+
+/** One of the two overdue paths — a large choice card that lifts (shadow) on hover. */
+function PathCard({
+  onClick,
+  baseStyle,
+  children,
+}: {
+  onClick?: () => void;
+  baseStyle: React.CSSProperties;
+  children: React.ReactNode;
+}) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        ...optionCard,
+        ...baseStyle,
+        boxShadow: hover ? "var(--shadow-2)" : "none",
+        transition: "box-shadow var(--transition-fast)",
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function AgoraNaoButton({ onClick }: { onClick?: () => void }) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        padding: "10px 18px",
+        borderRadius: "var(--radius-md)",
+        border: "none",
+        background: hover ? "var(--surface-2)" : "transparent",
+        color: hover ? "var(--text)" : "var(--text-2)",
+        font: "600 12.5px/1 var(--font-sans)",
+        cursor: "pointer",
+        transition: "background var(--transition-fast), color var(--transition-fast)",
+      }}
+    >
+      Agora não
+    </button>
   );
 }
 
