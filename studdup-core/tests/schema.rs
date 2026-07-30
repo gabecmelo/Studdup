@@ -46,6 +46,7 @@ fn fresh_schema_creates_all_tables() {
         "history",
         "leitner_items",
         "settings",
+        "attempts",
     ] {
         assert!(
             tables.iter().any(|t| t == expected),
@@ -133,7 +134,7 @@ fn fresh_schema_is_stamped_at_current_version() {
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .unwrap();
     assert_eq!(version, SCHEMA_VERSION);
-    assert_eq!(SCHEMA_VERSION, 1);
+    assert_eq!(SCHEMA_VERSION, 2);
 }
 
 #[test]

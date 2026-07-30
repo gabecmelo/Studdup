@@ -66,7 +66,7 @@ fn migrates_cpp_db_preserving_fields_and_defaulting_method() {
 
     assert!(report.ran);
     assert_eq!(report.from_version, 0);
-    assert_eq!(report.to_version, 1);
+    assert_eq!(report.to_version, 2);
 
     // A backup file was written and exists on disk (MIG-03).
     let backup = report.backup_path.expect("a backup path");
@@ -126,8 +126,8 @@ fn migration_is_idempotent() {
     // Second run: detected as already applied, no-op, no new backup (MIG-04).
     let second = migrate(&db).unwrap();
     assert!(!second.ran);
-    assert_eq!(second.from_version, 1);
-    assert_eq!(second.to_version, 1);
+    assert_eq!(second.from_version, 2);
+    assert_eq!(second.to_version, 2);
     assert_eq!(second.backup_path, None);
 
     // Data is unchanged after the second (no-op) run.
@@ -158,6 +158,7 @@ fn migrated_schema_matches_a_fresh_install() {
         "exam_sessions",
         "leitner_items",
         "settings",
+        "attempts",
     ] {
         assert_eq!(
             columns(migrated.conn(), table),
@@ -180,6 +181,50 @@ fn columns(conn: &Connection, table: &str) -> Vec<String> {
     cols
 }
 
+/// Whether a table exists in the main schema.
+fn has_table(conn: &Connection, name: &str) -> bool {
+    conn.query_row(
+        "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = ?1",
+        [name],
+        |r| r.get::<_, i64>(0),
+    )
+    .unwrap()
+        > 0
+}
+
+/// A v1 database (schema before AD-011) upgrades to v2 by gaining the `attempts` table, and a
+/// second run is a no-op that adds nothing (idempotent v1 → v2).
+#[test]
+fn upgrades_v1_to_v2_adding_attempts_idempotently() {
+    let temp = TempDb::new();
+    let db = Db::open(&temp.path).unwrap();
+    db.create_schema().unwrap();
+
+    // Simulate a real v1 DB: drop the v2-only `attempts` table and roll the version back to 1.
+    db.conn().execute_batch("DROP TABLE attempts;").unwrap();
+    db.conn().pragma_update(None, "user_version", 1).unwrap();
+    assert!(!has_table(db.conn(), "attempts"), "precondition: v1 has no attempts table");
+
+    // v1 → v2: a `cards` table exists, so a backup is written before the upgrade.
+    let report = migrate(&db).unwrap();
+    if let Some(b) = &report.backup_path {
+        let _ = std::fs::remove_file(b);
+    }
+    assert!(report.ran);
+    assert_eq!(report.from_version, 1);
+    assert_eq!(report.to_version, 2);
+    assert!(has_table(db.conn(), "attempts"), "v2 gained the attempts table");
+
+    // Re-running is a detected no-op: nothing added, no new backup (idempotent).
+    let cols_before = columns(db.conn(), "attempts");
+    let again = migrate(&db).unwrap();
+    assert!(!again.ran);
+    assert_eq!(again.from_version, 2);
+    assert_eq!(again.to_version, 2);
+    assert_eq!(again.backup_path, None);
+    assert_eq!(columns(db.conn(), "attempts"), cols_before, "no schema change on re-run");
+}
+
 #[test]
 fn fresh_empty_db_gets_full_schema_without_backup() {
     // A brand-new empty file: migrate should create the schema and need no backup.
@@ -188,7 +233,7 @@ fn fresh_empty_db_gets_full_schema_without_backup() {
     let report = migrate(&db).unwrap();
     assert!(report.ran);
     assert_eq!(report.backup_path, None);
-    assert_eq!(report.to_version, 1);
+    assert_eq!(report.to_version, 2);
 
     // All tables exist; a card can be loaded (empty) without error.
     assert_eq!(

@@ -19,8 +19,9 @@ pub mod exams;
 pub mod migration;
 pub mod settings;
 
-/// The schema version this build targets, tracked via `PRAGMA user_version`. A C++ DB is 0.
-pub const SCHEMA_VERSION: i64 = 1;
+/// The schema version this build targets, tracked via `PRAGMA user_version`. A C++ DB is 0;
+/// v2 adds the `attempts` table for Active Recall / Feynman written attempts (AD-011).
+pub const SCHEMA_VERSION: i64 = 2;
 
 /// An open database connection plus the file path it was opened from (needed for backups).
 pub struct Db {
@@ -141,12 +142,21 @@ pub(crate) fn create_schema(conn: &Connection) -> rusqlite::Result<()> {
             value TEXT NOT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS attempts (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            card_id    INTEGER NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+            kind       TEXT NOT NULL,
+            text       TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
+
         CREATE INDEX IF NOT EXISTS idx_cards_archived ON cards(archived);
         CREATE INDEX IF NOT EXISTS idx_cards_method   ON cards(method);
         CREATE INDEX IF NOT EXISTS idx_cards_exam     ON cards(exam_id);
         CREATE INDEX IF NOT EXISTS idx_history_card   ON history(card_id);
         CREATE INDEX IF NOT EXISTS idx_sessions_card  ON exam_sessions(card_id);
         CREATE INDEX IF NOT EXISTS idx_leitner_card   ON leitner_items(card_id);
+        CREATE INDEX IF NOT EXISTS idx_attempts_card  ON attempts(card_id);
         ",
     )?;
     set_user_version(conn, SCHEMA_VERSION)?;

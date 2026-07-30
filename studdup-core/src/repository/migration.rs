@@ -130,9 +130,10 @@ fn default_backup(
     Ok(Some(backup))
 }
 
-/// The v0 → v1 delta: create the new tables, add the new columns to the pre-existing `cards` and
-/// `history` tables, then (re)create indexes and stamp the version — all in one transaction, so a
-/// failure at any step rolls the whole thing back.
+/// The forward delta to the current [`SCHEMA_VERSION`]: create the new tables (all `IF NOT EXISTS`,
+/// so it converges from either v0 or v1 — v2 adds `attempts`), add the new columns to the
+/// pre-existing `cards` and `history` tables, then (re)create indexes and stamp the version — all in
+/// one transaction, so a failure at any step rolls the whole thing back.
 fn run_upgrade(conn: &Connection) -> rusqlite::Result<()> {
     let tx = conn.unchecked_transaction()?;
 
@@ -165,6 +166,13 @@ fn run_upgrade(conn: &Connection) -> rusqlite::Result<()> {
             key   TEXT PRIMARY KEY,
             value TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS attempts (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            card_id    INTEGER NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+            kind       TEXT NOT NULL,
+            text       TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
         ",
     )?;
 
@@ -195,6 +203,7 @@ fn run_upgrade(conn: &Connection) -> rusqlite::Result<()> {
         CREATE INDEX IF NOT EXISTS idx_history_card   ON history(card_id);
         CREATE INDEX IF NOT EXISTS idx_sessions_card  ON exam_sessions(card_id);
         CREATE INDEX IF NOT EXISTS idx_leitner_card   ON leitner_items(card_id);
+        CREATE INDEX IF NOT EXISTS idx_attempts_card  ON attempts(card_id);
         ",
     )?;
 
