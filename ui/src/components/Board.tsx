@@ -59,6 +59,7 @@ import { PomodoroSession } from "../sessions/Pomodoro";
 import { NoneSession } from "../sessions/None";
 import { ActiveRecallSession } from "../sessions/ActiveRecall";
 import { FeynmanSession } from "../sessions/Feynman";
+import { LeitnerSession } from "../sessions/Leitner";
 import { sessionKind } from "../sessions/dispatch";
 
 /** Spaced ladder stage → its "Dia N" label (mirrors the badge vocabulary, AD-003). */
@@ -477,6 +478,19 @@ export function Board({ method }: BoardProps) {
                 onFinish={({ focusedSecs, selfRating, text }) => {
                   record.mutate({ id: c.id, focusedSecs, selfRating });
                   if (text) recordAttempt.mutate({ cardId: c.id, kind: "feynman", text });
+                  close();
+                }}
+                onExit={close}
+              />
+            );
+          }
+          if (kind === "leitner") {
+            return (
+              <LeitnerSession
+                cardId={c.id}
+                cardTitle={c.title}
+                onComplete={() => {
+                  complete.mutate(c.id);
                   close();
                 }}
                 onExit={close}

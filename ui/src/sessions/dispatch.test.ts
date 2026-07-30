@@ -1,5 +1,5 @@
-// T52 — session dispatch (TECH-04/05): each technique maps to its guided session screen; no-technique
-// and the not-yet-supported Leitner fall back to the plain "none" session (Leitner's arm ships in T57).
+// T52/T57 — session dispatch (TECH-04/05/08): each technique maps to its guided session screen; only a
+// card with no technique falls back to the plain "none" session.
 
 import { describe, expect, it } from "vitest";
 import { sessionKind } from "./dispatch";
@@ -17,11 +17,11 @@ describe("sessionKind", () => {
     expect(sessionKind("Feynman")).toBe("feynman");
   });
 
-  it("falls back to none for a card with no technique", () => {
-    expect(sessionKind(null)).toBe("none");
+  it("maps Leitner to the leitner screen", () => {
+    expect(sessionKind("Leitner")).toBe("leitner");
   });
 
-  it("falls back to none for Leitner until its screen ships (T57)", () => {
-    expect(sessionKind("Leitner")).toBe("none");
+  it("falls back to none for a card with no technique", () => {
+    expect(sessionKind(null)).toBe("none");
   });
 });
