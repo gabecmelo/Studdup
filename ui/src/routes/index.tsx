@@ -34,7 +34,8 @@ export const ROUTES: readonly RouteMeta[] = [
   { key: "configuracoes", label: "Configurações", icon: "⚙" },
 ] as const;
 
-export const DEFAULT_ROUTE: RouteKey = "quadro";
+// The app lands on Início — the cross-method orientation overview (HOME-01).
+export const DEFAULT_ROUTE: RouteKey = "inicio";
 
 /** Render a route's content. `onNavigate` lets a screen jump to another route (e.g. Início's CTA
  *  opens the board). All six routes are live screens. */
