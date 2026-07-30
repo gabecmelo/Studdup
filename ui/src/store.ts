@@ -31,6 +31,12 @@ export interface StuddupState {
   setBoardTechnique: (technique: Technique | null) => void;
   clearBoardFilters: () => void;
 
+  // Cross-screen study intent (HOME-04): Início sets this to the method whose first due card
+  // should open when the board mounts. Ephemeral — never persisted; cleared once consumed.
+  pendingStudy: Method | null;
+  requestStudy: (method: Method) => void;
+  clearStudy: () => void;
+
   session: LiveSession | null;
   startSession: (session: LiveSession) => void;
   endSession: () => void;
@@ -54,6 +60,10 @@ export const useStore = create<StuddupState>()(
       boardTechnique: null,
       setBoardTechnique: (technique) => set({ boardTechnique: technique }),
       clearBoardFilters: () => set({ boardSearch: "", boardTechnique: null }),
+
+      pendingStudy: null,
+      requestStudy: (method) => set({ pendingStudy: method }),
+      clearStudy: () => set({ pendingStudy: null }),
 
       session: null,
       startSession: (session) => set({ session }),

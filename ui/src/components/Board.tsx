@@ -12,7 +12,7 @@
 // the pure `resolveDrag` (lib/dnd.ts). The move shows optimistically and rolls back with a toast
 // if the command fails. Exam-prep grouping and the exams rail are layered on in T24.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   DndContext,
   type DragEndEvent,
@@ -42,6 +42,7 @@ import {
   rollbackMove,
 } from "../lib/dnd";
 import { filterBoardCards } from "../lib/boardFilter";
+import { firstDueCard } from "../lib/dueCards";
 import { useStore } from "../store";
 import { Card } from "./Card";
 import { SpacedStageBadge } from "./StageBadge";
@@ -198,6 +199,13 @@ export function Board({ method }: BoardProps) {
   const boardTechnique = useStore((s) => s.boardTechnique);
   const cards = filterBoardCards(query.data ?? [], boardSearch, boardTechnique);
 
+  // Cross-screen study intent from Início (HOME-04): when this board's method is the one
+  // "Estudar agora" targeted, open the first due card's study flow — the same path as the detail
+  // "Estudar" button (overdue → Recomeçar/Apagar, else the session). The intent is cleared as soon
+  // as it is consumed so it fires exactly once and never on a later render.
+  const pendingStudy = useStore((s) => s.pendingStudy);
+  const clearStudy = useStore((s) => s.clearStudy);
+
   // Optimistic overrides (card id → column) held locally while a drag's command is in flight;
   // cleared on settle, rolled back on error. The Zustand store carries only durable prefs (T21),
   // so this transient board state stays in the component.
@@ -232,6 +240,23 @@ export function Board({ method }: BoardProps) {
 
   const groups = groupByColumn(cards, today, moves);
   const contexto = boardContext(cards.length, today);
+
+  // The board data used to resolve the intent is the unfiltered board (search/technique filters
+  // must not hide the card Início asked to study). Wait until the query has resolved.
+  const boardData = query.data;
+  useEffect(() => {
+    if (pendingStudy !== method || boardData === undefined) return;
+    clearStudy(); // consume the intent immediately so it can't double-fire
+    const card = firstDueCard(boardData, today);
+    if (!card) return; // nothing due — never fabricate work (HOME-04/06)
+    if (placeCard(card, today).overdueDays > 0) {
+      setOverdueCard(card);
+    } else {
+      setSessionCard(card);
+    }
+    // `today` is a stable per-day value; the effect keys on the intent + method + loaded data.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingStudy, method, boardData]);
 
   function onDragEnd(event: DragEndEvent) {
     const cardId = Number(event.active.id);

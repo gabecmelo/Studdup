@@ -12,6 +12,7 @@ describe("studdup store", () => {
     useStore.setState({
       activeMethod: "SpacedRepetition",
       sidebarCollapsed: false,
+      pendingStudy: null,
       session: null,
     });
   });
@@ -39,6 +40,17 @@ describe("studdup store", () => {
     useStore.getState().setSidebarCollapsed(false);
     expect(useStore.getState().sidebarCollapsed).toBe(false);
     expect(persisted().sidebarCollapsed).toBe(false);
+  });
+
+  it("sets and clears the cross-screen study intent, never persisting it (HOME-04)", () => {
+    expect(useStore.getState().pendingStudy).toBeNull();
+    useStore.getState().requestStudy("ExamPrep");
+    expect(useStore.getState().pendingStudy).toBe("ExamPrep");
+    // Ephemeral: excluded from the persisted snapshot by `partialize`.
+    expect(persisted().pendingStudy).toBeUndefined();
+
+    useStore.getState().clearStudy();
+    expect(useStore.getState().pendingStudy).toBeNull();
   });
 
   it("keeps the live session in memory only (never persisted)", () => {
