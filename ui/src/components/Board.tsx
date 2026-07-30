@@ -32,6 +32,7 @@ import {
   useEraseCard,
   useHistory,
   usePostponeCard,
+  useRecordAttempt,
   useRecordSession,
   useRestartCard,
 } from "../lib/queries";
@@ -56,6 +57,9 @@ import { AdiarModal } from "./modals/Adiar";
 import { ExcluirCardModal } from "./modals/ExcluirCard";
 import { PomodoroSession } from "../sessions/Pomodoro";
 import { NoneSession } from "../sessions/None";
+import { ActiveRecallSession } from "../sessions/ActiveRecall";
+import { FeynmanSession } from "../sessions/Feynman";
+import { sessionKind } from "../sessions/dispatch";
 
 /** Spaced ladder stage → its "Dia N" label (mirrors the badge vocabulary, AD-003). */
 const STAGE_LABEL: Record<Stage, string> = {
@@ -226,6 +230,7 @@ export function Board({ method }: BoardProps) {
   const postpone = usePostponeCard();
   const complete = useCompleteCard();
   const record = useRecordSession();
+  const recordAttempt = useRecordAttempt();
   const edit = useEditCard();
   const restart = useRestartCard();
   const erase = useEraseCard();
@@ -425,34 +430,73 @@ export function Board({ method }: BoardProps) {
         />
       )}
 
-      {/* Study session (T32/T33): a Pomodoro card runs the guided timer and records its focused
-          seconds; every other card (no technique, or a technique whose guided screen ships later)
-          uses the plain session whose "Concluir" completes the card. */}
+      {/* Study session (T32/T33/T52): the card's technique picks the guided screen. Pomodoro runs
+          the timer; Active Recall / Feynman run their written flows and record the session + attempt;
+          every other card (no technique, or one whose screen ships later) uses the plain session
+          whose "Concluir" completes the card. */}
       {sessionCard &&
-        (sessionCard.technique === "Pomodoro" && sessionCard.pomodoro ? (
-          <PomodoroSession
-            cardTitle={sessionCard.title}
-            rhythm={sessionCard.pomodoro}
-            contentLink={sessionCard.content_link || undefined}
-            onComplete={(focusedSecs) => {
-              record.mutate({ id: sessionCard.id, focusedSecs, selfRating: null });
-              setSessionCard(null);
-            }}
-            onExit={() => setSessionCard(null)}
-          />
-        ) : (
-          <NoneSession
-            cardTitle={sessionCard.title}
-            contentLink={sessionCard.content_link || undefined}
-            reviewLink={sessionCard.review_link || undefined}
-            technique={sessionCard.technique || undefined}
-            onConcluir={() => {
-              complete.mutate(sessionCard.id);
-              setSessionCard(null);
-            }}
-            onExit={() => setSessionCard(null)}
-          />
-        ))}
+        (() => {
+          const c = sessionCard;
+          const kind = sessionKind(c.technique);
+          const close = () => setSessionCard(null);
+          if (kind === "pomodoro" && c.pomodoro) {
+            return (
+              <PomodoroSession
+                cardTitle={c.title}
+                rhythm={c.pomodoro}
+                contentLink={c.content_link || undefined}
+                onComplete={(focusedSecs) => {
+                  record.mutate({ id: c.id, focusedSecs, selfRating: null });
+                  close();
+                }}
+                onExit={close}
+              />
+            );
+          }
+          if (kind === "activeRecall") {
+            return (
+              <ActiveRecallSession
+                cardTitle={c.title}
+                contentLink={c.content_link || undefined}
+                reviewLink={c.review_link || undefined}
+                onFinish={({ focusedSecs, selfRating, text }) => {
+                  record.mutate({ id: c.id, focusedSecs, selfRating });
+                  if (text) recordAttempt.mutate({ cardId: c.id, kind: "active_recall", text });
+                  close();
+                }}
+                onExit={close}
+              />
+            );
+          }
+          if (kind === "feynman") {
+            return (
+              <FeynmanSession
+                cardTitle={c.title}
+                contentLink={c.content_link || undefined}
+                reviewLink={c.review_link || undefined}
+                onFinish={({ focusedSecs, selfRating, text }) => {
+                  record.mutate({ id: c.id, focusedSecs, selfRating });
+                  if (text) recordAttempt.mutate({ cardId: c.id, kind: "feynman", text });
+                  close();
+                }}
+                onExit={close}
+              />
+            );
+          }
+          return (
+            <NoneSession
+              cardTitle={c.title}
+              contentLink={c.content_link || undefined}
+              reviewLink={c.review_link || undefined}
+              technique={c.technique || undefined}
+              onConcluir={() => {
+                complete.mutate(c.id);
+                close();
+              }}
+              onExit={close}
+            />
+          );
+        })()}
     </DndContext>
   );
 }
