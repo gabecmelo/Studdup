@@ -8,6 +8,7 @@
 // Presentational: restart/erase are callbacks the board wires to the mutations.
 
 import { useState } from "react";
+import { useEscapeToClose } from "../../lib/useEscapeToClose";
 
 const OVERLAY: React.CSSProperties = {
   position: "fixed",
@@ -41,6 +42,7 @@ export function CardAtrasadoModal({
   onErase,
   onClose,
 }: CardAtrasadoModalProps) {
+  useEscapeToClose(open ? onClose : undefined);
   if (!open) return null;
 
   const many = overdueDays > 1;

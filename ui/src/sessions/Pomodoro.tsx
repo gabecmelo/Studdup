@@ -8,6 +8,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { PomodoroRhythm } from "../lib/bindings";
 import { Countdown } from "../components/Countdown";
+import { EscapeCloser, useEscapeToClose } from "../lib/useEscapeToClose";
 import {
   createPomodoro,
   isComplete,
@@ -80,6 +81,8 @@ export function PomodoroSession({
       onExit();
     }
   }
+
+  useEscapeToClose(requestExit);
 
   return (
     <div
@@ -240,6 +243,7 @@ export function PomodoroSession({
           }}
           onClick={() => setConfirmExit(false)}
         >
+          <EscapeCloser onClose={() => setConfirmExit(false)} />
           <div
             onClick={(e) => e.stopPropagation()}
             style={{

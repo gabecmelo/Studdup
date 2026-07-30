@@ -5,6 +5,7 @@
 
 import { useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
+import { useEscapeToClose } from "../lib/useEscapeToClose";
 
 export interface ModalShellProps {
   title: string;
@@ -31,6 +32,7 @@ export function ModalShell({
   destructive = false,
   width = 480,
 }: ModalShellProps) {
+  useEscapeToClose(open ? onClose : undefined);
   if (!open) return null;
 
   return (

@@ -9,6 +9,7 @@
 import { useState } from "react";
 import type { Card, PomodoroRhythm, Technique } from "../../lib/bindings";
 import { ModalShell } from "../ModalShell";
+import { EscapeCloser } from "../../lib/useEscapeToClose";
 import { RhythmPicker } from "../RhythmPicker";
 import { TECHNIQUE_LABEL, TECHNIQUE_SUMMARY } from "../TechniqueChip";
 import {
@@ -305,6 +306,7 @@ export function EditarCardModal({ open = true, card, onClose, onSave }: EditarCa
           }}
           onClick={() => setConfirmDiscard(false)}
         >
+          <EscapeCloser onClose={() => setConfirmDiscard(false)} />
           <div
             onClick={(e) => e.stopPropagation()}
             style={{

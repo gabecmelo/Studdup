@@ -5,6 +5,7 @@
 // ship later (Active Recall / Feynman / Leitner are P2/P3).
 
 import { LinkRow } from "../components/LinkRow";
+import { useEscapeToClose } from "../lib/useEscapeToClose";
 import { SessionExitButton, SessionPrimaryButton } from "./sessionButtons";
 
 export interface NoneSessionProps {
@@ -23,6 +24,7 @@ export function NoneSession({
   onConcluir,
   onExit,
 }: NoneSessionProps) {
+  useEscapeToClose(onExit);
   const hasLinks = Boolean(contentLink) || Boolean(reviewLink);
   return (
     <div

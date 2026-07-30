@@ -10,6 +10,7 @@
 // panel; the narrower LogCard composes ModalShell.
 
 import type { Card, ISODate, Stage } from "../../lib/bindings";
+import { useEscapeToClose } from "../../lib/useEscapeToClose";
 import { STAGE_OFFSET, addDaysIso, spacedDueDate } from "../Board";
 import { daysBetween } from "../columns";
 import { LinkRow } from "../LinkRow";
@@ -92,6 +93,7 @@ export function DetalheCardModal({
   onRevive,
   onOpenLink,
 }: DetalheCardModalProps) {
+  useEscapeToClose(open ? onClose : undefined);
   if (!open) return null;
 
   const due = dueLabel(card, today);

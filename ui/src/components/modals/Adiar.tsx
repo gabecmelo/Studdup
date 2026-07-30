@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from "react";
 import type { ISODate, Stage, Technique } from "../../lib/bindings";
+import { useEscapeToClose } from "../../lib/useEscapeToClose";
 import { Countdown, formatClock } from "../Countdown";
 import { addDaysIso } from "../Board";
 import { TECHNIQUE_LABEL } from "../TechniqueChip";
@@ -90,6 +91,8 @@ export function AdiarModal({
   useEffect(() => {
     if (timer.phase === "done") setMode("question");
   }, [timer.phase]);
+
+  useEscapeToClose(open ? onClose : undefined);
 
   if (!open) return null;
 

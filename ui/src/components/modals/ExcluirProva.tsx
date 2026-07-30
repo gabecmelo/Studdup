@@ -5,6 +5,7 @@
 // control.
 
 import { GhostBtn, DangerBtn } from "./confirmButtons";
+import { useEscapeToClose } from "../../lib/useEscapeToClose";
 
 const OVERLAY: React.CSSProperties = {
   position: "fixed",
@@ -35,6 +36,7 @@ export function ExcluirProvaModal({
   onConfirm,
   onClose,
 }: ExcluirProvaModalProps) {
+  useEscapeToClose(open ? onClose : undefined);
   if (!open) return null;
 
   const count = cardTitles.length;
