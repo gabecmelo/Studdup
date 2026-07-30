@@ -17,6 +17,7 @@ pub mod attempts;
 pub mod cards;
 pub mod events;
 pub mod exams;
+pub mod leitner;
 pub mod migration;
 pub mod settings;
 
