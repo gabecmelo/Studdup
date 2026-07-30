@@ -9,7 +9,15 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import type { Card, Exam, ISODate, Method, Technique } from "./bindings";
+import type {
+  Attempt,
+  AttemptKind,
+  Card,
+  Exam,
+  ISODate,
+  Method,
+  Technique,
+} from "./bindings";
 import { commands } from "./commands";
 
 /** App-wide query client (single instance). */
@@ -28,6 +36,7 @@ export const queryKeys = {
     ["history", method, technique] as const,
   exams: () => ["exams"] as const,
   sessionCursors: () => ["sessionCursors"] as const,
+  attempts: (cardId: number) => ["attempts", cardId] as const,
 };
 
 /** All exams as read projections (progress + days-remaining), for the list/detail/rail (EXAM-04). */
@@ -165,5 +174,27 @@ export function useDeleteExam() {
   return useMutation({
     mutationFn: (examId: number) => commands.deleteExam(examId),
     onSuccess: invalidate,
+  });
+}
+
+// ---- written attempts (Active Recall / Feynman, TECH-04.4 / AD-011) ----
+
+/** A card's previous written attempts, newest first. Only fetched once a card is selected. */
+export function useAttempts(cardId: number | null) {
+  return useQuery({
+    queryKey: queryKeys.attempts(cardId ?? 0),
+    queryFn: () => commands.listAttempts(cardId as number),
+    enabled: cardId != null,
+  });
+}
+
+/** Record a written attempt; invalidates that card's attempts so the list refreshes. */
+export function useRecordAttempt() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { cardId: number; kind: AttemptKind; text: string }): Promise<Attempt> =>
+      commands.recordAttempt(vars.cardId, vars.kind, vars.text),
+    onSuccess: (_data, vars) =>
+      qc.invalidateQueries({ queryKey: queryKeys.attempts(vars.cardId) }),
   });
 }

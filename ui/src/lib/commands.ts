@@ -5,6 +5,8 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import type {
+  Attempt,
+  AttemptKind,
   Card,
   Exam,
   ExamView,
@@ -89,6 +91,18 @@ export const commands = {
 
   setSetting(key: string, value: string): Promise<void> {
     return invoke("set_setting", { key, value });
+  },
+
+  recordAttempt(
+    cardId: number,
+    kind: AttemptKind,
+    text: string,
+  ): Promise<Attempt> {
+    return invoke("record_attempt", { cardId, kind, text });
+  },
+
+  listAttempts(cardId: number): Promise<Attempt[]> {
+    return invoke("list_attempts", { cardId });
   },
 };
 

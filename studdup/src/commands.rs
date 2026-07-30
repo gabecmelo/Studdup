@@ -8,7 +8,7 @@
 use tauri::State;
 
 use studdup_core::api::{self, ApiError, HistoryFilter};
-use studdup_core::domain::{Card, Date, Exam, HistoryEvent, Method, Technique};
+use studdup_core::domain::{Attempt, AttemptKind, Card, Date, Exam, HistoryEvent, Method, Technique};
 
 use crate::state::AppState;
 
@@ -155,4 +155,26 @@ pub fn get_setting(state: State<'_, AppState>, key: String) -> Result<Option<Str
 pub fn set_setting(state: State<'_, AppState>, key: String, value: String) -> Result<(), ApiError> {
     let db = state.db.lock().map_err(|_| poisoned())?;
     api::set_setting(db.conn(), &key, &value)
+}
+
+// ---- written attempts (Active Recall / Feynman, TECH-04.4 / AD-011) ----
+
+/// Record a written attempt for a card, returning the persisted attempt (with its new id + date).
+#[tauri::command]
+pub fn record_attempt(
+    state: State<'_, AppState>,
+    card_id: i64,
+    kind: AttemptKind,
+    text: String,
+) -> Result<Attempt, ApiError> {
+    with_db!(state, |conn, today| api::record_attempt(
+        conn, card_id, kind, text, today
+    ))
+}
+
+/// A card's written attempts, newest first (TECH-04.4) — the "previous attempts" list.
+#[tauri::command]
+pub fn list_attempts(state: State<'_, AppState>, card_id: i64) -> Result<Vec<Attempt>, ApiError> {
+    let db = state.db.lock().map_err(|_| poisoned())?;
+    api::list_attempts(db.conn(), card_id)
 }

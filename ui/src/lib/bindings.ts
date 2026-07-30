@@ -101,6 +101,18 @@ export interface HistoryEvent {
   when: ISODate;
 }
 
+/** Which technique produced a written attempt (serde `rename_all = "snake_case"`). */
+export type AttemptKind = "active_recall" | "feynman";
+
+/** A written attempt on a card — free text from an Active Recall / Feynman session (AD-011). */
+export interface Attempt {
+  id: number;
+  card_id: number;
+  kind: AttemptKind;
+  text: string;
+  created_at: ISODate;
+}
+
 /** A Leitner box item (front/back), scoped to a Leitner-technique card (TECH-08). */
 export interface LeitnerItem {
   id: number;
@@ -127,6 +139,7 @@ export type ApiError =
   | { kind: "ExamDateTooFar"; detail: { max: string } }
   | { kind: "ExamNotFound"; detail: number }
   | { kind: "CardNotFound"; detail: number }
+  | { kind: "EmptyAttemptText" }
   | { kind: "Database"; detail: string };
 
 /**
@@ -157,4 +170,9 @@ export interface Commands {
   list_session_cursors: { args: Record<string, never>; returns: SessionCursor[] };
   get_setting: { args: { key: string }; returns: string | null };
   set_setting: { args: { key: string; value: string }; returns: null };
+  record_attempt: {
+    args: { cardId: number; kind: AttemptKind; text: string };
+    returns: Attempt;
+  };
+  list_attempts: { args: { cardId: number }; returns: Attempt[] };
 }
