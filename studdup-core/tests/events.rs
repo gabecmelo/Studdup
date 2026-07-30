@@ -26,6 +26,7 @@ fn event(card_id: i64, method: Method) -> HistoryEvent {
     HistoryEvent {
         id: 0,
         card_id,
+        card_title: None,
         kind: "completed".to_string(),
         from_stage: Stage::Day2,
         to_stage: Stage::Day5,
@@ -54,6 +55,8 @@ fn event_payload_persists_all_new_fields() {
 
     let mut expected = ev.clone();
     expected.id = id;
+    // The read path joins the card title (HIST-02); the write payload carries None.
+    expected.card_title = Some("Integrais".to_string());
     // Full equality proves the whole payload (method/technique/focused_secs/self_rating,
     // stage transition and date) round-tripped.
     assert_eq!(loaded[0], expected);
@@ -63,6 +66,21 @@ fn event_payload_persists_all_new_fields() {
     assert_eq!(loaded[0].self_rating, Some(2));
     assert_eq!(loaded[0].from_stage, Stage::Day2);
     assert_eq!(loaded[0].to_stage, Stage::Day5);
+}
+
+#[test]
+fn load_joins_the_card_title() {
+    let (_temp, db) = fresh_db();
+    let card_id = insert_card_of(&db, "Genética — 2ª Lei de Mendel", Method::SpacedRepetition);
+    record_event(db.conn(), &event(card_id, Method::SpacedRepetition)).unwrap();
+
+    let loaded = load_history(db.conn(), &HistoryFilter::all()).unwrap();
+    assert_eq!(loaded.len(), 1);
+    assert_eq!(
+        loaded[0].card_title.as_deref(),
+        Some("Genética — 2ª Lei de Mendel"),
+        "the read path should name the card via a join, not just its id"
+    );
 }
 
 #[test]

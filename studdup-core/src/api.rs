@@ -142,6 +142,7 @@ fn log_event(
     let ev = HistoryEvent {
         id: 0,
         card_id: card.id,
+        card_title: None,
         kind: kind.to_string(),
         from_stage: from,
         to_stage: to,

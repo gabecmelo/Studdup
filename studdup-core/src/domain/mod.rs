@@ -75,6 +75,7 @@ mod serde_tests {
         let ev = HistoryEvent {
             id: 5,
             card_id: 7,
+            card_title: None,
             kind: "completed".to_string(),
             from_stage: Stage::Day2,
             to_stage: Stage::Day5,

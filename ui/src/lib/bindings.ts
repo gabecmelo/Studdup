@@ -81,6 +81,8 @@ export interface ExamSession {
 export interface HistoryEvent {
   id: number;
   card_id: number;
+  /** The card's current title, joined on read (HIST-02); null when the card is gone. */
+  card_title: string | null;
   kind: string;
   from_stage: Stage;
   to_stage: Stage;

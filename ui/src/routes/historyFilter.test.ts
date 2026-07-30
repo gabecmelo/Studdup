@@ -14,6 +14,7 @@ function ev(
   return {
     id: nextId++,
     card_id: nextId,
+    card_title: null,
     kind: "completed",
     from_stage: "Day0",
     to_stage: "Day1",

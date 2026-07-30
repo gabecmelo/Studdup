@@ -11,6 +11,10 @@ use crate::domain::enums::{Method, Stage, Technique};
 pub struct HistoryEvent {
     pub id: i64,
     pub card_id: i64,
+    /// The card's current title, joined on read (HIST-02) so the log can name the card instead of
+    /// its id. `None` on the write path and when the card no longer exists.
+    #[serde(default)]
+    pub card_title: Option<String>,
     pub kind: String,
     pub from_stage: Stage,
     pub to_stage: Stage,

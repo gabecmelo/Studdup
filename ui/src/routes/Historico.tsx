@@ -161,7 +161,17 @@ function HistoryRow({ event, today, onRevive }: { event: HistoryEvent; today: IS
       </span>
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}>
         <span style={{ font: "600 13.5px/1.25 var(--font-sans)", color: "var(--text)" }}>{meta.label}</span>
-        <span style={{ font: "400 11px/1.2 var(--font-sans)", color: "var(--text-3)" }}>Card #{event.card_id}</span>
+        <span
+          style={{
+            font: "400 11px/1.2 var(--font-sans)",
+            color: "var(--text-3)",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {event.card_title ?? `Card #${event.card_id}`}
+        </span>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 6, flex: "none" }}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 999, background: mc.bg, color: mc.ink, font: "600 10px/1.3 var(--font-sans)", whiteSpace: "nowrap" }}>

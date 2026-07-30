@@ -11,9 +11,10 @@ use crate::repository::{
     technique_from_db, technique_to_db,
 };
 
-/// Column list shared by the load query and the row mapper.
-const SELECT_COLS: &str = "id, card_id, event_type, from_stage, to_stage, when_date, method, \
-     technique, focused_secs, self_rating";
+/// Column list shared by the load query and the row mapper. History columns are aliased `h` and the
+/// card title is joined from `cards` (aliased `c`) so a row can name its card (HIST-02).
+const SELECT_COLS: &str = "h.id, h.card_id, h.event_type, h.from_stage, h.to_stage, h.when_date, \
+     h.method, h.technique, h.focused_secs, h.self_rating, c.title";
 
 /// A history query filter. `method = None` means all methods (the unified view, HIST-02);
 /// `technique = Some(_)` narrows to one technique (HIST-03). The default is "everything".
@@ -76,11 +77,11 @@ pub fn load_history(
     let mut conds: Vec<String> = Vec::new();
     let mut vals: Vec<Value> = Vec::new();
     if let Some(m) = filter.method {
-        conds.push(format!("method = ?{}", vals.len() + 1));
+        conds.push(format!("h.method = ?{}", vals.len() + 1));
         vals.push(Value::Text(method_to_db(m).to_string()));
     }
     if let Some(t) = filter.technique {
-        conds.push(format!("technique = ?{}", vals.len() + 1));
+        conds.push(format!("h.technique = ?{}", vals.len() + 1));
         vals.push(Value::Text(technique_to_db(t).to_string()));
     }
     let where_clause = if conds.is_empty() {
@@ -89,7 +90,8 @@ pub fn load_history(
         format!("WHERE {}", conds.join(" AND "))
     };
     let sql = format!(
-        "SELECT {SELECT_COLS} FROM history {where_clause} ORDER BY when_date DESC, id DESC"
+        "SELECT {SELECT_COLS} FROM history h LEFT JOIN cards c ON c.id = h.card_id \
+         {where_clause} ORDER BY h.when_date DESC, h.id DESC"
     );
     let mut stmt = conn.prepare(&sql)?;
     let rows = stmt.query_map(params_from_iter(vals), row_to_event)?;
@@ -109,5 +111,6 @@ fn row_to_event(row: &Row) -> rusqlite::Result<HistoryEvent> {
         technique: technique_from_db(technique.as_deref()),
         focused_secs: row.get(8)?,
         self_rating: row.get(9)?,
+        card_title: row.get(10)?,
     })
 }
