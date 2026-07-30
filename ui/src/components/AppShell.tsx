@@ -95,9 +95,20 @@ export function AppShell() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
+      // Don't hijack keys while the user is typing in a field.
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+
+      const mod = e.ctrlKey || e.metaKey;
+      if (mod && e.key.toLowerCase() === "b") {
         e.preventDefault();
         toggleCollapse();
+      } else if (mod && e.key.toLowerCase() === "h") {
+        e.preventDefault();
+        setRoute("historico");
+      } else if (e.key === "F1" || (e.key === "?" && !mod)) {
+        e.preventDefault();
+        setRoute("ajuda");
       }
     };
     window.addEventListener("keydown", onKey);
@@ -168,7 +179,7 @@ export function AppShell() {
             padding: isBoard ? 0 : isMethodScoped ? "0 22px 22px" : "22px 24px",
           }}
         >
-          <RouteView route={route} />
+          <RouteView route={route} onNavigate={setRoute} />
         </section>
       </main>
     </div>
