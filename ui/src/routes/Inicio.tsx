@@ -7,10 +7,11 @@
 // Real data: the due-today count folds the spaced and exam boards through the same `placeCard`
 // the board uses (KAN-01), and the exams come from `list_exams`. Presentational beyond those reads.
 
-import type { Card as CardModel } from "../lib/bindings";
+import type { Card as CardModel, Method } from "../lib/bindings";
 import { useBoard, useExams } from "../lib/queries";
 import { placeCard, todayIso } from "../components/Board";
 import { examColor } from "../components/examColor";
+import { useStore } from "../store";
 import type { RouteKey } from ".";
 
 /** A time-of-day greeting (no stored user name, so no trailing name as in the mock). */
@@ -38,12 +39,45 @@ export function Inicio({ onNavigate }: { onNavigate?: (route: RouteKey) => void 
   const exam = useBoard("ExamPrep");
   const examsQuery = useExams();
 
-  const dueCount = dueToday(spaced.data ?? [], today) + dueToday(exam.data ?? [], today);
+  const activeMethod = useStore((s) => s.activeMethod);
+  const setActiveMethod = useStore((s) => s.setActiveMethod);
+  const requestStudy = useStore((s) => s.requestStudy);
+
+  const spacedDue = dueToday(spaced.data ?? [], today);
+  const examDue = dueToday(exam.data ?? [], today);
+  const dueCount = spacedDue + examDue;
   const upcoming = (examsQuery.data ?? [])
     .filter((e) => !e.concluded && e.days_remaining >= 0)
     .sort((a, b) => a.days_remaining - b.days_remaining);
 
   const calmo = dueCount === 0 && upcoming.length === 0;
+
+  // Which method to study now (HOME-04): prefer the active method when it has a due card, else
+  // whichever board has one; `null` when nothing is due.
+  function studyMethod(): Method | null {
+    const activeHasDue = activeMethod === "ExamPrep" ? examDue > 0 : spacedDue > 0;
+    if (activeHasDue) return activeMethod;
+    if (spacedDue > 0) return "SpacedRepetition";
+    if (examDue > 0) return "ExamPrep";
+    return null;
+  }
+
+  // "Estudar agora": switch to the method with a due card, hand the board a study intent, and open
+  // it. When nothing is due, just show the board — never fabricate a session (HOME-04).
+  function onStudyNow() {
+    const method = studyMethod();
+    if (method) {
+      setActiveMethod(method);
+      requestStudy(method);
+    }
+    onNavigate?.("quadro");
+  }
+
+  // Selecting an exam opens the Prova board, switching the active method if needed (HOME-05).
+  function onOpenExam() {
+    setActiveMethod("ExamPrep");
+    onNavigate?.("quadro");
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0, width: "100%", maxWidth: 1080, margin: "0 auto", padding: "34px 24px 24px" }}>
@@ -60,10 +94,10 @@ export function Inicio({ onNavigate }: { onNavigate?: (route: RouteKey) => void 
         <CalmoHero onStudy={() => onNavigate?.("quadro")} />
       ) : (
         <div style={{ flex: 1, minHeight: 0, display: "flex", gap: 26, alignItems: "stretch" }}>
-          <ParaAgora dueCount={dueCount} onStudy={() => onNavigate?.("quadro")} />
+          <ParaAgora dueCount={dueCount} onStudy={onStudyNow} />
           <ProvasProximas
             exams={upcoming.map((e) => ({ id: e.id, name: e.name, days: e.days_remaining }))}
-            onOpen={() => onNavigate?.("quadro")}
+            onOpen={onOpenExam}
           />
         </div>
       )}
