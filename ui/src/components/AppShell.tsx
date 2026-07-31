@@ -28,6 +28,8 @@ import {
 } from "../styles/theme";
 import { DEFAULT_ROUTE, ROUTES, RouteView, type RouteKey } from "../routes";
 import { useStore } from "../store";
+import { useCreateCard, useExams } from "../lib/queries";
+import { NovoCardModal } from "./modals/NovoCard";
 
 const COLLAPSE_KEY = "studdup.sidebar.collapsed";
 const AUTO_COLLAPSE_WIDTH = 1024;
@@ -68,8 +70,11 @@ export function AppShell() {
   );
   const [route, setRoute] = useState<RouteKey>(DEFAULT_ROUTE);
   const [theme, setTheme] = useState<Theme>(() => resolveTheme(getStoredPreference()));
+  const [showNewCard, setShowNewCard] = useState(false);
   const method = useStore((s) => s.activeMethod);
   const setMethod = useStore((s) => s.setActiveMethod);
+  const createCard = useCreateCard();
+  const examsQuery = useExams();
 
   const collapsed = narrow || collapsedPref;
   const isBoard = route === "quadro";
@@ -135,6 +140,7 @@ export function AppShell() {
         onNavigate={setRoute}
         onToggle={toggleCollapse}
         onChooseTheme={chooseTheme}
+        onNewCard={() => setShowNewCard(true)}
       />
 
       <main
@@ -187,6 +193,27 @@ export function AppShell() {
           <RouteView route={route} onNavigate={setRoute} />
         </section>
       </main>
+
+      {showNewCard && (
+        <NovoCardModal
+          activeMethod={method}
+          exams={(examsQuery.data ?? [])
+            .filter((e) => !e.concluded)
+            .map((e) => ({ id: e.id, name: e.name }))}
+          onClose={() => setShowNewCard(false)}
+          onCreate={(card) => {
+            createCard.mutate(card);
+            setShowNewCard(false);
+          }}
+          onCreateExam={() => {
+            // No exams yet and the user wants a Prova card → take them to the Prova board where the
+            // exam-management flow (Gerenciar provas / Nova Prova) lives (AD-009, contextual nav).
+            setShowNewCard(false);
+            setMethod("ExamPrep");
+            setRoute("quadro");
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -366,6 +393,7 @@ interface SidebarProps {
   onNavigate: (route: RouteKey) => void;
   onToggle: () => void;
   onChooseTheme: (t: Theme) => void;
+  onNewCard: () => void;
 }
 
 /** The brand lockup: the "A Pilha" mark (accent) plus, when expanded, the "Studd·up" wordmark. */
@@ -419,7 +447,7 @@ function ToggleButton({
 }
 
 /** The "Novo Card" primary action — icon-only in the rail, labelled when expanded. */
-function NovoCardButton({ collapsed }: { collapsed: boolean }) {
+function NovoCardButton({ collapsed, onClick }: { collapsed: boolean; onClick: () => void }) {
   const { hover, bind } = useHover();
   const shared: React.CSSProperties = {
     border: "none",
@@ -435,6 +463,7 @@ function NovoCardButton({ collapsed }: { collapsed: boolean }) {
         type="button"
         title="Novo Card"
         aria-label="Novo Card"
+        onClick={onClick}
         {...bind}
         style={{
           ...shared,
@@ -454,6 +483,7 @@ function NovoCardButton({ collapsed }: { collapsed: boolean }) {
     <button
       type="button"
       title="Novo Card"
+      onClick={onClick}
       {...bind}
       style={{
         ...shared,
@@ -575,7 +605,7 @@ function ThemePill({
   );
 }
 
-function Sidebar({ collapsed, canToggle, route, theme, onNavigate, onToggle, onChooseTheme }: SidebarProps) {
+function Sidebar({ collapsed, canToggle, route, theme, onNavigate, onToggle, onChooseTheme, onNewCard }: SidebarProps) {
   if (collapsed) {
     return (
       <nav
@@ -594,7 +624,7 @@ function Sidebar({ collapsed, canToggle, route, theme, onNavigate, onToggle, onC
       >
         <BrandLockup withWordmark={false} />
         {canToggle && <ToggleButton collapsed onToggle={onToggle} size={38} />}
-        <NovoCardButton collapsed />
+        <NovoCardButton collapsed onClick={onNewCard} />
         <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "center" }}>
           {ROUTES.map((item) => (
             <NavButton
@@ -633,7 +663,7 @@ function Sidebar({ collapsed, canToggle, route, theme, onNavigate, onToggle, onC
         )}
       </div>
 
-      <NovoCardButton collapsed={false} />
+      <NovoCardButton collapsed={false} onClick={onNewCard} />
 
       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
         {ROUTES.map((item) => (
