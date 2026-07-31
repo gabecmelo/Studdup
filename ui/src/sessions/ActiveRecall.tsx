@@ -13,6 +13,7 @@ import { EscapeCloser, useEscapeToClose } from "../lib/useEscapeToClose";
 import { TECHNIQUE_LABEL, TechniqueIcon } from "../components/TechniqueChip";
 import { SelfRating } from "./SelfRatingControl";
 import type { SelfRatingValue } from "./selfRating";
+import { type ActiveRecallPhase, isSourceRevealed } from "./recallPhase";
 import { TechniqueReminder } from "./TechniqueReminder";
 
 export interface ActiveRecallResult {
@@ -29,8 +30,6 @@ export interface ActiveRecallSessionProps {
   onExit: () => void;
 }
 
-type Phase = "write" | "compare" | "rate";
-
 export function ActiveRecallSession({
   cardTitle,
   contentLink,
@@ -38,7 +37,7 @@ export function ActiveRecallSession({
   onFinish,
   onExit,
 }: ActiveRecallSessionProps) {
-  const [phase, setPhase] = useState<Phase>("write");
+  const [phase, setPhase] = useState<ActiveRecallPhase>("write");
   const [text, setText] = useState("");
   const [confirmExit, setConfirmExit] = useState(false);
   const startedAt = useRef(Date.now());
@@ -154,7 +153,9 @@ export function ActiveRecallSession({
                 </div>
               </ComparePane>
               <ComparePane dot="var(--revisar)" title="Material original">
-                {contentLink || reviewLink ? (
+                {/* The source is gated on the reveal predicate (TECH-04.1): only shown once the user
+                    has submitted and left the write phase. */}
+                {isSourceRevealed(phase) && (contentLink || reviewLink) ? (
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     <span style={{ font: "400 13px/1.5 var(--font-sans)", color: "var(--text-2)" }}>
                       Abra a fonte e confira sua resposta contra ela.
