@@ -63,6 +63,18 @@ function groupByExam(cards: CardModel[], meta: Map<number, ExamMeta>): ExamGroup
   }));
 }
 
+/** The board context line, matching the spaced board's rhythm: "Segunda, 31 de julho · N provas". */
+function provaContext(examCount: number, today: ISODate): string {
+  const [y, m, d] = today.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  const weekdayLong = new Intl.DateTimeFormat("pt-BR", { weekday: "long" }).format(date);
+  const weekday = weekdayLong.split("-")[0];
+  const cap = weekday.charAt(0).toUpperCase() + weekday.slice(1);
+  const dm = new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "long" }).format(date);
+  const provas = examCount === 1 ? "1 prova" : `${examCount} provas`;
+  return examCount === 0 ? `${cap}, ${dm} · nenhuma prova ainda` : `${cap}, ${dm} · ${provas}`;
+}
+
 /** The small DM-Mono date shown at the right of each Prova column header (handoff QuadroProva). */
 const PROVA_COLUMN_DATE: Record<Column, string> = {
   hoje: "hoje",
@@ -209,8 +221,12 @@ export function QuadroProva() {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14, height: "100%", minHeight: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%", minHeight: 0, padding: "0 22px 20px" }}>
+      {/* Context line + exam management, balanced like the spaced board's header. */}
+      <div style={{ flex: "none", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, paddingTop: 2 }}>
+        <span style={{ font: "400 12.5px/1.3 var(--font-sans)", color: "var(--text-2)" }}>
+          {provaContext(exams.length, today)}
+        </span>
         <GerenciarButton onClick={() => setView({ kind: "lista" })} />
       </div>
 
