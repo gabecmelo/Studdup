@@ -1,25 +1,20 @@
-// Histórico (HIST-01/02/03/05, handoff "HistoricoMetodo"/"HistoricoGeral"). Two tabs: "Este método"
-// shows only the active method's events (HIST-01); "Geral" shows every method's events, each labeled
-// with its method + technique (HIST-02), filterable by method and technique with a live result count
-// (HIST-03). Terminal (archived/Done) rows offer Reativar, which revives the card as a fresh first
-// session (HIST-05). Empty states cover both "no events at all" and "no events for these filters".
+// Histórico (HIST-02/03/05, handoff "HistoricoGeral"). One unified view of every method's events,
+// each labeled with its method + technique (HIST-02), filterable by method and technique with a live
+// result count (HIST-03) — the Método filter (Espaçada / Prova) subsumes the old per-method tab, so
+// there is a single view, not a tab toggle. Terminal (archived/Done) rows offer Reativar, which
+// revives the card as a fresh first session (HIST-05). Empty states cover both "no events at all" and
+// "no events for these filters".
 //
-// The unified event log is fetched once (useHistory(null,null)); the tabs and filters are applied
-// client-side through the pure `historyFilter` helpers so the count updates without refetching.
-//
-// Data note: rows key off the event kind and card id — the card's title is not joined into the
-// history read yet, so the sub-label stays "Card #id" (tracked P2 gap, not a style divergence).
+// The unified event log is fetched once (useHistory(null,null)); the filters are applied client-side
+// through the pure `historyFilter` helpers so the count updates without refetching.
 
 import { useState } from "react";
 import type { HistoryEvent, ISODate, Method, Technique } from "../lib/bindings";
 import { useHistory, useReviveCard } from "../lib/queries";
-import { useStore } from "../store";
 import { EmptyState } from "../components/EmptyState";
 import { TECHNIQUE_LABEL, TechniqueIcon } from "../components/TechniqueChip";
 import { todayIso, addDaysIso } from "../components/Board";
 import { filterHistory, historyCount, isRevivable } from "./historyFilter";
-
-type Tab = "method" | "all";
 
 const METHOD_LABEL: Record<Method, string> = {
   SpacedRepetition: "Repetição Espaçada",
@@ -64,8 +59,6 @@ function whenLabel(iso: ISODate, today: ISODate): string {
 
 export function Historico() {
   const today = todayIso();
-  const activeMethod = useStore((s) => s.activeMethod);
-  const [tab, setTab] = useState<Tab>("method");
   const [methodFilter, setMethodFilter] = useState<Method | null>(null);
   const [techniqueFilter, setTechniqueFilter] = useState<Technique | null>(null);
 
@@ -73,13 +66,10 @@ export function Historico() {
   const allEvents = query.data ?? [];
   const revive = useReviveCard();
 
-  const effectiveQuery =
-    tab === "method"
-      ? { method: activeMethod, technique: null }
-      : { method: methodFilter, technique: techniqueFilter };
+  const effectiveQuery = { method: methodFilter, technique: techniqueFilter };
   const events = filterHistory(allEvents, effectiveQuery);
   const count = historyCount(allEvents, effectiveQuery);
-  const hasFilter = tab === "all" && (methodFilter !== null || techniqueFilter !== null);
+  const hasFilter = methodFilter !== null || techniqueFilter !== null;
 
   const clearFilters = () => {
     setMethodFilter(null);
@@ -88,44 +78,34 @@ export function Historico() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, height: "100%", minHeight: 0 }}>
-      <div style={{ flex: "none", display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 20 }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-          <span style={{ font: "600 22px/1.1 var(--font-sans)", letterSpacing: "-.02em", color: "var(--text)" }}>
-            {tab === "method" ? "Histórico" : "Histórico geral"}
-          </span>
-          <span style={{ font: "400 13px/1.3 var(--font-sans)", color: "var(--text-2)" }}>
-            {tab === "method"
-              ? `Só de ${METHOD_LABEL[activeMethod]}.`
-              : "Tudo, os dois métodos — cada evento marcado com método e técnica."}
-          </span>
-        </div>
-        <div style={{ display: "flex", gap: 4, padding: 4, background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 11, flex: "none" }}>
-          <TabButton label="Este método" active={tab === "method"} onClick={() => setTab("method")} />
-          <TabButton label="Geral" active={tab === "all"} onClick={() => setTab("all")} />
-        </div>
+      <div style={{ flex: "none", display: "flex", flexDirection: "column", gap: 5 }}>
+        <span style={{ font: "600 22px/1.1 var(--font-sans)", letterSpacing: "-.02em", color: "var(--text)" }}>
+          Histórico
+        </span>
+        <span style={{ font: "400 13px/1.3 var(--font-sans)", color: "var(--text-2)" }}>
+          Tudo, os dois métodos — cada evento marcado com método e técnica. Filtre por método ou técnica.
+        </span>
       </div>
 
-      {tab === "all" && (
-        <div style={{ flex: "none", display: "flex", alignItems: "center", gap: 14, padding: "12px 16px", borderRadius: 14, background: "var(--surface-2)", border: "1px solid var(--border)", flexWrap: "wrap" }}>
-          <FilterGroup label="Método">
-            <FilterChip label="Todos" active={methodFilter === null} onClick={() => setMethodFilter(null)} />
-            <FilterChip label="Espaçada" active={methodFilter === "SpacedRepetition"} onClick={() => setMethodFilter("SpacedRepetition")} />
-            <FilterChip label="Prova" active={methodFilter === "ExamPrep"} onClick={() => setMethodFilter("ExamPrep")} />
-          </FilterGroup>
-          <div style={{ width: 1, height: 26, background: "var(--border)" }} />
-          <FilterGroup label="Técnica">
-            <FilterChip label="Todas" active={techniqueFilter === null} onClick={() => setTechniqueFilter(null)} />
-            {(["Pomodoro", "ActiveRecall", "Feynman", "Leitner"] as Technique[]).map((t) => (
-              <FilterChip key={t} label={TECHNIQUE_LABEL[t]} active={techniqueFilter === t} onClick={() => setTechniqueFilter(t)} />
-            ))}
-          </FilterGroup>
-          <span style={{ flex: 1 }} />
-          <span style={{ font: "500 12px/1 var(--font-mono)", color: hasFilter ? "var(--accent-soft-ink)" : "var(--text-2)" }}>
-            {count} {count === 1 ? "evento" : "eventos"}
-          </span>
-          {hasFilter && <LimparButton onClick={clearFilters} />}
-        </div>
-      )}
+      <div style={{ flex: "none", display: "flex", alignItems: "center", gap: 14, padding: "12px 16px", borderRadius: 14, background: "var(--surface-2)", border: "1px solid var(--border)", flexWrap: "wrap" }}>
+        <FilterGroup label="Método">
+          <FilterChip label="Todos" active={methodFilter === null} onClick={() => setMethodFilter(null)} />
+          <FilterChip label="Espaçada" active={methodFilter === "SpacedRepetition"} onClick={() => setMethodFilter("SpacedRepetition")} />
+          <FilterChip label="Prova" active={methodFilter === "ExamPrep"} onClick={() => setMethodFilter("ExamPrep")} />
+        </FilterGroup>
+        <div style={{ width: 1, height: 26, background: "var(--border)" }} />
+        <FilterGroup label="Técnica">
+          <FilterChip label="Todas" active={techniqueFilter === null} onClick={() => setTechniqueFilter(null)} />
+          {(["Pomodoro", "ActiveRecall", "Feynman", "Leitner"] as Technique[]).map((t) => (
+            <FilterChip key={t} label={TECHNIQUE_LABEL[t]} active={techniqueFilter === t} onClick={() => setTechniqueFilter(t)} />
+          ))}
+        </FilterGroup>
+        <span style={{ flex: 1 }} />
+        <span style={{ font: "500 12px/1 var(--font-mono)", color: hasFilter ? "var(--accent-soft-ink)" : "var(--text-2)" }}>
+          {count} {count === 1 ? "evento" : "eventos"}
+        </span>
+        {hasFilter && <LimparButton onClick={clearFilters} />}
+      </div>
 
       {allEvents.length === 0 ? (
         <EmptyState
@@ -188,32 +168,6 @@ function HistoryRow({ event, today, onRevive }: { event: HistoryEvent; today: IS
       </span>
       {revivable && <ReativarButton onClick={onRevive} />}
     </div>
-  );
-}
-
-function TabButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
-  const [hover, setHover] = useState(false);
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        padding: "7px 13px",
-        borderRadius: 8,
-        border: "none",
-        cursor: "pointer",
-        font: `${active ? 600 : 500} 12px/1 var(--font-sans)`,
-        background: active ? "var(--surface)" : "transparent",
-        color: active ? "var(--text)" : hover ? "var(--text)" : "var(--text-2)",
-        boxShadow: active ? "var(--shadow-1)" : "none",
-        transition: "color var(--transition-fast)",
-      }}
-    >
-      {label}
-    </button>
   );
 }
 
