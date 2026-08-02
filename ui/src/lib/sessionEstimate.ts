@@ -14,20 +14,20 @@ export const EST_MAX = 180;
 
 /** The Pomodoro rhythm presets (AD-010). `custom` is entered by the user. */
 export const RHYTHM_PRESETS: readonly PomodoroRhythm[] = [
-  { focus_min: 25, break_min: 5 },
-  { focus_min: 50, break_min: 10 },
-  { focus_min: 90, break_min: 20 },
+  { focus_min: 25, break_min: 5, cycles: 4 },
+  { focus_min: 50, break_min: 10, cycles: 4 },
+  { focus_min: 90, break_min: 20, cycles: 4 },
 ] as const;
 
-/** The default Pomodoro rhythm — 25/5 (AD-010). */
-export const DEFAULT_RHYTHM: PomodoroRhythm = { focus_min: 25, break_min: 5 };
+/** The default Pomodoro rhythm — 25/5, 4 cycles (AD-010). */
+export const DEFAULT_RHYTHM: PomodoroRhythm = { focus_min: 25, break_min: 5, cycles: 4 };
 
 /**
- * The estimated session length a Pomodoro rhythm implies: one focus block (AD-010). Changing the
- * rhythm to 50/10 makes the estimate 50; 90/20 makes it 90.
+ * The estimated session length a Pomodoro rhythm implies: its focus blocks across every cycle
+ * (`cycles × focus_min`), clamped into the accepted 5–180 range. 25/5×4 → 100; 50/10×4 → 200→180.
  */
 export function estFromRhythm(rhythm: PomodoroRhythm): number {
-  return rhythm.focus_min;
+  return clampEst(rhythm.cycles * rhythm.focus_min);
 }
 
 /** Per-technique default estimate in minutes, excluding Pomodoro (which derives from its rhythm). */

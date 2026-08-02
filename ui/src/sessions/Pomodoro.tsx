@@ -122,7 +122,7 @@ export function PomodoroSession({
             color: "var(--text-2)",
           }}
         >
-          {phaseLabel} · {rhythm.focus_min}/{rhythm.break_min}
+          {phaseLabel} · Ciclo {timer.cycle} de {timer.cycles} · {rhythm.focus_min}/{rhythm.break_min}
         </span>
         <span style={{ flex: 1 }} />
         {contentLink && (
@@ -178,6 +178,9 @@ export function PomodoroSession({
             }}
           >
             {phaseLabel}
+          </span>
+          <span style={{ font: "600 12px/1.3 var(--font-sans)", color: "var(--text-3)" }}>
+            Ciclo {timer.cycle} de {timer.cycles}
           </span>
           <span style={{ font: "400 13.5px/1.4 var(--font-sans)", color: "var(--text-2)" }}>
             {inFocus

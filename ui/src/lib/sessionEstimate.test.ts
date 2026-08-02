@@ -15,27 +15,33 @@ import {
 } from "./sessionEstimate";
 
 describe("estFromRhythm", () => {
-  it("derives the estimate from the rhythm's focus block (50/10 → 50 min)", () => {
-    const rhythm: PomodoroRhythm = { focus_min: 50, break_min: 10 };
-    expect(estFromRhythm(rhythm)).toBe(50);
+  it("sums the focus blocks across every cycle (25/5 × 4 → 100 min)", () => {
+    const rhythm: PomodoroRhythm = { focus_min: 25, break_min: 5, cycles: 4 };
+    expect(estFromRhythm(rhythm)).toBe(100);
   });
 
-  it("uses the focus minutes for the 90/20 rhythm (→ 90 min)", () => {
-    expect(estFromRhythm({ focus_min: 90, break_min: 20 })).toBe(90);
+  it("clamps a large total down to the 180-minute maximum (50/10 × 4 = 200 → 180)", () => {
+    expect(estFromRhythm({ focus_min: 50, break_min: 10, cycles: 4 })).toBe(180);
   });
 
-  it("the default rhythm 25/5 yields a 25-minute estimate", () => {
-    expect(estFromRhythm(DEFAULT_RHYTHM)).toBe(25);
+  it("reflects a smaller cycle count (50/10 × 2 → 100 min)", () => {
+    expect(estFromRhythm({ focus_min: 50, break_min: 10, cycles: 2 })).toBe(100);
+  });
+
+  it("the default rhythm 25/5 × 4 yields a 100-minute estimate", () => {
+    expect(estFromRhythm(DEFAULT_RHYTHM)).toBe(100);
   });
 });
 
 describe("defaultEstForTechnique", () => {
-  it("Pomodoro defaults to one focus block of the default rhythm (25 min)", () => {
-    expect(defaultEstForTechnique("Pomodoro")).toBe(25);
+  it("Pomodoro defaults to the default rhythm's total focus (25 × 4 = 100 min)", () => {
+    expect(defaultEstForTechnique("Pomodoro")).toBe(100);
   });
 
-  it("Pomodoro follows a supplied rhythm (50/10 → 50 min)", () => {
-    expect(defaultEstForTechnique("Pomodoro", { focus_min: 50, break_min: 10 })).toBe(50);
+  it("Pomodoro follows a supplied rhythm (50/10 × 4 = 200 → 180 min)", () => {
+    expect(defaultEstForTechnique("Pomodoro", { focus_min: 50, break_min: 10, cycles: 4 })).toBe(
+      180,
+    );
   });
 
   it("Active Recall defaults to 20 minutes", () => {

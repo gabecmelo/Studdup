@@ -14,8 +14,11 @@ import {
   tick,
 } from "./pomodoroTimer";
 
-const CLASSIC: PomodoroRhythm = { focus_min: 25, break_min: 5 };
-const LONG: PomodoroRhythm = { focus_min: 50, break_min: 10 };
+const CLASSIC: PomodoroRhythm = { focus_min: 25, break_min: 5, cycles: 4 };
+/** A single-cycle 50/10 rhythm — one focus block, no break after it. */
+const LONG: PomodoroRhythm = { focus_min: 50, break_min: 10, cycles: 1 };
+/** A two-cycle 50/10 rhythm — focus→break→focus→done. */
+const TWO: PomodoroRhythm = { focus_min: 50, break_min: 10, cycles: 2 };
 
 /** Tick a running timer `n` whole seconds, one second at a time (as the screen's 1 Hz interval). */
 function run(state: ReturnType<typeof createPomodoro>, n: number) {
@@ -25,12 +28,14 @@ function run(state: ReturnType<typeof createPomodoro>, n: number) {
 }
 
 describe("createPomodoro (uses the configured rhythm)", () => {
-  it("starts in the focus phase with focus-length seconds, not running", () => {
+  it("starts in the focus phase with focus-length seconds, not running, at cycle 1", () => {
     const s = createPomodoro(CLASSIC);
     expect(s.phase).toBe("focus");
     expect(s.remaining).toBe(25 * 60);
     expect(s.running).toBe(false);
     expect(s.focusedSecs).toBe(0);
+    expect(s.cycle).toBe(1);
+    expect(s.cycles).toBe(4);
   });
 
   it("takes phase lengths from a different rhythm (50/10 → 3000s focus, 600s break)", () => {
@@ -56,17 +61,18 @@ describe("focus countdown + elapsed-seconds accounting (TECH-03)", () => {
 });
 
 describe("focus→break auto-transition (TECH-02.3)", () => {
-  it("reaching zero focus switches to the break phase and auto-starts it", () => {
-    // 50-min focus so the run is exact; drain the full focus block.
-    const s = run(start(createPomodoro(LONG)), 3000);
+  it("reaching zero focus (with cycles left) switches to break and auto-starts it", () => {
+    // Two-cycle rhythm: draining the first focus block leaves a cycle to go, so a break begins.
+    const s = run(start(createPomodoro(TWO)), 3000);
     expect(s.phase).toBe("break");
     expect(s.remaining).toBe(600); // break countdown begins at its full length
     expect(s.running).toBe(true); // the break countdown auto-starts (no user action)
+    expect(s.cycle).toBe(1); // still on the first focus block until the break ends
     expect(focusDone(s)).toBe(true);
   });
 
   it("break seconds do NOT add to focused seconds (only focus time counts)", () => {
-    let s = run(start(createPomodoro(LONG)), 3000); // end of focus → break begins
+    let s = run(start(createPomodoro(TWO)), 3000); // end of focus 1 → break begins
     expect(s.focusedSecs).toBe(3000);
     s = run(s, 30); // 30s into the break
     expect(s.focusedSecs).toBe(3000); // break time is not focused time
@@ -74,13 +80,39 @@ describe("focus→break auto-transition (TECH-02.3)", () => {
   });
 });
 
-describe("break→done completion", () => {
-  it("draining the break finishes the session and stops the timer", () => {
-    let s = run(start(createPomodoro(LONG)), 3000 + 600);
-    expect(s.phase).toBe("done");
+describe("single-cycle completion (no break after the last focus, decision #4)", () => {
+  it("a one-cycle session finishes straight after its focus block, with no break", () => {
+    const s = run(start(createPomodoro(LONG)), 3000);
+    expect(s.phase).toBe("done"); // never enters a break
     expect(s.running).toBe(false);
     expect(isComplete(s)).toBe(true);
-    expect(s.focusedSecs).toBe(3000); // focused total is the full focus block
+    expect(s.cycle).toBe(1);
+    expect(s.focusedSecs).toBe(3000); // focused total is the single focus block
+  });
+});
+
+describe("multi-cycle session (N focuses, N−1 breaks — decision #4)", () => {
+  it("a 2-cycle session runs focus→break→focus→done and accrues 2× focus", () => {
+    // Focus 1 → break.
+    let s = run(start(createPomodoro(TWO)), 3000);
+    expect(s.phase).toBe("break");
+    expect(s.cycle).toBe(1);
+    expect(s.focusedSecs).toBe(3000);
+
+    // Break drains → focus 2 begins, cycle advances.
+    s = run(s, 600);
+    expect(s.phase).toBe("focus");
+    expect(s.cycle).toBe(2);
+    expect(s.remaining).toBe(3000);
+    expect(s.focusedSecs).toBe(3000); // the break added nothing
+
+    // Focus 2 drains → done (no trailing break), focused total is 2× the focus block.
+    s = run(s, 3000);
+    expect(s.phase).toBe("done");
+    expect(s.running).toBe(false);
+    expect(s.cycle).toBe(2);
+    expect(s.focusedSecs).toBe(6000);
+    expect(isComplete(s)).toBe(true);
   });
 });
 

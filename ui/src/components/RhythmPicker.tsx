@@ -14,6 +14,11 @@ export interface RhythmPickerProps {
   onChange: (rhythm: PomodoroRhythm) => void;
 }
 
+/** The cycle-count presets (2 / 4 / 6); a custom value (1–12) is entered by the user. */
+const CYCLE_PRESETS: readonly number[] = [2, 4, 6];
+const CYCLES_MIN = 1;
+const CYCLES_MAX = 12;
+
 function sameRhythm(a: PomodoroRhythm, b: PomodoroRhythm): boolean {
   return a.focus_min === b.focus_min && a.break_min === b.break_min;
 }
@@ -26,10 +31,15 @@ export function RhythmPicker({ value, onChange }: RhythmPickerProps) {
   // "Custom mode" is sticky once entered so a user editing 25→24 (briefly a preset again) stays in
   // the custom inputs; it also opens automatically when the incoming value is not a preset.
   const [custom, setCustom] = useState<boolean>(() => !isPreset(value));
+  // The cycle-count control mirrors the rhythm picker with its own sticky custom mode.
+  const [cyclesCustom, setCyclesCustom] = useState<boolean>(
+    () => !CYCLE_PRESETS.includes(value.cycles),
+  );
 
   function pickPreset(preset: PomodoroRhythm) {
     setCustom(false);
-    onChange(preset);
+    // Presets carry cycles: 4, but keep the user's chosen cycle count when swapping focus/break.
+    onChange({ ...preset, cycles: value.cycles });
   }
 
   function editFocus(focus_min: number) {
@@ -37,6 +47,14 @@ export function RhythmPicker({ value, onChange }: RhythmPickerProps) {
   }
   function editBreak(break_min: number) {
     onChange({ ...value, break_min });
+  }
+
+  function pickCycles(cycles: number) {
+    setCyclesCustom(false);
+    onChange({ ...value, cycles });
+  }
+  function editCycles(cycles: number) {
+    onChange({ ...value, cycles });
   }
 
   return (
@@ -95,9 +113,52 @@ export function RhythmPicker({ value, onChange }: RhythmPickerProps) {
         </div>
       )}
 
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <span style={numLabel}>Ciclos</span>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {CYCLE_PRESETS.map((n) => {
+            const selected = !cyclesCustom && value.cycles === n;
+            return (
+              <button
+                key={n}
+                type="button"
+                aria-pressed={selected}
+                onClick={() => pickCycles(n)}
+                style={presetBtn(selected)}
+              >
+                {n} ciclos
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            aria-pressed={cyclesCustom}
+            onClick={() => setCyclesCustom(true)}
+            style={presetBtn(cyclesCustom)}
+          >
+            Personalizado
+          </button>
+        </div>
+        {cyclesCustom && (
+          <label style={numField}>
+            <span style={numLabel}>Número de ciclos</span>
+            <input
+              type="number"
+              min={CYCLES_MIN}
+              max={CYCLES_MAX}
+              value={value.cycles}
+              aria-label="Número de ciclos"
+              onChange={(e) => editCycles(Number(e.target.value))}
+              style={numInput}
+            />
+          </label>
+        )}
+      </div>
+
       <span style={{ font: "400 10.5px/1.3 var(--font-sans)", color: "var(--text-3)" }}>
-        A sessão roda {value.focus_min} min de foco e {value.break_min} min de pausa. A estimativa do
-        card usa o bloco de foco.
+        A sessão roda {value.cycles} {value.cycles === 1 ? "ciclo" : "ciclos"} de {value.focus_min} min
+        de foco com {value.break_min} min de pausa entre eles. A estimativa do card usa o tempo total
+        de foco.
       </span>
     </div>
   );

@@ -22,10 +22,11 @@ export type Stage = "Day0" | "Day1" | "Day2" | "Day5" | "Day15" | "Day30" | "Don
 /** Study technique — the *how* axis. Absent (`null`) means no technique. */
 export type Technique = "Pomodoro" | "ActiveRecall" | "Feynman" | "Leitner";
 
-/** A Pomodoro focus/break cadence, in minutes. */
+/** A Pomodoro focus/break cadence, in minutes, run for a number of focus `cycles` (default 4). */
 export interface PomodoroRhythm {
   focus_min: number;
   break_min: number;
+  cycles: number;
 }
 
 /** A study card. */
