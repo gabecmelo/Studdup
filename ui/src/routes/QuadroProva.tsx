@@ -20,6 +20,7 @@ import { ProvaCard } from "../components/ProvaCard";
 import { examColor } from "../components/examColor";
 import { addDaysIso, placeCard, todayIso } from "../components/Board";
 import { COLUMN_LABELS, COLUMN_ORDER, type Column } from "../components/columns";
+import { useCardHub } from "../components/useCardHub";
 import { NovaProvaModal } from "../components/modals/NovaProva";
 import { ExcluirProvaModal } from "../components/modals/ExcluirProva";
 import { ListaProvas } from "./ListaProvas";
@@ -116,6 +117,9 @@ export function QuadroProva() {
   const cursorsQuery = useSessionCursors();
   const createExam = useCreateExam();
   const deleteExam = useDeleteExam();
+  // Same card interaction hub the spaced board uses — clicking a Prova card opens its detail and the
+  // study session (completing advances the exam-session cursor via the method-dispatching api).
+  const hub = useCardHub("ExamPrep");
 
   const boardSearch = useStore((s) => s.boardSearch);
   const boardTechnique = useStore((s) => s.boardTechnique);
@@ -255,11 +259,13 @@ export function QuadroProva() {
               groups={groupByExam(columns[column], meta)}
               today={today}
               cursors={cursorById}
+              onOpen={hub.open}
             />
           ))}
         </div>
       </div>
 
+      {hub.modals}
       {novaProva}
       {excluirProva}
     </div>
@@ -299,11 +305,12 @@ interface ProvaColumnProps {
   groups: ExamGroup[];
   today: ISODate;
   cursors: Map<number, SessionCursor>;
+  onOpen: (card: CardModel) => void;
 }
 
 /** A Prova board column — the same chrome as the spaced board (radius 18, sticky header, internal
  *  scroll), but its cards are grouped under a coloured exam heading. */
-function ProvaColumn({ column, groups, today, cursors }: ProvaColumnProps) {
+function ProvaColumn({ column, groups, today, cursors, onOpen }: ProvaColumnProps) {
   const count = groups.reduce((n, g) => n + g.cards.length, 0);
   const showUrgent = column === "hoje" || column === "amanha";
 
@@ -422,6 +429,7 @@ function ProvaColumn({ column, groups, today, cursors }: ProvaColumnProps) {
                       total={card.archived ? null : cursor?.total ?? null}
                       completed={card.archived}
                       completedLabel={completedLabel(card.last_completed_at, today)}
+                      onClick={() => onOpen(card)}
                     />
                   );
                 })}

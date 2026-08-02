@@ -24,18 +24,7 @@ import {
 } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import type { Card as CardModel, ISODate, Method, Stage } from "../lib/bindings";
-import {
-  useBoard,
-  useCompleteCard,
-  useDeleteCard,
-  useEditCard,
-  useEraseCard,
-  useHistory,
-  usePostponeCard,
-  useRecordAttempt,
-  useRecordSession,
-  useRestartCard,
-} from "../lib/queries";
+import { useBoard, useCompleteCard, usePostponeCard } from "../lib/queries";
 import {
   applyOptimisticMove,
   type OptimisticMoves,
@@ -49,29 +38,7 @@ import { Card } from "./Card";
 import { SpacedStageBadge } from "./StageBadge";
 import { EmptyState } from "./EmptyState";
 import { Toast } from "./Toast";
-import { DetalheCardModal } from "./modals/DetalheCard";
-import { LogCardModal } from "./modals/LogCard";
-import { EditarCardModal } from "./modals/EditarCard";
-import { CardAtrasadoModal } from "./modals/CardAtrasado";
-import { AdiarModal } from "./modals/Adiar";
-import { ExcluirCardModal } from "./modals/ExcluirCard";
-import { PomodoroSession } from "../sessions/Pomodoro";
-import { NoneSession } from "../sessions/None";
-import { ActiveRecallSession } from "../sessions/ActiveRecall";
-import { FeynmanSession } from "../sessions/Feynman";
-import { LeitnerSession } from "../sessions/Leitner";
-import { sessionKind } from "../sessions/dispatch";
-
-/** Spaced ladder stage → its "Dia N" label (mirrors the badge vocabulary, AD-003). */
-const STAGE_LABEL: Record<Stage, string> = {
-  Day0: "Dia 0",
-  Day1: "Dia 1",
-  Day2: "Dia 2",
-  Day5: "Dia 5",
-  Day15: "Dia 15",
-  Day30: "Dia 30",
-  Done: "Concluído",
-};
+import { useCardHub } from "./useCardHub";
 import {
   COLUMN_LABELS,
   COLUMN_ORDER,
@@ -217,27 +184,13 @@ export function Board({ method }: BoardProps) {
   const [moves, setMoves] = useState<OptimisticMoves>({});
   const [toast, setToast] = useState<string | null>(null);
 
-  // Modal hub: clicking a card opens its detail; the detail routes to the log and edit modals
-  // (T26). The overdue / postpone / delete flows (T27–T29) mount from the same detail buttons.
-  const [detailCard, setDetailCard] = useState<CardModel | null>(null);
-  const [logCard, setLogCard] = useState<CardModel | null>(null);
-  const [editCard, setEditCard] = useState<CardModel | null>(null);
-  const [overdueCard, setOverdueCard] = useState<CardModel | null>(null);
-  const [postponeCard, setPostponeCard] = useState<CardModel | null>(null);
-  const [deleteCard, setDeleteCard] = useState<CardModel | null>(null);
-  // The card currently in a study session (T32/T33). Dispatched to the Pomodoro or plain screen.
-  const [sessionCard, setSessionCard] = useState<CardModel | null>(null);
+  // The shared card interaction hub (detail → study/edit/postpone/log/delete + sessions). Clicking a
+  // card calls `hub.open`; `hub.modals` renders the whole modal + session layer once.
+  const hub = useCardHub(method);
 
+  // Drag uses its own postpone/complete mutations (separate from the hub's) for the optimistic move.
   const postpone = usePostponeCard();
   const complete = useCompleteCard();
-  const record = useRecordSession();
-  const recordAttempt = useRecordAttempt();
-  const edit = useEditCard();
-  const restart = useRestartCard();
-  const erase = useEraseCard();
-  const remove = useDeleteCard();
-  // The card's event log for the "Ver log" modal (filtered from the method's history by card id).
-  const history = useHistory(method);
 
   const sensors = useSensors(
     // A small activation distance so a click to open a card is not read as a drag.
@@ -255,11 +208,7 @@ export function Board({ method }: BoardProps) {
     clearStudy(); // consume the intent immediately so it can't double-fire
     const card = firstDueCard(boardData, today);
     if (!card) return; // nothing due — never fabricate work (HOME-04/06)
-    if (placeCard(card, today).overdueDays > 0) {
-      setOverdueCard(card);
-    } else {
-      setSessionCard(card);
-    }
+    hub.study(card);
     // `today` is a stable per-day value; the effect keys on the intent + method + loaded data.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingStudy, method, boardData]);
@@ -315,7 +264,7 @@ export function Board({ method }: BoardProps) {
             method={method}
             cards={groups[column]}
             today={today}
-            onOpen={setDetailCard}
+            onOpen={hub.open}
           />
         ))}
       </div>
@@ -331,186 +280,7 @@ export function Board({ method }: BoardProps) {
         </div>
       )}
 
-      {detailCard && (
-        <DetalheCardModal
-          card={detailCard}
-          today={today}
-          onClose={() => setDetailCard(null)}
-          onStudy={() => {
-            // An overdue card first goes through the non-punitive Recomeçar/Apagar choice (T27);
-            // an on-time card opens its study session (T32 Pomodoro / T33 plain).
-            if (placeCard(detailCard, today).overdueDays > 0) {
-              setOverdueCard(detailCard);
-            } else {
-              setSessionCard(detailCard);
-            }
-            setDetailCard(null);
-          }}
-          onEdit={() => {
-            setEditCard(detailCard);
-            setDetailCard(null);
-          }}
-          onPostpone={() => {
-            setPostponeCard(detailCard);
-            setDetailCard(null);
-          }}
-          onViewLog={() => {
-            setLogCard(detailCard);
-            setDetailCard(null);
-          }}
-          onDelete={() => {
-            setDeleteCard(detailCard);
-            setDetailCard(null);
-          }}
-        />
-      )}
-
-      {logCard && (
-        <LogCardModal
-          cardTitle={logCard.title}
-          events={(history.data ?? []).filter((e) => e.card_id === logCard.id)}
-          onClose={() => setLogCard(null)}
-        />
-      )}
-
-      {editCard && (
-        <EditarCardModal
-          card={editCard}
-          onClose={() => setEditCard(null)}
-          onSave={(updated) => {
-            edit.mutate(updated);
-            setEditCard(null);
-          }}
-        />
-      )}
-
-      {overdueCard && (
-        <CardAtrasadoModal
-          cardTitle={overdueCard.title}
-          stageLabel={STAGE_LABEL[overdueCard.current_stage]}
-          overdueDays={placeCard(overdueCard, today).overdueDays}
-          onRestart={() => {
-            restart.mutate(overdueCard.id);
-            setOverdueCard(null);
-          }}
-          onErase={() => {
-            erase.mutate(overdueCard.id);
-            setOverdueCard(null);
-          }}
-          onClose={() => setOverdueCard(null)}
-        />
-      )}
-
-      {postponeCard && (
-        <AdiarModal
-          cardTitle={postponeCard.title}
-          stage={postponeCard.current_stage}
-          technique={postponeCard.technique}
-          dueDate={placeCard(postponeCard, today).dueDate}
-          onPostpone={(days) => {
-            postpone.mutate({ id: postponeCard.id, days });
-            setPostponeCard(null);
-          }}
-          onComplete={() => {
-            complete.mutate(postponeCard.id);
-            setPostponeCard(null);
-          }}
-          onClose={() => setPostponeCard(null)}
-        />
-      )}
-
-      {deleteCard && (
-        <ExcluirCardModal
-          cardTitle={deleteCard.title}
-          archived={deleteCard.archived}
-          onConfirm={() => {
-            remove.mutate(deleteCard.id);
-            setDeleteCard(null);
-          }}
-          onClose={() => setDeleteCard(null)}
-        />
-      )}
-
-      {/* Study session (T32/T33/T52): the card's technique picks the guided screen. Pomodoro runs
-          the timer; Active Recall / Feynman run their written flows and record the session + attempt;
-          every other card (no technique, or one whose screen ships later) uses the plain session
-          whose "Concluir" completes the card. */}
-      {sessionCard &&
-        (() => {
-          const c = sessionCard;
-          const kind = sessionKind(c.technique);
-          const close = () => setSessionCard(null);
-          if (kind === "pomodoro" && c.pomodoro) {
-            return (
-              <PomodoroSession
-                cardTitle={c.title}
-                rhythm={c.pomodoro}
-                contentLink={c.content_link || undefined}
-                onComplete={(focusedSecs) => {
-                  record.mutate({ id: c.id, focusedSecs, selfRating: null });
-                  close();
-                }}
-                onExit={close}
-              />
-            );
-          }
-          if (kind === "activeRecall") {
-            return (
-              <ActiveRecallSession
-                cardTitle={c.title}
-                contentLink={c.content_link || undefined}
-                reviewLink={c.review_link || undefined}
-                onFinish={({ focusedSecs, selfRating, text }) => {
-                  record.mutate({ id: c.id, focusedSecs, selfRating });
-                  if (text) recordAttempt.mutate({ cardId: c.id, kind: "active_recall", text });
-                  close();
-                }}
-                onExit={close}
-              />
-            );
-          }
-          if (kind === "feynman") {
-            return (
-              <FeynmanSession
-                cardTitle={c.title}
-                contentLink={c.content_link || undefined}
-                reviewLink={c.review_link || undefined}
-                onFinish={({ focusedSecs, selfRating, text }) => {
-                  record.mutate({ id: c.id, focusedSecs, selfRating });
-                  if (text) recordAttempt.mutate({ cardId: c.id, kind: "feynman", text });
-                  close();
-                }}
-                onExit={close}
-              />
-            );
-          }
-          if (kind === "leitner") {
-            return (
-              <LeitnerSession
-                cardId={c.id}
-                cardTitle={c.title}
-                onComplete={() => {
-                  complete.mutate(c.id);
-                  close();
-                }}
-                onExit={close}
-              />
-            );
-          }
-          return (
-            <NoneSession
-              cardTitle={c.title}
-              contentLink={c.content_link || undefined}
-              reviewLink={c.review_link || undefined}
-              technique={c.technique || undefined}
-              onConcluir={() => {
-                complete.mutate(c.id);
-                close();
-              }}
-              onExit={close}
-            />
-          );
-        })()}
+      {hub.modals}
     </DndContext>
   );
 }
