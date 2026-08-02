@@ -15,19 +15,58 @@ env:
 
 jobs:
   # ---------------------------------------------------------------------------
-  # Rust — format, lint, tests, and the coverage gate.
-  # Coverage is measured on `studdup-core` only (the pure, UI-free core), the
-  # direct analog of the retired C++ `BUILD_APP=OFF` lcov gate: the meaningful
-  # scheduling/date/repository logic lives there and links without Tauri.
+  # Core — format, lint, tests and the coverage gate on `studdup-core` only.
+  # This is the pure, UI-free core (scheduling/date/repository/api) and links
+  # without Tauri, so this job needs no Node, no WebKit and no `ui/dist`. It is
+  # the fast-feedback gate — the direct analog of the retired C++ `BUILD_APP=OFF`
+  # lcov gate — and it runs independently of the heavier app-build job below.
   # ---------------------------------------------------------------------------
-  rust:
-    name: Rust — fmt, clippy, tests, coverage (studdup-core ≥ 70%)
+  core:
+    name: Core — fmt, clippy, tests, coverage (studdup-core ≥ 70%)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      # Tauri v2 Linux prerequisites — needed so the `studdup` app crate compiles
-      # during the workspace clippy/test steps.
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy, llvm-tools-preview
+
+      - name: Cache cargo build
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      # `cargo fmt --all` covers every Rust crate in the workspace (studdup-core
+      # AND the studdup app crate) without compiling anything, so it stays here
+      # in the fast job even though the app itself is built in `app` below.
+      - name: Format check (whole workspace)
+        run: cargo fmt --all -- --check
+
+      - name: Clippy — studdup-core (deny warnings)
+        run: cargo clippy -p studdup-core --all-targets -- -D warnings
+
+      - name: Tests — studdup-core (unit + integration)
+        run: cargo test -p studdup-core
+
+      - name: Coverage — studdup-core, fail under 70% lines
+        run: cargo llvm-cov -p studdup-core --fail-under-lines 70
+
+  # ---------------------------------------------------------------------------
+  # App — the Tauri bridge crate. It embeds the frontend from `../ui/dist` at
+  # compile time (tauri-build), so the UI must be built first, and it needs the
+  # Tauri Linux system dependencies. This job proves the app crate both lints
+  # and, crucially, builds in RELEASE (catching release-only breakage the debug
+  # builds miss). `ui/dist` is gitignored, hence built here rather than checked
+  # out.
+  # ---------------------------------------------------------------------------
+  app:
+    name: App — clippy + release build (studdup)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
       - name: Install Tauri system dependencies
         run: |
           sudo apt-get update
@@ -45,14 +84,11 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt, clippy, llvm-tools-preview
+          components: clippy
 
       - name: Cache cargo build
         uses: Swatinem/rust-cache@v2
 
-      # The `studdup` app crate embeds the frontend from `../ui/dist` at compile
-      # time (tauri-build), so the UI must be built before the workspace clippy/
-      # test steps below. `ui/dist` is gitignored, hence not present on checkout.
       - name: Install Node
         uses: actions/setup-node@v4
         with:
@@ -64,20 +100,11 @@ jobs:
         run: npm ci && npm run build
         working-directory: ui
 
-      - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Clippy — studdup app crate (deny warnings)
+        run: cargo clippy -p studdup --all-targets -- -D warnings
 
-      - name: Format check
-        run: cargo fmt --all -- --check
-
-      - name: Clippy (deny warnings)
-        run: cargo clippy --workspace --all-targets -- -D warnings
-
-      - name: Tests
-        run: cargo test --workspace
-
-      - name: Coverage — studdup-core, fail under 70% lines
-        run: cargo llvm-cov -p studdup-core --fail-under-lines 70
+      - name: Release build — studdup
+        run: cargo build --release -p studdup
 
   # ---------------------------------------------------------------------------
   # UI — type-check, production build, and Vitest suite.
