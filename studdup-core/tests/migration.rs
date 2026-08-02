@@ -66,7 +66,7 @@ fn migrates_cpp_db_preserving_fields_and_defaulting_method() {
 
     assert!(report.ran);
     assert_eq!(report.from_version, 0);
-    assert_eq!(report.to_version, 2);
+    assert_eq!(report.to_version, 3);
 
     // A backup file was written and exists on disk (MIG-03).
     let backup = report.backup_path.expect("a backup path");
@@ -126,8 +126,8 @@ fn migration_is_idempotent() {
     // Second run: detected as already applied, no-op, no new backup (MIG-04).
     let second = migrate(&db).unwrap();
     assert!(!second.ran);
-    assert_eq!(second.from_version, 2);
-    assert_eq!(second.to_version, 2);
+    assert_eq!(second.from_version, 3);
+    assert_eq!(second.to_version, 3);
     assert_eq!(second.backup_path, None);
 
     // Data is unchanged after the second (no-op) run.
@@ -215,7 +215,7 @@ fn upgrades_v1_to_v2_adding_attempts_idempotently() {
     }
     assert!(report.ran);
     assert_eq!(report.from_version, 1);
-    assert_eq!(report.to_version, 2);
+    assert_eq!(report.to_version, 3);
     assert!(
         has_table(db.conn(), "attempts"),
         "v2 gained the attempts table"
@@ -225,8 +225,8 @@ fn upgrades_v1_to_v2_adding_attempts_idempotently() {
     let cols_before = columns(db.conn(), "attempts");
     let again = migrate(&db).unwrap();
     assert!(!again.ran);
-    assert_eq!(again.from_version, 2);
-    assert_eq!(again.to_version, 2);
+    assert_eq!(again.from_version, 3);
+    assert_eq!(again.to_version, 3);
     assert_eq!(again.backup_path, None);
     assert_eq!(
         columns(db.conn(), "attempts"),
@@ -243,7 +243,7 @@ fn fresh_empty_db_gets_full_schema_without_backup() {
     let report = migrate(&db).unwrap();
     assert!(report.ran);
     assert_eq!(report.backup_path, None);
-    assert_eq!(report.to_version, 2);
+    assert_eq!(report.to_version, 3);
 
     // All tables exist; a card can be loaded (empty) without error.
     assert_eq!(

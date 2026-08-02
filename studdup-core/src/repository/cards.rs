@@ -13,7 +13,7 @@ use crate::repository::{
 /// SELECT column list, shared by every load so the row mapper column indices stay in sync.
 const SELECT_COLS: &str = "id, title, content_link, review_link, start_date, stage, archived, \
      created_at, last_completed_at, method, technique, est_minutes, \
-     pomodoro_focus_min, pomodoro_break_min, exam_id";
+     pomodoro_focus_min, pomodoro_break_min, exam_id, pomodoro_cycles";
 
 /// Insert a card, returning its new autoincrement id. All new columns are persisted.
 pub fn insert_card(conn: &Connection, c: &Card) -> rusqlite::Result<i64> {
@@ -21,8 +21,8 @@ pub fn insert_card(conn: &Connection, c: &Card) -> rusqlite::Result<i64> {
         "INSERT INTO cards \
          (title, content_link, review_link, start_date, stage, archived, created_at, \
           last_completed_at, method, technique, est_minutes, pomodoro_focus_min, \
-          pomodoro_break_min, exam_id) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+          pomodoro_break_min, exam_id, pomodoro_cycles) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
         params![
             c.title,
             c.content_link,
@@ -38,6 +38,7 @@ pub fn insert_card(conn: &Connection, c: &Card) -> rusqlite::Result<i64> {
             c.pomodoro.map(|p| p.focus_min),
             c.pomodoro.map(|p| p.break_min),
             c.exam_id,
+            c.pomodoro.map(|p| p.cycles),
         ],
     )?;
     Ok(conn.last_insert_rowid())
@@ -48,7 +49,8 @@ pub fn update_card(conn: &Connection, c: &Card) -> rusqlite::Result<()> {
     conn.execute(
         "UPDATE cards SET title=?1, content_link=?2, review_link=?3, start_date=?4, stage=?5, \
          archived=?6, created_at=?7, last_completed_at=?8, method=?9, technique=?10, \
-         est_minutes=?11, pomodoro_focus_min=?12, pomodoro_break_min=?13, exam_id=?14 WHERE id=?15",
+         est_minutes=?11, pomodoro_focus_min=?12, pomodoro_break_min=?13, exam_id=?14, \
+         pomodoro_cycles=?15 WHERE id=?16",
         params![
             c.title,
             c.content_link,
@@ -64,6 +66,7 @@ pub fn update_card(conn: &Connection, c: &Card) -> rusqlite::Result<()> {
             c.pomodoro.map(|p| p.focus_min),
             c.pomodoro.map(|p| p.break_min),
             c.exam_id,
+            c.pomodoro.map(|p| p.cycles),
             c.id,
         ],
     )?;
@@ -136,10 +139,13 @@ fn load_where(
 fn row_to_card(row: &Row) -> rusqlite::Result<Card> {
     let focus: Option<u16> = row.get(12)?;
     let brk: Option<u16> = row.get(13)?;
+    let cycles: Option<u16> = row.get(15)?;
     let pomodoro = match (focus, brk) {
         (Some(focus_min), Some(break_min)) => Some(PomodoroRhythm {
             focus_min,
             break_min,
+            // A v2-migrated Pomodoro card has a NULL cycles column; it reads back as the default 4.
+            cycles: cycles.unwrap_or(4),
         }),
         _ => None,
     };

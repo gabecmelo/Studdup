@@ -86,6 +86,7 @@ fn cards_table_preserves_cpp_columns_and_adds_new_ones() {
         "est_minutes",
         "pomodoro_focus_min",
         "pomodoro_break_min",
+        "pomodoro_cycles",
         "exam_id",
     ] {
         assert!(
@@ -134,7 +135,7 @@ fn fresh_schema_is_stamped_at_current_version() {
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .unwrap();
     assert_eq!(version, SCHEMA_VERSION);
-    assert_eq!(SCHEMA_VERSION, 2);
+    assert_eq!(SCHEMA_VERSION, 3);
 }
 
 #[test]

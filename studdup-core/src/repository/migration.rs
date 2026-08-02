@@ -131,7 +131,8 @@ fn default_backup(
 }
 
 /// The forward delta to the current [`SCHEMA_VERSION`]: create the new tables (all `IF NOT EXISTS`,
-/// so it converges from either v0 or v1 — v2 adds `attempts`), add the new columns to the
+/// so it converges from either v0 or v1 — v2 adds `attempts`, v3 adds `cards.pomodoro_cycles`), add
+/// the new columns to the
 /// pre-existing `cards` and `history` tables, then (re)create indexes and stamp the version — all in
 /// one transaction, so a failure at any step rolls the whole thing back.
 fn run_upgrade(conn: &Connection) -> rusqlite::Result<()> {
@@ -188,6 +189,8 @@ fn run_upgrade(conn: &Connection) -> rusqlite::Result<()> {
         "exam_id",
         "INTEGER REFERENCES exams(id) ON DELETE CASCADE",
     )?;
+    // v3: per-card Pomodoro cycle count (NULL reads back as the default 4).
+    add_column_if_missing(&tx, "cards", "pomodoro_cycles", "INTEGER")?;
 
     add_column_if_missing(&tx, "history", "method", "TEXT NOT NULL DEFAULT 'spaced'")?;
     add_column_if_missing(&tx, "history", "technique", "TEXT")?;

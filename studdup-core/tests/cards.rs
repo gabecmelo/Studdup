@@ -49,7 +49,8 @@ fn insert_then_load_preserves_every_field() {
         loaded[0].pomodoro,
         Some(PomodoroRhythm {
             focus_min: 50,
-            break_min: 10
+            break_min: 10,
+            cycles: 4
         })
     );
     assert_eq!(loaded[0].current_stage, Stage::Day5);
@@ -69,6 +70,46 @@ fn a_card_with_no_technique_round_trips_with_nulls() {
     assert_eq!(loaded[0].pomodoro, None);
     assert_eq!(loaded[0].last_completed_at, None);
     assert_eq!(loaded[0].exam_id, None);
+}
+
+#[test]
+fn a_pomodoro_card_round_trips_its_cycle_count() {
+    let (_temp, db) = fresh_db();
+    let mut card = sample_card("Ciclos");
+    card.technique = Some(Technique::Pomodoro);
+    card.est_minutes = Some(100);
+    card.pomodoro = Some(PomodoroRhythm {
+        focus_min: 25,
+        break_min: 5,
+        cycles: 6,
+    });
+    insert_card(db.conn(), &card).unwrap();
+
+    let loaded = load_active(db.conn(), Method::SpacedRepetition).unwrap();
+    assert_eq!(loaded[0].pomodoro.unwrap().cycles, 6);
+}
+
+/// A v2-migrated Pomodoro card has focus/break set but a NULL `pomodoro_cycles`; it must read back
+/// as the default of 4 cycles (schema v3 back-compat).
+#[test]
+fn a_pomodoro_card_with_null_cycles_defaults_to_four() {
+    let (_temp, db) = fresh_db();
+    db.conn()
+        .execute(
+            "INSERT INTO cards \
+             (title, start_date, stage, created_at, method, technique, est_minutes, \
+              pomodoro_focus_min, pomodoro_break_min, pomodoro_cycles) \
+             VALUES ('Migrada', '2026-04-29', 0, '2026-04-29', 'spaced', 'pomodoro', 25, 25, 5, NULL)",
+            [],
+        )
+        .unwrap();
+
+    let loaded = load_active(db.conn(), Method::SpacedRepetition).unwrap();
+    assert_eq!(loaded.len(), 1);
+    let pomodoro = loaded[0].pomodoro.unwrap();
+    assert_eq!(pomodoro.focus_min, 25);
+    assert_eq!(pomodoro.break_min, 5);
+    assert_eq!(pomodoro.cycles, 4);
 }
 
 #[test]

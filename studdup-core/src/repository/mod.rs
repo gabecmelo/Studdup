@@ -22,8 +22,9 @@ pub mod migration;
 pub mod settings;
 
 /// The schema version this build targets, tracked via `PRAGMA user_version`. A C++ DB is 0;
-/// v2 adds the `attempts` table for Active Recall / Feynman written attempts (AD-011).
-pub const SCHEMA_VERSION: i64 = 2;
+/// v2 adds the `attempts` table for Active Recall / Feynman written attempts (AD-011);
+/// v3 adds the `pomodoro_cycles` column to `cards` for per-card Pomodoro cycle counts.
+pub const SCHEMA_VERSION: i64 = 3;
 
 /// An open database connection plus the file path it was opened from (needed for backups).
 pub struct Db {
@@ -106,7 +107,8 @@ pub(crate) fn create_schema(conn: &Connection) -> rusqlite::Result<()> {
             est_minutes        INTEGER,
             pomodoro_focus_min INTEGER,
             pomodoro_break_min INTEGER,
-            exam_id            INTEGER REFERENCES exams(id) ON DELETE CASCADE
+            exam_id            INTEGER REFERENCES exams(id) ON DELETE CASCADE,
+            pomodoro_cycles    INTEGER
         );
 
         CREATE TABLE IF NOT EXISTS exam_sessions (
