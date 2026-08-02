@@ -66,11 +66,13 @@ pub enum Technique {
     Leitner,
 }
 
-/// A Pomodoro focus/break cadence, in minutes.
+/// A Pomodoro focus/break cadence, in minutes, run for a number of focus `cycles`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PomodoroRhythm {
     pub focus_min: u16,
     pub break_min: u16,
+    /// How many focus blocks the session runs (default 4). Breaks separate them, none after the last.
+    pub cycles: u16,
 }
 
 impl PomodoroRhythm {
@@ -78,16 +80,19 @@ impl PomodoroRhythm {
     pub const CLASSIC: PomodoroRhythm = PomodoroRhythm {
         focus_min: 25,
         break_min: 5,
+        cycles: 4,
     };
     /// Preset 50/10.
     pub const LONG: PomodoroRhythm = PomodoroRhythm {
         focus_min: 50,
         break_min: 10,
+        cycles: 4,
     };
     /// Preset 90/20.
     pub const DEEP: PomodoroRhythm = PomodoroRhythm {
         focus_min: 90,
         break_min: 20,
+        cycles: 4,
     };
 }
 
@@ -138,21 +143,24 @@ mod tests {
             PomodoroRhythm::CLASSIC,
             PomodoroRhythm {
                 focus_min: 25,
-                break_min: 5
+                break_min: 5,
+                cycles: 4
             }
         );
         assert_eq!(
             PomodoroRhythm::LONG,
             PomodoroRhythm {
                 focus_min: 50,
-                break_min: 10
+                break_min: 10,
+                cycles: 4
             }
         );
         assert_eq!(
             PomodoroRhythm::DEEP,
             PomodoroRhythm {
                 focus_min: 90,
-                break_min: 20
+                break_min: 20,
+                cycles: 4
             }
         );
         assert_eq!(PomodoroRhythm::default(), PomodoroRhythm::CLASSIC);
