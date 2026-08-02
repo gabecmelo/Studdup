@@ -3,6 +3,7 @@
 // each route is a lightweight placeholder so the shell's navigation is wired and the app loads.
 
 import type { ReactNode } from "react";
+import type { Theme } from "../styles/theme";
 import { Quadro } from "./Quadro";
 import { Configuracoes } from "./Configuracoes";
 import { Historico } from "./Historico";
@@ -42,9 +43,14 @@ export const DEFAULT_ROUTE: RouteKey = "inicio";
 export function RouteView({
   route,
   onNavigate,
+  theme,
+  onChooseTheme,
 }: {
   route: RouteKey;
   onNavigate?: (route: RouteKey) => void;
+  /** The active theme + its setter, owned by the shell so Configurações and the sidebar stay in sync. */
+  theme: Theme;
+  onChooseTheme: (t: Theme) => void;
 }): ReactNode {
   switch (route) {
     case "inicio":
@@ -58,6 +64,6 @@ export function RouteView({
     case "ajuda":
       return <Ajuda onNavigate={onNavigate} />;
     case "configuracoes":
-      return <Configuracoes />;
+      return <Configuracoes theme={theme} onChooseTheme={onChooseTheme} />;
   }
 }

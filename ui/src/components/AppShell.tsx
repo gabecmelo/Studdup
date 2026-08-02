@@ -190,7 +190,7 @@ export function AppShell() {
             padding: isBoard ? 0 : isMethodScoped ? "0 22px 22px" : "22px 24px",
           }}
         >
-          <RouteView route={route} onNavigate={setRoute} />
+          <RouteView route={route} onNavigate={setRoute} theme={theme} onChooseTheme={chooseTheme} />
         </section>
       </main>
 

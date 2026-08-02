@@ -12,7 +12,7 @@ describe("app routing", () => {
   });
 
   it("RouteView('inicio') renders the Início screen", () => {
-    const element = RouteView({ route: "inicio" });
+    const element = RouteView({ route: "inicio", theme: "dark", onChooseTheme: () => {} });
     expect(isValidElement(element)).toBe(true);
     // The returned element is `<Inicio .../>` — its component type is the Início screen.
     expect((element as { type: unknown }).type).toBe(Inicio);

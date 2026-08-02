@@ -14,7 +14,7 @@ import {
   isEstInRange,
 } from "../lib/sessionEstimate";
 import { TECHNIQUE_LABEL, TECHNIQUE_SUMMARY } from "../components/TechniqueChip";
-import { toggleTheme } from "../styles/theme";
+import type { Theme } from "../styles/theme";
 
 /** The techniques that carry a configurable default estimate (all four; "none" has no estimate). */
 const TECHNIQUES: readonly Technique[] = ["Pomodoro", "ActiveRecall", "Feynman", "Leitner"];
@@ -24,7 +24,14 @@ function builtinDefault(technique: Technique): number {
   return defaultEstForTechnique(technique) ?? EST_MIN;
 }
 
-export function Configuracoes() {
+export function Configuracoes({
+  theme,
+  onChooseTheme,
+}: {
+  /** The theme currently in effect (owned by the shell, so the sidebar pills stay in sync). */
+  theme: Theme;
+  onChooseTheme: (t: Theme) => void;
+}) {
   // Per-technique current value in the inputs; seeded from the built-ins, then overwritten by any
   // stored settings once they load.
   const [values, setValues] = useState<Record<Technique, number>>(() => ({
@@ -149,22 +156,44 @@ export function Configuracoes() {
 
       <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <span style={sectionTitle}>Tema</span>
-        <button
-          type="button"
-          onClick={() => toggleTheme()}
+        {/* Shares the shell's theme owner, so choosing here also updates the sidebar pills. */}
+        <div
+          role="group"
+          aria-label="Tema"
           style={{
             alignSelf: "flex-start",
-            padding: "10px 16px",
-            borderRadius: 11,
-            border: "1px solid var(--border)",
-            background: "var(--surface)",
-            color: "var(--text)",
-            cursor: "pointer",
-            font: "600 13px/1 var(--font-sans)",
+            display: "flex",
+            gap: 4,
+            padding: 4,
+            background: "var(--surface-3)",
+            borderRadius: 12,
           }}
         >
-          Alternar claro / escuro
-        </button>
+          {(["light", "dark"] as const).map((t) => {
+            const active = theme === t;
+            return (
+              <button
+                key={t}
+                type="button"
+                onClick={() => onChooseTheme(t)}
+                aria-pressed={active}
+                style={{
+                  padding: "9px 18px",
+                  borderRadius: 9,
+                  border: "none",
+                  cursor: "pointer",
+                  font: `${active ? 600 : 500} 13px/1 var(--font-sans)`,
+                  background: active ? (t === "light" ? "var(--surface)" : "var(--bg)") : "transparent",
+                  color: active ? "var(--text)" : "var(--text-2)",
+                  boxShadow: active ? "var(--shadow-1)" : "none",
+                  transition: "background var(--transition-fast), color var(--transition-fast)",
+                }}
+              >
+                {t === "light" ? "Claro" : "Escuro"}
+              </button>
+            );
+          })}
+        </div>
       </section>
     </div>
   );
