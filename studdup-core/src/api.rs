@@ -14,7 +14,9 @@ use std::fmt;
 use rusqlite::Connection;
 use serde::Serialize;
 
-use crate::domain::{Attempt, AttemptKind, Card, Date, Exam, HistoryEvent, LeitnerItem, Method, Stage};
+use crate::domain::{
+    Attempt, AttemptKind, Card, Date, Exam, HistoryEvent, LeitnerItem, Method, Stage,
+};
 use crate::repository::{attempts, cards, events, exams, leitner, settings};
 use crate::scheduler::{exam, spaced};
 

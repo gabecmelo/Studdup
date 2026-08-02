@@ -826,9 +826,14 @@ fn add_leitner_item_persists_at_box_one_due_today_and_lists() {
     let today = ymd(2026, 5, 1);
     let card = leitner_card(&db, "Capitais", today);
 
-    let item =
-        api::add_leitner_item(db.conn(), card.id, "França".to_string(), "Paris".to_string(), today)
-            .unwrap();
+    let item = api::add_leitner_item(
+        db.conn(),
+        card.id,
+        "França".to_string(),
+        "Paris".to_string(),
+        today,
+    )
+    .unwrap();
     assert!(item.id > 0);
     assert_eq!(item.box_no, 1);
     assert_eq!(item.due_date, today);
@@ -845,16 +850,29 @@ fn add_leitner_item_rejects_empty_front_or_back() {
     let today = ymd(2026, 5, 1);
     let card = leitner_card(&db, "Vazios", today);
 
-    let empty_front =
-        api::add_leitner_item(db.conn(), card.id, "  ".to_string(), "verso".to_string(), today)
-            .unwrap_err();
+    let empty_front = api::add_leitner_item(
+        db.conn(),
+        card.id,
+        "  ".to_string(),
+        "verso".to_string(),
+        today,
+    )
+    .unwrap_err();
     assert_eq!(empty_front, ApiError::EmptyLeitnerItem);
-    let empty_back =
-        api::add_leitner_item(db.conn(), card.id, "frente".to_string(), "".to_string(), today)
-            .unwrap_err();
+    let empty_back = api::add_leitner_item(
+        db.conn(),
+        card.id,
+        "frente".to_string(),
+        "".to_string(),
+        today,
+    )
+    .unwrap_err();
     assert_eq!(empty_back, ApiError::EmptyLeitnerItem);
     // Nothing was persisted.
-    assert_eq!(api::list_leitner_items(db.conn(), card.id).unwrap().len(), 0);
+    assert_eq!(
+        api::list_leitner_items(db.conn(), card.id).unwrap().len(),
+        0
+    );
 }
 
 #[test]
@@ -876,10 +894,22 @@ fn list_due_leitner_items_filters_by_due_date() {
     let db = db();
     let today = ymd(2026, 5, 1);
     let card = leitner_card(&db, "Devidos", today);
-    api::add_leitner_item(db.conn(), card.id, "hoje".to_string(), "a".to_string(), today).unwrap();
-    let future =
-        api::add_leitner_item(db.conn(), card.id, "depois".to_string(), "b".to_string(), today)
-            .unwrap();
+    api::add_leitner_item(
+        db.conn(),
+        card.id,
+        "hoje".to_string(),
+        "a".to_string(),
+        today,
+    )
+    .unwrap();
+    let future = api::add_leitner_item(
+        db.conn(),
+        card.id,
+        "depois".to_string(),
+        "b".to_string(),
+        today,
+    )
+    .unwrap();
     // Reviewing the second correct moves it to today + 2, out of today's session.
     api::review_leitner_item(db.conn(), future.id, true, today).unwrap();
 

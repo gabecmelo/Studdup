@@ -27,9 +27,30 @@ fn attempts_load_newest_first() {
 
     // Insert three attempts; ORDER BY created_at DESC, id DESC must return them newest-first,
     // with id breaking ties among same-day inserts.
-    record_attempt(db.conn(), card, AttemptKind::ActiveRecall, "primeira", ymd(2026, 5, 1)).unwrap();
-    record_attempt(db.conn(), card, AttemptKind::Feynman, "segunda", ymd(2026, 5, 3)).unwrap();
-    record_attempt(db.conn(), card, AttemptKind::ActiveRecall, "terceira", ymd(2026, 5, 3)).unwrap();
+    record_attempt(
+        db.conn(),
+        card,
+        AttemptKind::ActiveRecall,
+        "primeira",
+        ymd(2026, 5, 1),
+    )
+    .unwrap();
+    record_attempt(
+        db.conn(),
+        card,
+        AttemptKind::Feynman,
+        "segunda",
+        ymd(2026, 5, 3),
+    )
+    .unwrap();
+    record_attempt(
+        db.conn(),
+        card,
+        AttemptKind::ActiveRecall,
+        "terceira",
+        ymd(2026, 5, 3),
+    )
+    .unwrap();
 
     let loaded = load_attempts(db.conn(), card).unwrap();
     assert_eq!(loaded.len(), 3);
@@ -60,7 +81,14 @@ fn attempts_are_scoped_to_their_card() {
 fn attempts_cascade_when_the_card_is_deleted() {
     let (_temp, db) = fresh_db();
     let card = a_card(&db, "Efêmero");
-    record_attempt(db.conn(), card, AttemptKind::ActiveRecall, "some junto", ymd(2026, 5, 1)).unwrap();
+    record_attempt(
+        db.conn(),
+        card,
+        AttemptKind::ActiveRecall,
+        "some junto",
+        ymd(2026, 5, 1),
+    )
+    .unwrap();
     assert_eq!(load_attempts(db.conn(), card).unwrap().len(), 1);
 
     // FK ON DELETE CASCADE (foreign_keys pragma is ON): deleting the card removes its attempts.

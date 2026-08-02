@@ -37,7 +37,11 @@ pub fn load_items(conn: &Connection, card_id: i64) -> rusqlite::Result<Vec<Leitn
 }
 
 /// A card's items that are due in a session started on `today` — `due_date <= today` (TECH-08.4).
-pub fn load_due(conn: &Connection, card_id: i64, today: Date) -> rusqlite::Result<Vec<LeitnerItem>> {
+pub fn load_due(
+    conn: &Connection,
+    card_id: i64,
+    today: Date,
+) -> rusqlite::Result<Vec<LeitnerItem>> {
     let sql = format!(
         "SELECT {SELECT_COLS} FROM leitner_items \
          WHERE card_id = ?1 AND due_date <= ?2 ORDER BY box_no ASC, id ASC"

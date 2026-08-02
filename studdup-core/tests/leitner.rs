@@ -5,9 +5,7 @@ mod common;
 
 use common::{sample_card, ymd, TempDb};
 use studdup_core::repository::cards::{delete_card, insert_card};
-use studdup_core::repository::leitner::{
-    add_leitner_item, load_due, load_items, review_item,
-};
+use studdup_core::repository::leitner::{add_leitner_item, load_due, load_items, review_item};
 use studdup_core::repository::Db;
 
 fn fresh_db() -> (TempDb, Db) {
@@ -88,7 +86,11 @@ fn review_correct_promotes_box_and_moves_due() {
 
     let updated = review_item(db.conn(), id, true, today).unwrap().unwrap();
     assert_eq!(updated.box_no, 2, "box 1 correct → box 2");
-    assert_eq!(updated.due_date, today.add_days(2), "box 2 interval = 2 days");
+    assert_eq!(
+        updated.due_date,
+        today.add_days(2),
+        "box 2 interval = 2 days"
+    );
 
     // Persisted, not just returned.
     let reloaded = &load_items(db.conn(), card).unwrap()[0];

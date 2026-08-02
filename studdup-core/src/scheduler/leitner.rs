@@ -30,7 +30,7 @@ fn interval_for(box_no: u8) -> i64 {
 /// Returns `(new_box, due_date)`. The caller persists both.
 pub fn leitner_review(box_no: u8, correct: bool, today: Date) -> (u8, Date) {
     let new_box = if correct {
-        (box_no + 1).min(MAX_BOX).max(MIN_BOX)
+        (box_no + 1).clamp(MIN_BOX, MAX_BOX)
     } else {
         MIN_BOX
     };
@@ -105,8 +105,14 @@ mod tests {
         assert!(leitner_due(today, today), "due today");
         assert!(leitner_due(today.add_days(-1), today), "overdue");
         assert!(leitner_due(today.add_days(-16), today), "long overdue");
-        assert!(!leitner_due(today.add_days(1), today), "tomorrow is not due");
-        assert!(!leitner_due(today.add_days(16), today), "far future not due");
+        assert!(
+            !leitner_due(today.add_days(1), today),
+            "tomorrow is not due"
+        );
+        assert!(
+            !leitner_due(today.add_days(16), today),
+            "far future not due"
+        );
     }
 
     /// A wrong review makes the item due tomorrow, so it is not due in *today's* remaining session

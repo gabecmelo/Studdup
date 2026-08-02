@@ -203,7 +203,10 @@ fn upgrades_v1_to_v2_adding_attempts_idempotently() {
     // Simulate a real v1 DB: drop the v2-only `attempts` table and roll the version back to 1.
     db.conn().execute_batch("DROP TABLE attempts;").unwrap();
     db.conn().pragma_update(None, "user_version", 1).unwrap();
-    assert!(!has_table(db.conn(), "attempts"), "precondition: v1 has no attempts table");
+    assert!(
+        !has_table(db.conn(), "attempts"),
+        "precondition: v1 has no attempts table"
+    );
 
     // v1 → v2: a `cards` table exists, so a backup is written before the upgrade.
     let report = migrate(&db).unwrap();
@@ -213,7 +216,10 @@ fn upgrades_v1_to_v2_adding_attempts_idempotently() {
     assert!(report.ran);
     assert_eq!(report.from_version, 1);
     assert_eq!(report.to_version, 2);
-    assert!(has_table(db.conn(), "attempts"), "v2 gained the attempts table");
+    assert!(
+        has_table(db.conn(), "attempts"),
+        "v2 gained the attempts table"
+    );
 
     // Re-running is a detected no-op: nothing added, no new backup (idempotent).
     let cols_before = columns(db.conn(), "attempts");
@@ -222,7 +228,11 @@ fn upgrades_v1_to_v2_adding_attempts_idempotently() {
     assert_eq!(again.from_version, 2);
     assert_eq!(again.to_version, 2);
     assert_eq!(again.backup_path, None);
-    assert_eq!(columns(db.conn(), "attempts"), cols_before, "no schema change on re-run");
+    assert_eq!(
+        columns(db.conn(), "attempts"),
+        cols_before,
+        "no schema change on re-run"
+    );
 }
 
 #[test]
