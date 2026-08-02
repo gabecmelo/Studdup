@@ -20,6 +20,7 @@ import {
   isEstInRange,
 } from "../../lib/sessionEstimate";
 import { EstField } from "./EstField";
+import { todayIso } from "../Board";
 import {
   TECHNIQUE_CHOICES,
   type TechniqueChoice,
@@ -137,11 +138,13 @@ export function NovoCardModal({
       technique,
       est_minutes: technique === null ? null : est,
       pomodoro: technique === "Pomodoro" ? rhythm : null,
-      // Scheduling anchors are assigned by the backend (create_card sets today / Day 0).
-      start_date: "",
+      // Scheduling anchors are (re)assigned by the backend (create_card forces today / Day 0). They
+      // must still be valid ISO dates here — `Date` rejects an empty string on deserialization — so
+      // seed them with today; the value is overwritten server-side.
+      start_date: todayIso(),
       current_stage: "Day0",
       exam_id: needsExam ? examId : null,
-      created_at: "",
+      created_at: todayIso(),
       last_completed_at: null,
       archived: false,
     };
