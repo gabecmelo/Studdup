@@ -50,13 +50,12 @@ fn user_data_dir() -> Option<PathBuf> {
     if let Some(xdg) = std::env::var_os("XDG_DATA_HOME").filter(|v| !v.is_empty()) {
         return Some(PathBuf::from(xdg).join("studdup"));
     }
-    match std::env::var_os("HOME").filter(|v| !v.is_empty()) {
-        Some(home) => Some(
+    std::env::var_os("HOME")
+        .filter(|v| !v.is_empty())
+        .map(|home| {
             PathBuf::from(home)
                 .join(".local")
                 .join("share")
-                .join("studdup"),
-        ),
-        None => None,
-    }
+                .join("studdup")
+        })
 }
