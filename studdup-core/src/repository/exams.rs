@@ -92,17 +92,28 @@ pub fn set_session_due_date(conn: &Connection, session_id: i64, due: Date) -> ru
     Ok(())
 }
 
-/// Per-card session cursor for the Prova board: `(card_id, next_incomplete_seq, total)`. `seq` is
-/// the 0-based index of the earliest not-yet-completed session (None when every session is done);
-/// `total` is the card's session count. The api turns this into a 1-based "Sessão N de M".
-pub fn session_cursors(conn: &Connection) -> rusqlite::Result<Vec<(i64, Option<i64>, i64)>> {
+/// One `session_cursors` row: `(card_id, next_incomplete_seq, total, cursor_due)`. `seq` is the
+/// 0-based index of the earliest not-yet-completed session (None when every session is done);
+/// `total` is the card's session count; `cursor_due` is that earliest incomplete session's due date
+/// (None when done) — the date the Prova board places the exam card by (AD-014).
+pub type SessionCursorRow = (i64, Option<i64>, i64, Option<Date>);
+
+/// Per-card session cursors for the Prova board (see [`SessionCursorRow`]). The api turns `seq`
+/// into a 1-based "Sessão N de M".
+pub fn session_cursors(conn: &Connection) -> rusqlite::Result<Vec<SessionCursorRow>> {
     let mut stmt = conn.prepare(
-        "SELECT card_id, \
-                MIN(CASE WHEN completed_at IS NULL THEN seq END) AS next_incomplete, \
-                COUNT(*) AS total \
-         FROM exam_sessions GROUP BY card_id",
+        "SELECT s.card_id, \
+                MIN(CASE WHEN s.completed_at IS NULL THEN s.seq END) AS next_incomplete, \
+                COUNT(*) AS total, \
+                (SELECT s2.due_date FROM exam_sessions s2 \
+                   WHERE s2.card_id = s.card_id AND s2.completed_at IS NULL \
+                   ORDER BY s2.seq ASC LIMIT 1) AS cursor_due \
+         FROM exam_sessions s GROUP BY s.card_id",
     )?;
-    let rows = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?;
+    let rows = stmt.query_map([], |row| {
+        let due: Option<String> = row.get(3)?;
+        Ok((row.get(0)?, row.get(1)?, row.get(2)?, opt_parse_date(due)?))
+    })?;
     rows.collect()
 }
 

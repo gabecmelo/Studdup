@@ -155,8 +155,15 @@ fn session_cursors_report_next_incomplete_and_total() {
 
     let mut cursors = session_cursors(db.conn()).unwrap();
     cursors.sort_by_key(|c| c.0);
-    // 0-based next-incomplete seq: card A → seq 1 of 2; card B → seq 2 of 3.
-    assert_eq!(cursors, vec![(card_a, Some(1), 2), (card_b, Some(2), 3)]);
+    // 0-based next-incomplete seq + that session's due date: card A → seq 1 of 2 due 2026-05-06;
+    // card B → seq 2 of 3 due 2026-05-12.
+    assert_eq!(
+        cursors,
+        vec![
+            (card_a, Some(1), 2, Some(ymd(2026, 5, 6))),
+            (card_b, Some(2), 3, Some(ymd(2026, 5, 12))),
+        ]
+    );
 }
 
 #[test]
@@ -169,7 +176,11 @@ fn session_cursors_report_none_when_all_sessions_are_done() {
         advance_session(db.conn(), s.id, ymd(2026, 5, 8)).unwrap();
     }
 
-    assert_eq!(session_cursors(db.conn()).unwrap(), vec![(card, None, 2)]);
+    // Every session done → no cursor seq and no cursor due date.
+    assert_eq!(
+        session_cursors(db.conn()).unwrap(),
+        vec![(card, None, 2, None)]
+    );
 }
 
 #[test]

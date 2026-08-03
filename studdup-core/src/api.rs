@@ -539,6 +539,10 @@ pub struct SessionCursor {
     pub card_id: i64,
     pub seq: i64,
     pub total: i64,
+    /// Due date of the current cursor session — the next session to study. `None` once every
+    /// session is completed. The Prova board places the exam card by this date, never the spaced
+    /// ladder formula (AD-014).
+    pub due_date: Option<Date>,
 }
 
 /// Session cursors for every exam card, keyed by card id on the frontend (KAN-04). Derived from
@@ -547,11 +551,14 @@ pub struct SessionCursor {
 pub fn list_session_cursors(conn: &Connection) -> Result<Vec<SessionCursor>, ApiError> {
     Ok(exams::session_cursors(conn)?
         .into_iter()
-        .map(|(card_id, next_incomplete, total)| SessionCursor {
-            card_id,
-            seq: next_incomplete.map(|s| s + 1).unwrap_or(total),
-            total,
-        })
+        .map(
+            |(card_id, next_incomplete, total, due_date)| SessionCursor {
+                card_id,
+                seq: next_incomplete.map(|s| s + 1).unwrap_or(total),
+                total,
+                due_date,
+            },
+        )
         .collect())
 }
 
