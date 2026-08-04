@@ -56,6 +56,14 @@ const POSTPONE_OPTIONS: { label: string; fromToday: number }[] = [
 
 type Mode = "choose" | "challenge" | "timer" | "question";
 
+/** The `days` delta to hand the postpone command so the schedule lands exactly on `target`. The
+ *  backend adds this to the card's current due date, so the delta is `target − currentDue`
+ *  (`daysBetween` is `to − from`). Computing from `currentDue` — not from `target − today` — means
+ *  an overdue card postponed to tomorrow still lands on tomorrow, never a past day. */
+export function postponeDeltaDays(currentDue: ISODate, target: ISODate): number {
+  return daysBetween(currentDue, target);
+}
+
 export interface AdiarModalProps {
   open?: boolean;
   cardTitle: string;
@@ -140,7 +148,7 @@ export function AdiarModal({
               today={today}
               target={target}
               onPick={setTarget}
-              onConfirm={() => onPostpone?.(daysBetween(dueDate, target))}
+              onConfirm={() => onPostpone?.(postponeDeltaDays(dueDate, target))}
               onCancel={onClose}
             />
           )}
