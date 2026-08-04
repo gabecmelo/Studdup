@@ -12,6 +12,7 @@ import type { ISODate, Stage, Technique } from "../../lib/bindings";
 import { useEscapeToClose } from "../../lib/useEscapeToClose";
 import { Countdown, formatClock } from "../Countdown";
 import { addDaysIso } from "../Board";
+import { daysBetween } from "../columns";
 import { TECHNIQUE_LABEL } from "../TechniqueChip";
 import {
   createTimer,
@@ -44,12 +45,13 @@ const STAGE_LABEL: Record<Stage, string> = {
   Done: "Concluído",
 };
 
-/** The postpone presets (label + day delta), matching the handoff grid. */
-const POSTPONE_OPTIONS: { label: string; days: number }[] = [
-  { label: "Amanhã", days: 1 },
-  { label: "+2 dias", days: 2 },
-  { label: "+3 dias", days: 3 },
-  { label: "1 semana", days: 7 },
+/** The postpone presets, expressed as day offsets **from today** (not from the card's current due
+ *  date): postponing an overdue card to "Amanhã" always lands on tomorrow, never in the past. */
+const POSTPONE_OPTIONS: { label: string; fromToday: number }[] = [
+  { label: "Amanhã", fromToday: 1 },
+  { label: "Em 2 dias", fromToday: 2 },
+  { label: "Em 3 dias", fromToday: 3 },
+  { label: "Em 1 semana", fromToday: 7 },
 ];
 
 type Mode = "choose" | "challenge" | "timer" | "question";
@@ -59,7 +61,10 @@ export interface AdiarModalProps {
   cardTitle: string;
   stage: Stage;
   technique: Technique | null;
-  /** The card's current due date — the base for showing the resulting postpone date. */
+  /** Today (local ISO date) — postpone targets are chosen relative to today, never the due date. */
+  today: ISODate;
+  /** The card's current due date — the delta passed to `onPostpone` is `target − dueDate`, so the
+   *  backend's schedule lands exactly on the chosen target day regardless of how overdue it was. */
   dueDate: ISODate;
   onPostpone?: (days: number) => void;
   onComplete?: () => void;
@@ -71,6 +76,7 @@ export function AdiarModal({
   cardTitle,
   stage,
   technique,
+  today,
   dueDate,
   onPostpone,
   onComplete,
@@ -78,7 +84,8 @@ export function AdiarModal({
 }: AdiarModalProps) {
   const review = isReviewStage(stage);
   const [mode, setMode] = useState<Mode>(review ? "challenge" : "choose");
-  const [days, setDays] = useState<number>(1);
+  // The chosen postpone target as an absolute date; defaults to tomorrow.
+  const [target, setTarget] = useState<ISODate>(addDaysIso(today, 1));
   const [timer, setTimer] = useState<TimerState>(createTimer());
 
   // Drive the countdown once per second while it is running; flip to the question at zero.
@@ -130,10 +137,10 @@ export function AdiarModal({
         <div style={{ display: "flex", flexDirection: "column", padding: "20px 24px" }}>
           {mode === "choose" && (
             <ChooseMode
-              days={days}
-              dueDate={dueDate}
-              onPick={setDays}
-              onConfirm={() => onPostpone?.(days)}
+              today={today}
+              target={target}
+              onPick={setTarget}
+              onConfirm={() => onPostpone?.(daysBetween(dueDate, target))}
               onCancel={onClose}
             />
           )}
@@ -192,32 +199,36 @@ function Header({ title, subtitle, onClose }: { title: string; subtitle: string;
 }
 
 function ChooseMode({
-  days,
-  dueDate,
+  today,
+  target,
   onPick,
   onConfirm,
   onCancel,
 }: {
-  days: number;
-  dueDate: ISODate;
-  onPick: (days: number) => void;
+  today: ISODate;
+  target: ISODate;
+  onPick: (target: ISODate) => void;
   onConfirm: () => void;
   onCancel?: () => void;
 }) {
-  const target = addDaysIso(dueDate, days);
+  const tomorrow = addDaysIso(today, 1);
+  // Guard against a cleared/invalid date input: only a day strictly after today can be a postpone.
+  const valid = target >= tomorrow;
+  const offsetFromToday = daysBetween(today, target);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <span style={{ font: "600 11.5px/1 var(--font-sans)", letterSpacing: ".06em", textTransform: "uppercase", color: "var(--text-2)" }}>
-        Adiar por
+        Adiar para
       </span>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 9 }}>
         {POSTPONE_OPTIONS.map((o) => {
-          const selected = o.days === days;
+          const optionDate = addDaysIso(today, o.fromToday);
+          const selected = optionDate === target;
           return (
             <HoverButton
-              key={o.days}
+              key={o.fromToday}
               ariaPressed={selected}
-              onClick={() => onPick(o.days)}
+              onClick={() => onPick(optionDate)}
               base={{
                 display: "flex",
                 alignItems: "center",
@@ -235,12 +246,46 @@ function ChooseMode({
             >
               {o.label}
               <span style={{ font: "400 11px/1 var(--font-mono, var(--font-sans))", color: "var(--text-3)" }}>
-                +{o.days} {o.days === 1 ? "dia" : "dias"}
+                {optionDate.slice(5)}
               </span>
             </HoverButton>
           );
         })}
       </div>
+
+      {/* Or pick an exact day directly — the base for all the calculations is today, never the
+          (possibly overdue) current due date. */}
+      <label
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 9,
+          padding: "11px 15px",
+          borderRadius: 13,
+          background: "var(--surface-2)",
+          border: "1px solid var(--border)",
+        }}
+      >
+        <span style={{ font: "500 12.5px/1 var(--font-sans)", color: "var(--text-2)" }}>Escolher dia</span>
+        <span style={{ flex: 1 }} />
+        <input
+          type="date"
+          value={target}
+          min={tomorrow}
+          onChange={(e) => e.target.value && onPick(e.target.value)}
+          aria-label="Data de vencimento"
+          style={{
+            padding: "6px 10px",
+            borderRadius: 9,
+            border: "1px solid var(--border)",
+            background: "var(--surface)",
+            color: "var(--text)",
+            font: "600 12.5px/1 var(--font-mono, var(--font-sans))",
+            colorScheme: "dark light",
+          }}
+        />
+      </label>
+
       <div
         style={{
           display: "flex",
@@ -254,14 +299,20 @@ function ChooseMode({
       >
         <span style={{ font: "500 12.5px/1 var(--font-sans)", color: "var(--text-2)" }}>Nova data de vencimento</span>
         <span style={{ flex: 1 }} />
-        <span style={{ font: "600 13.5px/1 var(--font-sans)", color: "var(--accent-soft-ink)" }}>{target}</span>
+        <span style={{ font: "600 13.5px/1 var(--font-sans)", color: "var(--accent-soft-ink)" }}>
+          {valid ? `${target} · em ${offsetFromToday} ${offsetFromToday === 1 ? "dia" : "dias"}` : "—"}
+        </span>
       </div>
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
         <HoverButton onClick={onCancel} base={ghostBtn} hoverPatch={PATCH_GHOST}>
           Cancelar
         </HoverButton>
-        <HoverButton onClick={onConfirm} base={primaryBtn} hoverPatch={PATCH_PRIMARY}>
-          Adiar para {target}
+        <HoverButton
+          onClick={valid ? onConfirm : undefined}
+          base={{ ...primaryBtn, opacity: valid ? 1 : 0.5, cursor: valid ? "pointer" : "not-allowed" }}
+          hoverPatch={valid ? PATCH_PRIMARY : {}}
+        >
+          Adiar para {valid ? target : "…"}
         </HoverButton>
       </div>
     </div>

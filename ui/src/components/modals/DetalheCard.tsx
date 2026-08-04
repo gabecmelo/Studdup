@@ -40,6 +40,11 @@ export interface DetalheCardModalProps {
   open?: boolean;
   card: Card;
   today: ISODate;
+  /** For an exam card, its current session cursor (AD-014): the real due date and "Sessão N de M".
+   *  Ignored for spaced cards, which derive everything from the ladder. */
+  examDue?: ISODate | null;
+  examSeq?: number | null;
+  examTotal?: number | null;
   onClose?: () => void;
   onStudy?: () => void;
   onEdit?: () => void;
@@ -71,9 +76,14 @@ function spacedSchedule(card: Card): ScheduleRow[] {
   });
 }
 
-function dueLabel(card: Card, today: ISODate): { text: string; note: string; danger: boolean } {
-  if (card.archived) return { text: "—", note: "card fora do quadro", danger: false };
-  const due = spacedDueDate(card.start_date, card.current_stage);
+/** The due-date stat for a resolved due date (spaced ladder date, or an exam card's cursor session
+ *  date). `null` means the card has no live due date (archived / fully studied). */
+function dueLabelFor(
+  archived: boolean,
+  due: ISODate | null,
+  today: ISODate,
+): { text: string; note: string; danger: boolean } {
+  if (archived || due === null) return { text: "—", note: "card fora do quadro", danger: false };
   const overdue = daysBetween(due, today);
   if (overdue > 0) {
     return { text: "Venceu", note: `há ${overdue} ${overdue === 1 ? "dia" : "dias"} · ${due}`, danger: true };
@@ -86,6 +96,9 @@ export function DetalheCardModal({
   open = true,
   card,
   today,
+  examDue = null,
+  examSeq = null,
+  examTotal = null,
   onClose,
   onStudy,
   onEdit,
@@ -98,13 +111,27 @@ export function DetalheCardModal({
   useEscapeToClose(open ? onClose : undefined);
   if (!open) return null;
 
-  const due = dueLabel(card, today);
-  const overdue = !card.archived && daysBetween(spacedDueDate(card.start_date, card.current_stage), today) > 0;
+  const examMode = card.method === "ExamPrep";
+  // The card's live due date: an exam card follows its session cursor (AD-014); a spaced card the
+  // ladder anchor. This is what the header, status and Vencimento all read.
+  const resolvedDue: ISODate | null = examMode
+    ? examDue
+    : spacedDueDate(card.start_date, card.current_stage);
+  const due = dueLabelFor(card.archived, resolvedDue, today);
+  const overdue = !card.archived && resolvedDue !== null && daysBetween(resolvedDue, today) > 0;
+  // The "recomeçar / zerar" overdue banner is a spaced-only flow (it re-anchors the ladder); an exam
+  // card just resumes its next session, so it never shows the banner.
+  const showOverdueBanner = overdue && !examMode;
   const status = card.archived
     ? { text: "Arquivado", bg: "var(--surface-3)", ink: "var(--text-2)" }
     : overdue
       ? { text: "Atrasado", bg: "var(--atraso-soft)", ink: "var(--atraso-ink)" }
       : { text: "Ativo", bg: "var(--accent-soft)", ink: "var(--accent-soft-ink)" };
+  // Left stat: an exam card shows its session cursor ("Sessão N de M"); a spaced card its ladder stage.
+  const primaryStat =
+    examMode && examSeq !== null && examTotal !== null
+      ? { label: "Sessão", value: `${examSeq} de ${examTotal}` }
+      : { label: "Estágio atual", value: STAGE_LABEL[card.current_stage] };
 
   const context = `${METHOD_LABEL[card.method]}${card.technique ? ` · técnica ${TECHNIQUE_LABEL[card.technique]}` : ""}`;
   const links = [
@@ -175,7 +202,7 @@ export function DetalheCardModal({
             {card.title}
           </div>
 
-          {overdue && (
+          {showOverdueBanner && (
             <div
               style={{
                 display: "flex",
@@ -235,7 +262,7 @@ export function DetalheCardModal({
         {/* Body */}
         <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: 16, padding: "20px 24px 26px" }}>
           <div style={{ display: "flex", gap: 14 }}>
-            <StatCard label="Estágio atual" value={STAGE_LABEL[card.current_stage]} />
+            <StatCard label={primaryStat.label} value={primaryStat.value} />
             <StatCard label="Vencimento" value={due.text} note={due.note} danger={due.danger} />
           </div>
 

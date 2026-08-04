@@ -17,8 +17,10 @@ import {
   useRecordAttempt,
   useRecordSession,
   useRestartCard,
+  useSessionCursors,
 } from "../lib/queries";
-import { placeCard, todayIso } from "./Board";
+import type { ISODate } from "../lib/bindings";
+import { placeCard, spacedDueDate, todayIso } from "./Board";
 import { DetalheCardModal } from "./modals/DetalheCard";
 import { LogCardModal } from "./modals/LogCard";
 import { EditarCardModal } from "./modals/EditarCard";
@@ -73,6 +75,19 @@ export function useCardHub(method: Method): CardHub {
   const erase = useEraseCard();
   const remove = useDeleteCard();
   const history = useHistory(method);
+  const cursors = useSessionCursors();
+
+  // An exam card's live due date follows its materialized session cursor (AD-014), not the spaced
+  // ladder; a spaced card follows the ladder anchor. Everything that needs a card's real due date
+  // (the Vencimento in the detail, the Adiar base) goes through here.
+  const cursorById = new Map((cursors.data ?? []).map((c) => [c.card_id, c] as const));
+  function examCursor(card: Card) {
+    return card.method === "ExamPrep" ? cursorById.get(card.id) : undefined;
+  }
+  function currentDue(card: Card): ISODate {
+    if (card.method === "ExamPrep") return examCursor(card)?.due_date ?? today;
+    return spacedDueDate(card.start_date, card.current_stage);
+  }
 
   // The overdue Recomeçar/Apagar choice re-anchors the spaced ladder (restart/erase), so it only
   // applies to spaced cards; an exam-prep card goes straight to its session (completing advances the
@@ -91,6 +106,9 @@ export function useCardHub(method: Method): CardHub {
         <DetalheCardModal
           card={detailCard}
           today={today}
+          examDue={examCursor(detailCard)?.due_date ?? null}
+          examSeq={examCursor(detailCard)?.seq ?? null}
+          examTotal={examCursor(detailCard)?.total ?? null}
           onClose={() => setDetailCard(null)}
           onStudy={() => {
             study(detailCard);
@@ -161,7 +179,8 @@ export function useCardHub(method: Method): CardHub {
           cardTitle={postponeCard.title}
           stage={postponeCard.current_stage}
           technique={postponeCard.technique}
-          dueDate={placeCard(postponeCard, today).dueDate}
+          today={today}
+          dueDate={currentDue(postponeCard)}
           onPostpone={(days) => {
             postpone.mutate({ id: postponeCard.id, days });
             setPostponeCard(null);
