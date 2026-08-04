@@ -4,6 +4,10 @@
   "packages": {
     ".": {
       "package-name": "studdup",
+      "extra-files": [
+        { "type": "json", "path": "studdup/tauri.conf.json", "jsonpath": "$.version" },
+        { "type": "toml", "path": "Cargo.toml", "jsonpath": "$.workspace.package.version" }
+      ],
       "changelog-sections": [
         { "type": "feat",     "section": "Features"       },
         { "type": "fix",      "section": "Bug Fixes"      },
