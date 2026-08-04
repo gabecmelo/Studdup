@@ -229,8 +229,9 @@ pub fn edit_card(conn: &Connection, card: Card) -> Result<Card, ApiError> {
     Ok(card)
 }
 
-/// Complete the current session of a card, dispatching by method. Idempotent within a day
-/// (a second completion the same day is a no-op — spec edge case).
+/// Complete the current session of a card, dispatching by method. A spaced card is idempotent
+/// within a day (a second completion the same day is a no-op — spec edge case); an exam card
+/// advances one session per call, so cramming several sessions in a day is allowed (AD-015).
 pub fn complete_card(conn: &Connection, id: i64, today: Date) -> Result<Card, ApiError> {
     complete_inner(conn, id, today, None, None)
 }
@@ -300,11 +301,10 @@ fn complete_exam(
     self_rating: Option<u8>,
 ) -> Result<Card, ApiError> {
     let sessions = exams::load_sessions(conn, card.id)?;
-    // Idempotent per day: if a session was already completed today, do nothing.
-    if sessions.iter().any(|s| s.completed_at == Some(today)) {
-        return Ok(card);
-    }
-    // The cursor session (first uncompleted by `seq`) is the one being completed.
+    // Each completion advances the cursor to the next uncompleted session. Unlike the spaced ladder
+    // (one review per day), exam prep is cramming: a user may legitimately clear several sessions in
+    // one sitting (AD-015), so there is no per-day guard here — the only no-op is a fully-studied
+    // card (no cursor left).
     let cursor = sessions
         .iter()
         .filter(|s| s.completed_at.is_none())

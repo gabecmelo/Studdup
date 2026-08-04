@@ -436,6 +436,56 @@ fn completing_exam_sessions_advances_then_archives() {
     assert!(after2.archived);
 }
 
+/// Exam prep is cramming (AD-015): completing several sessions in the *same* day advances the
+/// cursor each time — unlike the spaced ladder, there is no per-day idempotency block. Regression
+/// for the reported bug where the second same-day "Concluir" silently did nothing.
+#[test]
+fn completing_two_exam_sessions_same_day_advances_both() {
+    let db = db();
+    let today = ymd(2026, 5, 1);
+    let exam = create_exam(db.conn(), "Prova".to_string(), today.add_days(1), today).unwrap();
+    let mut card = new_spaced("Conteúdo");
+    card.method = Method::ExamPrep;
+    card.exam_id = Some(exam.id);
+    let card = create_card(db.conn(), card, today).unwrap();
+    assert_eq!(load_sessions(db.conn(), card.id).unwrap().len(), 2);
+
+    // First same-day completion advances the cursor (seq 0 done, not archived).
+    let after1 = api::complete_card(db.conn(), card.id, today).unwrap();
+    assert!(!after1.archived);
+    // Second same-day completion advances the *next* session and archives (last one done).
+    let after2 = api::complete_card(db.conn(), card.id, today).unwrap();
+    assert!(
+        after2.archived,
+        "second same-day completion must advance, not no-op"
+    );
+
+    let sessions = load_sessions(db.conn(), card.id).unwrap();
+    assert_eq!(sessions[0].completed_at, Some(today));
+    assert_eq!(sessions[1].completed_at, Some(today));
+
+    // Two distinct completed events were recorded (one per session).
+    let completed = api::list_history(db.conn(), HistoryFilter::for_method(Method::ExamPrep))
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == "completed")
+        .count();
+    assert_eq!(
+        completed, 2,
+        "each same-day session completion logs its own event"
+    );
+
+    // A further completion on a fully-studied card is a genuine no-op.
+    let after3 = api::complete_card(db.conn(), card.id, today).unwrap();
+    assert!(after3.archived);
+    let still = api::list_history(db.conn(), HistoryFilter::for_method(Method::ExamPrep))
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == "completed")
+        .count();
+    assert_eq!(still, 2, "no extra event once every session is done");
+}
+
 #[test]
 fn postpone_exam_card_shifts_only_the_cursor_session() {
     let db = db();
