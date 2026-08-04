@@ -18,7 +18,7 @@ import { EmptyState } from "../components/EmptyState";
 import { ExamsRail, type ExamRailItem } from "../components/ExamsRail";
 import { ProvaCard } from "../components/ProvaCard";
 import { examColor } from "../components/examColor";
-import { addDaysIso, placeCard, todayIso } from "../components/Board";
+import { addDaysIso, placeAtDue, todayIso } from "../components/Board";
 import { COLUMN_LABELS, COLUMN_ORDER, type Column } from "../components/columns";
 import { useCardHub } from "../components/useCardHub";
 import { NovaProvaModal } from "../components/modals/NovaProva";
@@ -145,7 +145,10 @@ export function QuadroProva() {
     concluidos: [],
   };
   for (const card of cards) {
-    columns[placeCard(card, today).column].push(card);
+    // Exam cards are placed by their session cursor's due date (AD-014), so completing a session
+    // moves the card to the next session's column instead of freezing it at creation.
+    const due = cursorById.get(card.id)?.due_date ?? null;
+    columns[placeAtDue(card.archived, due, today).column].push(card);
   }
 
   /** Active cards attached to an exam (drives the delete confirmation's "tópicos" list). */
@@ -414,8 +417,8 @@ function ProvaColumn({ column, groups, today, cursors, onOpen }: ProvaColumnProp
                 </div>
 
                 {group.cards.map((card) => {
-                  const { overdueDays } = placeCard(card, today);
                   const cursor = cursors.get(card.id);
+                  const { overdueDays } = placeAtDue(card.archived, cursor?.due_date ?? null, today);
                   return (
                     <ProvaCard
                       key={card.id}

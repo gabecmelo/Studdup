@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Card } from "../lib/bindings";
-import { STAGE_OFFSET, addDaysIso, placeCard, spacedDueDate } from "./Board";
+import { STAGE_OFFSET, addDaysIso, placeAtDue, placeCard, spacedDueDate } from "./Board";
 
 // A minimal spaced card fixture; only the fields the placement helpers read matter.
 function card(over: Partial<Card>): Card {
@@ -44,6 +44,41 @@ describe("addDaysIso", () => {
     expect(addDaysIso("2026-12-31", 1)).toBe("2027-01-01");
     // 2024 is a leap year.
     expect(addDaysIso("2024-02-28", 1)).toBe("2024-02-29");
+  });
+});
+
+describe("placeAtDue (method-agnostic placement by a resolved due date, AD-014)", () => {
+  it("places a card due today in Hoje with no overdue", () => {
+    const p = placeAtDue(false, TODAY, TODAY);
+    expect(p.column).toBe("hoje");
+    expect(p.overdueDays).toBe(0);
+  });
+
+  it("places a card due tomorrow in Amanhã", () => {
+    expect(placeAtDue(false, addDaysIso(TODAY, 1), TODAY).column).toBe("amanha");
+  });
+
+  it("places a card due in two days in Próximos", () => {
+    expect(placeAtDue(false, addDaysIso(TODAY, 2), TODAY).column).toBe("proximos");
+  });
+
+  it("places an overdue card in Hoje and reports whole days overdue", () => {
+    const p = placeAtDue(false, addDaysIso(TODAY, -3), TODAY);
+    expect(p.column).toBe("hoje");
+    expect(p.overdueDays).toBe(3);
+  });
+
+  it("advances an exam card to the next column when its cursor due date moves forward", () => {
+    // Session 1 due today → Hoje; after completion the cursor due date is +5 → Próximos. This is
+    // the exam-completion fix: the card must move, not freeze at creation.
+    expect(placeAtDue(false, TODAY, TODAY).column).toBe("hoje");
+    expect(placeAtDue(false, addDaysIso(TODAY, 5), TODAY).column).toBe("proximos");
+  });
+
+  it("places a card with no live due date (archived or fully studied) in Concluídos", () => {
+    expect(placeAtDue(true, addDaysIso(TODAY, -9), TODAY).column).toBe("concluidos");
+    expect(placeAtDue(true, addDaysIso(TODAY, -9), TODAY).overdueDays).toBe(0);
+    expect(placeAtDue(false, null, TODAY).column).toBe("concluidos");
   });
 });
 

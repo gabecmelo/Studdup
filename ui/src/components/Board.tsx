@@ -89,13 +89,27 @@ export interface BoardPlacement {
   overdueDays: number;
 }
 
-/** Resolve a card's column, derived due date and overdue count (KAN-01 §1–2). */
-export function placeCard(card: CardModel, today: ISODate): BoardPlacement {
-  const dueDate = spacedDueDate(card.start_date, card.current_stage);
-  const column = columnForCard({ archived: card.archived, dueDate }, today);
+/** Place a card given an already-resolved due date. Archived cards — and exam cards with no
+ *  remaining session (a `null` due date) — land in "Concluídos" with no overdue count. This is the
+ *  method-agnostic core: spaced cards feed it the ladder due date, exam cards their session cursor's
+ *  due date (AD-014), so completing an exam session actually moves the card. */
+export function placeAtDue(
+  archived: boolean,
+  dueDate: ISODate | null,
+  today: ISODate,
+): BoardPlacement {
+  if (archived || dueDate === null) {
+    return { column: "concluidos", dueDate: dueDate ?? today, overdueDays: 0 };
+  }
+  const column = columnForCard({ archived, dueDate }, today);
   const overdue = daysBetween(dueDate, today);
-  const overdueDays = !card.archived && overdue > 0 ? overdue : 0;
-  return { column, dueDate, overdueDays };
+  return { column, dueDate, overdueDays: overdue > 0 ? overdue : 0 };
+}
+
+/** Resolve a *spaced* card's column, derived due date and overdue count (KAN-01 §1–2, AD-003).
+ *  Exam cards are placed by their session cursor instead — see `placeAtDue`. */
+export function placeCard(card: CardModel, today: ISODate): BoardPlacement {
+  return placeAtDue(card.archived, spacedDueDate(card.start_date, card.current_stage), today);
 }
 
 /** Group the active cards into the four columns, honoring pending optimistic moves (KAN-02/03). */

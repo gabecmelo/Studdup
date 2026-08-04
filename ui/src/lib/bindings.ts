@@ -75,6 +75,9 @@ export interface SessionCursor {
   card_id: number;
   seq: number;
   total: number;
+  /** Due date of the current cursor session — the date the Prova board places the card by
+   *  (AD-014). `null` once every session is completed. */
+  due_date: ISODate | null;
 }
 
 /** A materialized study session for an exam card — frozen at card creation. */
