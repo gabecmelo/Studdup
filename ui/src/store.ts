@@ -1,0 +1,82 @@
+// Ephemeral UI state (Zustand) — the active study method, the sidebar collapse preference, and the
+// live study session. Durable preferences (active method + sidebar) persist to localStorage so the
+// method selection is restored on next launch (METH-02); the live session is ephemeral and never
+// persisted. Server/command data lives in React Query, not here.
+
+import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
+import type { Method, Technique } from "./lib/bindings";
+
+/** A study session in progress (drives the session screens + the "estudar agora" flow). */
+export interface LiveSession {
+  cardId: number;
+  technique: Technique | null;
+  /** Epoch milliseconds when the session started (for elapsed-time accounting). */
+  startedAt: number;
+}
+
+export interface StuddupState {
+  activeMethod: Method;
+  setActiveMethod: (method: Method) => void;
+
+  sidebarCollapsed: boolean;
+  setSidebarCollapsed: (collapsed: boolean) => void;
+  toggleSidebar: () => void;
+
+  // Ephemeral board filters (KAN — the header search + technique filter). Not persisted: they reset
+  // each launch and are cleared when leaving the board.
+  boardSearch: string;
+  setBoardSearch: (query: string) => void;
+  boardTechnique: Technique | null;
+  setBoardTechnique: (technique: Technique | null) => void;
+  clearBoardFilters: () => void;
+
+  // Cross-screen study intent (HOME-04): Início sets this to the method whose first due card
+  // should open when the board mounts. Ephemeral — never persisted; cleared once consumed.
+  pendingStudy: Method | null;
+  requestStudy: (method: Method) => void;
+  clearStudy: () => void;
+
+  session: LiveSession | null;
+  startSession: (session: LiveSession) => void;
+  endSession: () => void;
+}
+
+export const STORE_KEY = "studdup.store";
+
+export const useStore = create<StuddupState>()(
+  persist(
+    (set) => ({
+      activeMethod: "SpacedRepetition",
+      setActiveMethod: (method) => set({ activeMethod: method }),
+
+      sidebarCollapsed: false,
+      setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
+      toggleSidebar: () =>
+        set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+
+      boardSearch: "",
+      setBoardSearch: (query) => set({ boardSearch: query }),
+      boardTechnique: null,
+      setBoardTechnique: (technique) => set({ boardTechnique: technique }),
+      clearBoardFilters: () => set({ boardSearch: "", boardTechnique: null }),
+
+      pendingStudy: null,
+      requestStudy: (method) => set({ pendingStudy: method }),
+      clearStudy: () => set({ pendingStudy: null }),
+
+      session: null,
+      startSession: (session) => set({ session }),
+      endSession: () => set({ session: null }),
+    }),
+    {
+      name: STORE_KEY,
+      storage: createJSONStorage(() => localStorage),
+      // Only durable preferences persist; the live session stays in memory.
+      partialize: (state) => ({
+        activeMethod: state.activeMethod,
+        sidebarCollapsed: state.sidebarCollapsed,
+      }),
+    },
+  ),
+);
