@@ -3,133 +3,118 @@ name: CI
 on:
   pull_request:
     branches: [main]
-  push:
-    branches: [main]
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  CARGO_TERM_COLOR: always
-
 jobs:
   # ---------------------------------------------------------------------------
-  # Core — format, lint, tests and the coverage gate on `studdup-core` only.
-  # This is the pure, UI-free core (scheduling/date/repository/api) and links
-  # without Tauri, so this job needs no Node, no WebKit and no `ui/dist`. It is
-  # the fast-feedback gate — the direct analog of the retired C++ `BUILD_APP=OFF`
-  # lcov gate — and it runs independently of the heavier app-build job below.
+  # 1. Lint — auto-fix with clang-format and push the fix back to the branch
   # ---------------------------------------------------------------------------
-  core:
-    name: Core — fmt, clippy, tests, coverage (studdup-core ≥ 70%)
+  lint:
+    name: Lint (clang-format)
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt, clippy, llvm-tools-preview
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Cache cargo build
-        uses: Swatinem/rust-cache@v2
-
-      - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
-
-      # `cargo fmt --all` covers every Rust crate in the workspace (studdup-core
-      # AND the studdup app crate) without compiling anything, so it stays here
-      # in the fast job even though the app itself is built in `app` below.
-      - name: Format check (whole workspace)
-        run: cargo fmt --all -- --check
-
-      - name: Clippy — studdup-core (deny warnings)
-        run: cargo clippy -p studdup-core --all-targets -- -D warnings
-
-      - name: Tests — studdup-core (unit + integration)
-        run: cargo test -p studdup-core
-
-      - name: Coverage — studdup-core, fail under 70% lines
-        run: cargo llvm-cov -p studdup-core --fail-under-lines 70
-
-  # ---------------------------------------------------------------------------
-  # App — the Tauri bridge crate. It embeds the frontend from `../ui/dist` at
-  # compile time (tauri-build), so the UI must be built first, and it needs the
-  # Tauri Linux system dependencies. This job proves the app crate both lints
-  # and, crucially, builds in RELEASE (catching release-only breakage the debug
-  # builds miss). `ui/dist` is gitignored, hence built here rather than checked
-  # out.
-  # ---------------------------------------------------------------------------
-  app:
-    name: App — clippy + release build (studdup)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Tauri system dependencies
+      - name: Install clang-format
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            build-essential \
-            curl \
-            wget \
-            file \
-            libxdo-dev \
-            libssl-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev
+          sudo apt-get install -y clang-format
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
+      - name: Auto-fix formatting
+        run: |
+          find src tests \
+            \( -name '*.cpp' -o -name '*.h' \) \
+            -print0 \
+          | xargs -0 clang-format -i --style=file
 
-      - name: Cache cargo build
-        uses: Swatinem/rust-cache@v2
-
-      - name: Install Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: ui/package-lock.json
-
-      - name: Build UI (frontend embedded by the tauri app crate)
-        run: npm ci && npm run build
-        working-directory: ui
-
-      - name: Clippy — studdup app crate (deny warnings)
-        run: cargo clippy -p studdup --all-targets -- -D warnings
-
-      - name: Release build — studdup
-        run: cargo build --release -p studdup
+      - name: Commit and push fixes if needed
+        run: |
+          if ! git diff --quiet; then
+            git config user.name  "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add -A
+            git commit -m "style: auto-fix clang-format violations"
+            git push
+            echo "Formatting issues were found and auto-fixed — pull the latest commit."
+          fi
 
   # ---------------------------------------------------------------------------
-  # UI — type-check, production build, and Vitest suite.
+  # 2. Unit tests + coverage threshold
+  #    Builds ONLY Date.cpp + Scheduler.cpp + Catch2 — NOT the full app.
+  #    No GLFW / ImGui / OpenGL / SQLite are pulled in.
   # ---------------------------------------------------------------------------
-  ui:
-    name: UI — build & test
+  test:
+    name: Unit tests (coverage ≥ 70%)
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ui
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Node
-        uses: actions/setup-node@v4
+      - name: Install lcov
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lcov
+
+      # Configure with coverage ON; this implies BUILD_TESTS=ON and skips
+      # building the studdup executable (FetchContent still runs for Catch2).
+      # GLFW/ImGui/SQLite are fetched but only Catch2 is linked to the test binary.
+      - name: Configure (tests + coverage, no app binary)
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DBUILD_APP=OFF \
+            -DENABLE_COVERAGE=ON \
+            -DBUILD_TESTS=ON \
+            -DFETCHCONTENT_QUIET=OFF
+
+      - name: Build test binary only
+        run: cmake --build build --target studdup_tests --parallel
+
+      - name: Run tests
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Capture coverage
+        run: |
+          lcov --capture \
+               --directory build \
+               --output-file coverage.info \
+               --ignore-errors mismatch
+          # Strip third-party and system headers
+          lcov --remove coverage.info \
+               '*/tests/*' \
+               '*/catch2-src/*' \
+               '*/build/_deps/*' \
+               '/usr/*' \
+               --ignore-errors unused \
+               --output-file coverage.info
+          lcov --list coverage.info
+
+      - name: Enforce 70% coverage threshold
+        run: |
+          COVERAGE=$(lcov --summary coverage.info 2>&1 \
+            | grep -oP 'lines\.*: \K[0-9]+\.[0-9]+')
+          echo "Line coverage: ${COVERAGE}%"
+          python3 -c "
+          import sys
+          cov = float('${COVERAGE}')
+          threshold = 70.0
+          if cov < threshold:
+              print(f'FAIL: {cov:.1f}% < {threshold}% threshold')
+              sys.exit(1)
+          print(f'PASS: {cov:.1f}% >= {threshold}% threshold')
+          "
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: ui/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build
-        run: npm run build
-
-      - name: Test
-        run: npm run test
+          name: coverage-report
+          path: coverage.info
+          retention-days: 7
