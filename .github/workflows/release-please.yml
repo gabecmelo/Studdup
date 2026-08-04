@@ -20,7 +20,7 @@ jobs:
     outputs:
       release_created: ${{ steps.rp.outputs.release_created }}
       tag_name:        ${{ steps.rp.outputs.tag_name }}
-      release_id:      ${{ steps.rp.outputs.id }}
+      release_id:      ${{ steps.relid.outputs.id }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: rp
@@ -28,6 +28,18 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           config-file: .github/release-please-config.json
           manifest-file: .release-please-manifest.json
+
+      # release-please-action does not expose the created release's numeric id,
+      # and tauri-action needs it to upload assets to an existing release — so
+      # resolve it from the tag via the GitHub CLI (only when a release was made).
+      - name: Resolve release id from tag
+        id: relid
+        if: steps.rp.outputs.release_created == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          id=$(gh api "repos/${{ github.repository }}/releases/tags/${{ steps.rp.outputs.tag_name }}" -q .id)
+          echo "id=$id" >> "$GITHUB_OUTPUT"
 
   # -------------------------------------------------------------------------
   # 2. Build the Tauri app on each OS and upload its bundles to the release.
