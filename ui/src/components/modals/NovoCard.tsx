@@ -12,6 +12,8 @@ import { useState } from "react";
 import type { Card, Method, PomodoroRhythm, Technique } from "../../lib/bindings";
 import { ModalShell } from "../ModalShell";
 import { RhythmPicker } from "../RhythmPicker";
+import { HelpButton } from "../HelpButton";
+import { METHOD_HELP, TECHNIQUE_HELP } from "../../lib/studyHelp";
 import { TECHNIQUE_LABEL, TECHNIQUE_SUMMARY } from "../TechniqueChip";
 import {
   DEFAULT_RHYTHM,
@@ -227,7 +229,10 @@ export function NovoCardModal({
 
       {/* Método (defaults to the active method) */}
       <Field>
-        <span style={LABEL_CSS}>Método</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={LABEL_CSS}>Método</span>
+          <HelpButton topic={METHOD_HELP[method]} ariaLabel="Como usar este método no app" />
+        </div>
         <div
           role="radiogroup"
           aria-label="Método"
@@ -307,31 +312,36 @@ export function NovoCardModal({
         <span style={LABEL_CSS}>Técnica</span>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {TECHNIQUE_CHOICES.map((c) => (
-            <button
-              key={c}
-              type="button"
-              aria-pressed={choice === c}
-              onClick={() => pickTechnique(c)}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "flex-start",
-                gap: 2,
-                textAlign: "left",
-                padding: "9px 12px",
-                borderRadius: 11,
-                cursor: "pointer",
-                background: choice === c ? "var(--accent-soft)" : "var(--surface-2)",
-                border: `1px solid ${choice === c ? "var(--accent)" : "var(--border)"}`,
-              }}
-            >
-              <span style={{ font: "600 12.5px/1.25 var(--font-sans)", color: choice === c ? "var(--accent-soft-ink)" : "var(--text)" }}>
-                {CHOICE_LABEL[c]}
-              </span>
-              <span style={{ font: "400 11px/1.3 var(--font-sans)", color: "var(--text-3)" }}>
-                {CHOICE_DESC[c]}
-              </span>
-            </button>
+            <div key={c} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <button
+                type="button"
+                aria-pressed={choice === c}
+                onClick={() => pickTechnique(c)}
+                style={{
+                  flex: 1,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "flex-start",
+                  gap: 2,
+                  textAlign: "left",
+                  padding: "9px 12px",
+                  borderRadius: 11,
+                  cursor: "pointer",
+                  background: choice === c ? "var(--accent-soft)" : "var(--surface-2)",
+                  border: `1px solid ${choice === c ? "var(--accent)" : "var(--border)"}`,
+                }}
+              >
+                <span style={{ font: "600 12.5px/1.25 var(--font-sans)", color: choice === c ? "var(--accent-soft-ink)" : "var(--text)" }}>
+                  {CHOICE_LABEL[c]}
+                </span>
+                <span style={{ font: "400 11px/1.3 var(--font-sans)", color: "var(--text-3)" }}>
+                  {CHOICE_DESC[c]}
+                </span>
+              </button>
+              {c !== "none" && (
+                <HelpButton topic={TECHNIQUE_HELP[c]} ariaLabel={`Como usar ${CHOICE_LABEL[c]} no app`} />
+              )}
+            </div>
           ))}
         </div>
       </Field>
