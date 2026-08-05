@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/gabecmelo/Studdup/compare/studdup-v0.3.0...studdup-v0.3.1) (2026-08-05)
+
+
+### Bug Fixes
+
+* **ci:** make the Tauri release build succeed ([fa75a31](https://github.com/gabecmelo/Studdup/commit/fa75a31f10fdb9358253d1f8b99fbba47e937312))
+
 ## [0.3.0](https://github.com/gabecmelo/Studdup/compare/studdup-v0.2.0...studdup-v0.3.0) (2026-08-05)
 
 
