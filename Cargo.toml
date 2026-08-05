@@ -3,6 +3,6 @@ resolver = "2"
 members = ["studdup-core", "studdup"]
 
 [workspace.package]
-version = "0.3.1"
+version = "0.4.0"
 edition = "2021"
 license = "GPL-3.0-or-later"

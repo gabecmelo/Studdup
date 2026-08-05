@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.0](https://github.com/gabecmelo/Studdup/compare/studdup-v0.3.1...studdup-v0.4.0) (2026-08-05)
+
+
+### Features
+
+* **ui:** contextual (?) help for methods and techniques in Novo Card ([11d4cdf](https://github.com/gabecmelo/Studdup/commit/11d4cdf9ea73b3de5a86f53d7c0c3687f18183b1))
+* **ui:** make the board read-and-open only, removing drag (AD-016) ([dc77c21](https://github.com/gabecmelo/Studdup/commit/dc77c215d21e505c741da0a1836703969cc74efb))
+
 ## [0.3.1](https://github.com/gabecmelo/Studdup/compare/studdup-v0.3.0...studdup-v0.3.1) (2026-08-05)
 
 
