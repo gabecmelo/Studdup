@@ -90,4 +90,6 @@ test) lives in **[SETUP.md](SETUP.md)**, and the architecture is documented in
 
 ## License
 
-Studdup is open source under the **[MIT License](LICENSE)**.
+Studdup is free software under the **[GNU General Public License v3.0 or later](LICENSE)**. You're
+free to use, study, share and modify it — but any distributed version (including modifications) must
+stay open under the GPL. It can't be turned into a closed, proprietary product.
