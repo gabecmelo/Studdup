@@ -1,20 +1,16 @@
 # Screenshots
 
-The main `README.md` references the images in this folder. They currently point at rendered
-**placeholders** (`*.svg`). Replace each one with a real screenshot of the app:
+The main `README.md` uses the images in this folder.
 
-| Reference in README | Capture this screen |
+| File | Screen |
 | --- | --- |
-| `board.svg` → `board.png` | The **Quadro** (kanban) on Repetição Espaçada, with a few cards across the columns. |
-| `prova.svg` → `prova.png` | The **Prova** board with the exams rail and a couple of exam cards. |
-| `session.svg` → `session.png` | A **study session** open (e.g. a Pomodoro timer or the Active Recall write screen). |
+| `board.png` | The **Quadro** (kanban) on Repetição Espaçada. |
+| `prova.png` | The **Prova** board with the exams rail. |
+| `session.png` | A **study session** (Pomodoro timer). |
 
-## How to swap
+These are currently the **design renders** (light + dark, exported from the design tool, so they
+carry a small annotation label and caption). They're representative but are mockups, not captures of
+the running build. To swap in real screenshots later, just overwrite the `.png` files here — keep the
+same names and the README needs no change.
 
-1. Take the screenshot (PNG, roughly 1200px wide looks best).
-2. Save it here as `board.png` / `prova.png` / `session.png`.
-3. In `README.md`, change the image link extension from `.svg` to `.png` (e.g.
-   `docs/images/board.svg` → `docs/images/board.png`).
-4. Delete the matching `.svg` placeholder.
-
-Tip: a clean shot uses the dark theme and a window around 1280×800.
+Tip: a clean capture uses a window around 1280×800.

@@ -4,7 +4,7 @@
 leave to you: **when** to study a topic, and **how** to study it during a session — then gets out of
 your way. No streaks, no scores, no guilt. Everything is offline and lives in one local file.
 
-![The Studdup kanban board](docs/images/board.svg)
+![The Studdup kanban board](docs/images/board.png)
 
 - **Method** (the *when*) — the scheduling philosophy, fixed per card: **Repetição Espaçada** (a
   fixed review ladder) or **Prova** (sessions spread out toward an exam date).
@@ -54,7 +54,7 @@ Everything you do is logged in **Histórico** — a plain record of what you stu
 | **Repetição Espaçada** | Open-ended learning with no deadline | A fixed ladder — Dia 0 → 1 → 2 → 5 → 15 → 30 → Concluído. A card's due date is always `start_date + stage`, so the schedule can never desynchronize. |
 | **Prova** | Material with a known exam date | Sessions are distributed from today to the exam date, back-loaded so reviews get denser as the exam approaches. Finishing the last session archives the card. You can study several sessions in one day (cramming is allowed). |
 
-![The Prova board](docs/images/prova.svg)
+![The Prova board](docs/images/prova.png)
 
 ## Study techniques
 
@@ -68,7 +68,7 @@ can override per card (5–180 minutes).
 | **Feynman** | Explain the topic in plain language, then compare with the source. Attempts are saved on the card. | 20 min |
 | **Leitner** | Box-based flashcard review: right answers promote a card up the boxes, wrong ones reset it to box 1. | 15 min |
 
-![A study session](docs/images/session.svg)
+![A study session](docs/images/session.png)
 
 Cards without a technique get a plain session screen with the material links and a single
 **Concluir** action.
