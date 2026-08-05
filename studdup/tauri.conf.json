@@ -2,10 +2,9 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "studdup",
   "version": "0.3.0",
-  "identifier": "com.studdup.app",
+  "identifier": "com.studdup.desktop",
   "build": {
-    "frontendDist": "../ui/dist",
-    "beforeBuildCommand": "npm --prefix ../ui run build"
+    "frontendDist": "../ui/dist"
   },
   "app": {
     "windows": [
