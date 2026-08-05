@@ -127,6 +127,11 @@ export function QuadroProva() {
   const exams = examsQuery.data ?? [];
   // Card id → its "Sessão N de M" cursor, for the ProvaCard badge (KAN-04).
   const cursorById = new Map((cursorsQuery.data ?? []).map((c) => [c.card_id, c] as const));
+  // An active exam card's live due date is its cursor session's date; archived cards have none. If
+  // the cursors query hasn't resolved yet, treat an active card as due today (pending) rather than
+  // flashing it into Concluídos.
+  const examDue = (card: CardModel): ISODate | null =>
+    cursorById.get(card.id)?.due_date ?? (card.archived ? null : today);
   const meta = new Map<number, ExamMeta>(
     exams.map(
       (e) =>
@@ -146,8 +151,10 @@ export function QuadroProva() {
   };
   for (const card of cards) {
     // Exam cards are placed by their session cursor's due date (AD-014), so completing a session
-    // moves the card to the next session's column instead of freezing it at creation.
-    const due = cursorById.get(card.id)?.due_date ?? null;
+    // moves the card to the next session's column instead of freezing it at creation. An active card
+    // always has a live cursor in steady state; if the cursors query hasn't resolved yet, fall back
+    // to today (pending) rather than briefly flashing the card into Concluídos.
+    const due = examDue(card);
     columns[placeAtDue(card.archived, due, today).column].push(card);
   }
 
@@ -418,7 +425,8 @@ function ProvaColumn({ column, groups, today, cursors, onOpen }: ProvaColumnProp
 
                 {group.cards.map((card) => {
                   const cursor = cursors.get(card.id);
-                  const { overdueDays } = placeAtDue(card.archived, cursor?.due_date ?? null, today);
+                  const due = cursor?.due_date ?? (card.archived ? null : today);
+                  const { overdueDays } = placeAtDue(card.archived, due, today);
                   return (
                     <ProvaCard
                       key={card.id}
