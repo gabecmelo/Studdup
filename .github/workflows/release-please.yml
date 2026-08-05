@@ -100,10 +100,16 @@ jobs:
           cache: npm
           cache-dependency-path: ui/package-lock.json
 
-      # The Tauri app's beforeBuildCommand runs `npm --prefix ../ui run build`,
-      # which needs the UI dependencies present.
-      - name: Install UI dependencies
-        run: npm ci
+      # Build the embedded frontend here rather than via the Tauri config's
+      # beforeBuildCommand: tauri-action runs `tauri build` from the repo root,
+      # where the config's `npm --prefix ../ui` resolved one directory too high
+      # and failed. Building explicitly is cwd-independent and leaves ui/dist
+      # ready for the app crate to embed (frontendDist is resolved relative to
+      # tauri.conf.json, so it stays correct).
+      - name: Build the UI (embedded by the Tauri app)
+        run: |
+          npm ci
+          npm run build
         working-directory: ui
 
       - name: Build Tauri app and upload bundles to the release
@@ -112,7 +118,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           # The Tauri app crate (holds tauri.conf.json); the frontend it embeds
-          # lives in `ui/` and is built by the config's beforeBuildCommand.
+          # from ui/dist is built by the step above.
           projectPath: studdup
           # Upload to the release release-please just created, instead of
           # creating a new one.
