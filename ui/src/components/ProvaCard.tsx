@@ -110,7 +110,7 @@ export function ProvaCard({
         borderLeft: `3px solid ${color}`,
         borderRadius: 13,
         boxShadow: hover ? "var(--shadow-2)" : "var(--shadow-1)",
-        cursor: onClick ? "grab" : "default",
+        cursor: onClick ? "pointer" : "default",
         transition: "box-shadow var(--transition-fast)",
       }}
     >

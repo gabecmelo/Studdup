@@ -1,43 +1,25 @@
-// Kanban board (KAN-01/02/03, AD-004): the four fixed columns — Hoje / Amanhã / Próximos /
+// Kanban board (KAN-01, AD-004/AD-016): the four fixed columns — Hoje / Amanhã / Próximos /
 // Concluídos — for both methods. Each card is placed by comparing its due date to today; overdue
 // cards fall into "Hoje" with a badge; archived cards into "Concluídos". Empty columns keep their
 // footprint with a visible placeholder rather than collapsing (KAN-01 §6).
 //
-// Placement reuses the pure `columns.ts` helpers (T19). Because `list_board` returns only the
-// active `Card[]` (no materialized session dates), the board derives each card's due date from the
-// spaced ladder anchor `start_date + stage offset` (AD-003).
+// The board is read-and-open only (AD-016): a card is opened by clicking it; there is no drag. A
+// card's due date changes only by studying it (completing a session) or the explicit Adiar action —
+// never by free manipulation, which would let a card advance or complete without any studying.
 //
-// Drag (T23, dnd-kit): dropping Hoje→Amanhã reschedules (+1 day), dropping into Concluídos
-// completes, a same-column drop is a no-op, and a drop outside any column reverts — all decided by
-// the pure `resolveDrag` (lib/dnd.ts). The move shows optimistically and rolls back with a toast
-// if the command fails. Exam-prep grouping and the exams rail are layered on in T24.
+// Placement reuses the pure `columns.ts` helpers. Because `list_board` returns only the active
+// `Card[]` (no materialized session dates), the board derives each card's due date from the spaced
+// ladder anchor `start_date + stage offset` (AD-003).
 
-import { useEffect, useState } from "react";
-import {
-  DndContext,
-  type DragEndEvent,
-  PointerSensor,
-  useDraggable,
-  useDroppable,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
-import { CSS } from "@dnd-kit/utilities";
+import { useEffect } from "react";
 import type { Card as CardModel, ISODate, Method, Stage } from "../lib/bindings";
-import { useBoard, useCompleteCard, usePostponeCard } from "../lib/queries";
-import {
-  applyOptimisticMove,
-  type OptimisticMoves,
-  resolveDrag,
-  rollbackMove,
-} from "../lib/dnd";
+import { useBoard } from "../lib/queries";
 import { filterBoardCards } from "../lib/boardFilter";
 import { firstDueCard } from "../lib/dueCards";
 import { useStore } from "../store";
 import { Card } from "./Card";
 import { SpacedStageBadge } from "./StageBadge";
 import { EmptyState } from "./EmptyState";
-import { Toast } from "./Toast";
 import { useCardHub } from "./useCardHub";
 import {
   COLUMN_LABELS,
@@ -112,12 +94,8 @@ export function placeCard(card: CardModel, today: ISODate): BoardPlacement {
   return placeAtDue(card.archived, spacedDueDate(card.start_date, card.current_stage), today);
 }
 
-/** Group the active cards into the four columns, honoring pending optimistic moves (KAN-02/03). */
-function groupByColumn(
-  cards: CardModel[],
-  today: ISODate,
-  moves: OptimisticMoves,
-): Record<Column, CardModel[]> {
+/** Group the active cards into the four columns by their placement (KAN-01). */
+function groupByColumn(cards: CardModel[], today: ISODate): Record<Column, CardModel[]> {
   const groups: Record<Column, CardModel[]> = {
     hoje: [],
     amanha: [],
@@ -125,8 +103,7 @@ function groupByColumn(
     concluidos: [],
   };
   for (const card of cards) {
-    const column = moves[card.id] ?? placeCard(card, today).column;
-    groups[column].push(card);
+    groups[placeCard(card, today).column].push(card);
   }
   return groups;
 }
@@ -177,7 +154,7 @@ export interface BoardProps {
   method: Method;
 }
 
-/** The four-column kanban board for the active method (METH-02, KAN-01/02/03). */
+/** The four-column kanban board for the active method (METH-02, KAN-01). */
 export function Board({ method }: BoardProps) {
   const today = todayIso();
   const query = useBoard(method);
@@ -192,26 +169,11 @@ export function Board({ method }: BoardProps) {
   const pendingStudy = useStore((s) => s.pendingStudy);
   const clearStudy = useStore((s) => s.clearStudy);
 
-  // Optimistic overrides (card id → column) held locally while a drag's command is in flight;
-  // cleared on settle, rolled back on error. The Zustand store carries only durable prefs (T21),
-  // so this transient board state stays in the component.
-  const [moves, setMoves] = useState<OptimisticMoves>({});
-  const [toast, setToast] = useState<string | null>(null);
-
   // The shared card interaction hub (detail → study/edit/postpone/log/delete + sessions). Clicking a
   // card calls `hub.open`; `hub.modals` renders the whole modal + session layer once.
   const hub = useCardHub(method);
 
-  // Drag uses its own postpone/complete mutations (separate from the hub's) for the optimistic move.
-  const postpone = usePostponeCard();
-  const complete = useCompleteCard();
-
-  const sensors = useSensors(
-    // A small activation distance so a click to open a card is not read as a drag.
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-  );
-
-  const groups = groupByColumn(cards, today, moves);
+  const groups = groupByColumn(cards, today);
   const contexto = boardContext(cards.length, today);
 
   // The board data used to resolve the intent is the unfiltered board (search/technique filters
@@ -227,34 +189,8 @@ export function Board({ method }: BoardProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingStudy, method, boardData]);
 
-  function onDragEnd(event: DragEndEvent) {
-    const cardId = Number(event.active.id);
-    const from = event.active.data.current?.column as Column | undefined;
-    const to = (event.over?.id as Column | undefined) ?? null;
-    if (from === undefined) return;
-
-    const resolution = resolveDrag(from, to);
-    if (resolution.kind === "noop") return; // same-column or dropped outside → revert, no command
-
-    // Show the move immediately, then reconcile with the command result.
-    setMoves((m) => applyOptimisticMove(m, cardId, resolution.to));
-    const settle = {
-      onError: () => {
-        setMoves((m) => rollbackMove(m, cardId));
-        setToast("Não foi possível mover o card. Nada mudou.");
-      },
-      onSettled: () => setMoves((m) => rollbackMove(m, cardId)),
-    };
-
-    if (resolution.kind === "postpone") {
-      postpone.mutate({ id: cardId, days: resolution.days }, settle);
-    } else {
-      complete.mutate(cardId, settle);
-    }
-  }
-
   return (
-    <DndContext sensors={sensors} onDragEnd={onDragEnd}>
+    <>
       {/* Context line (handoff): "Segunda, 9 de agosto · N cards no quadro". */}
       <div style={{ flex: "none", padding: "0 22px 12px", font: "400 12.5px/1.3 var(--font-sans)", color: "var(--text-2)" }}>
         {contexto}
@@ -283,19 +219,8 @@ export function Board({ method }: BoardProps) {
         ))}
       </div>
 
-      {toast && (
-        <div style={{ position: "fixed", left: 24, bottom: 24, zIndex: 50 }}>
-          <Toast
-            message={toast}
-            variant="danger"
-            actionLabel="Fechar"
-            onAction={() => setToast(null)}
-          />
-        </div>
-      )}
-
       {hub.modals}
-    </DndContext>
+    </>
   );
 }
 
@@ -308,10 +233,8 @@ interface BoardColumnProps {
 }
 
 function BoardColumn({ column, method, cards, today, onOpen }: BoardColumnProps) {
-  const { setNodeRef, isOver } = useDroppable({ id: column });
   return (
     <section
-      ref={setNodeRef}
       aria-label={COLUMN_LABELS[column]}
       style={{
         display: "flex",
@@ -320,9 +243,8 @@ function BoardColumn({ column, method, cards, today, onOpen }: BoardColumnProps)
         minHeight: 0,
         borderRadius: 18,
         background: "var(--surface-2)",
-        border: `1px solid ${isOver ? "var(--accent)" : "var(--border)"}`,
+        border: "1px solid var(--border)",
         overflow: "hidden",
-        transition: "var(--transition-fast)",
       }}
     >
       <div
@@ -372,10 +294,9 @@ function BoardColumn({ column, method, cards, today, onOpen }: BoardColumnProps)
           <EmptyState title={EMPTY_COLUMN_TEXT[column]} />
         ) : (
           cards.map((card) => (
-            <DraggableCard
+            <BoardCard
               key={card.id}
               card={card}
-              column={column}
               method={method}
               today={today}
               onOpen={onOpen}
@@ -387,47 +308,29 @@ function BoardColumn({ column, method, cards, today, onOpen }: BoardColumnProps)
   );
 }
 
-interface DraggableCardProps {
+interface BoardCardProps {
   card: CardModel;
-  column: Column;
   method: Method;
   today: ISODate;
   onOpen: (card: CardModel) => void;
 }
 
-function DraggableCard({ card, column, method, today, onOpen }: DraggableCardProps) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: card.id,
-    data: { column },
-  });
+/** A board card: click to open its detail (no drag — AD-016). `Card` renders its own clickable
+ *  surface, so this just supplies the method-specific badge and the overdue count. */
+function BoardCard({ card, method, today, onOpen }: BoardCardProps) {
   const { overdueDays } = placeCard(card, today);
-
   return (
-    <div
-      ref={setNodeRef}
-      {...listeners}
-      {...attributes}
-      style={{
-        transform: CSS.Translate.toString(transform),
-        opacity: isDragging ? 0.5 : 1,
-        cursor: "grab",
-        touchAction: "none",
-      }}
-    >
-      <Card
-        title={card.title}
-        kind={card.current_stage === "Day0" ? "estudar" : "revisar"}
-        badge={
-          method === "SpacedRepetition" ? (
-            <SpacedStageBadge stage={card.current_stage} />
-          ) : undefined
-        }
-        technique={card.technique}
-        estMinutes={card.est_minutes}
-        focusedSecs={card.archived ? null : undefined}
-        overdueDays={overdueDays}
-        onClick={() => onOpen(card)}
-      />
-    </div>
+    <Card
+      title={card.title}
+      kind={card.current_stage === "Day0" ? "estudar" : "revisar"}
+      badge={
+        method === "SpacedRepetition" ? <SpacedStageBadge stage={card.current_stage} /> : undefined
+      }
+      technique={card.technique}
+      estMinutes={card.est_minutes}
+      focusedSecs={card.archived ? null : undefined}
+      overdueDays={overdueDays}
+      onClick={() => onOpen(card)}
+    />
   );
 }

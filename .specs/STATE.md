@@ -266,3 +266,20 @@ three same-day Active-Recall attempts but was stuck at "Sessão 2 de 4".
 (`due + N`), so an overdue card postponed to "Amanhã" (+1) landed in the past. It now computes targets from
 **today** (presets + a direct date picker) and passes the delta `target − currentDue` to the command, so the
 schedule lands exactly on the chosen day (`postponeDeltaDays`, unit-tested).
+
+---
+
+### AD-016 — The board is read-and-open only; studying (or Adiar) is the only way a card's date changes
+
+**Date:** 2026-08-05 · **Status:** Active (supersedes the drag aspect of AD-004)
+
+The kanban board has **no drag**. A card is opened by clicking it; its due date changes only by studying it
+(completing a session advances the schedule) or by the explicit **Adiar** action — a deliberate postpone that
+is kept (it still carries the 5-min review challenge). Dragging is removed entirely, including the
+drag-to-Concluídos shortcut that completed a card without any studying.
+
+**Why:** the app's whole point is that you make progress by *studying*. Free drag let a user reschedule — or
+even mark a card done — without doing the work, which contradicts that. AD-004 keeps its derived-column
+kanban and the postpone-equals-reschedule semantics (now only via the Adiar flow); only the
+direct-manipulation drag is dropped. The `@dnd-kit` dependency and the pure `lib/dnd` resolver are removed as
+dead code.
