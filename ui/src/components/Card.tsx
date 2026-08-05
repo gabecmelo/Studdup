@@ -56,7 +56,7 @@ export function Card({
         border: `1px solid ${hover ? "var(--accent)" : "var(--border)"}`,
         borderRadius: 15,
         boxShadow: hover ? "var(--shadow-2)" : "var(--shadow-1)",
-        cursor: onClick ? "grab" : "default",
+        cursor: onClick ? "pointer" : "default",
         transition: "border-color var(--transition-fast), box-shadow var(--transition-fast)",
       }}
     >
