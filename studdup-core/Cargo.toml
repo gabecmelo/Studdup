@@ -1,0 +1,16 @@
+[package]
+name = "studdup-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Pure, UI-free core for Studdup: domain, scheduling, persistence and migration."
+
+[dependencies]
+time = { version = "0.3", features = ["local-offset"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+serde_json = "1"
+# Integration tests build raw fixtures (old C++ schema) and introspect the DB directly.
+rusqlite = { version = "0.32", features = ["bundled"] }

@@ -11,13 +11,16 @@ permissions:
 jobs:
   # -------------------------------------------------------------------------
   # 1. release-please: manages the Release PR and creates the GitHub release
-  #    when the Release PR is merged.
+  #    when the Release PR is merged. The build jobs below run only on that
+  #    release-creating push (release_created == true) and attach the Tauri
+  #    bundles to the freshly created release.
   # -------------------------------------------------------------------------
   release-please:
     runs-on: ubuntu-latest
     outputs:
       release_created: ${{ steps.rp.outputs.release_created }}
       tag_name:        ${{ steps.rp.outputs.tag_name }}
+      release_id:      ${{ steps.relid.outputs.id }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: rp
@@ -26,65 +29,93 @@ jobs:
           config-file: .github/release-please-config.json
           manifest-file: .release-please-manifest.json
 
-  # -------------------------------------------------------------------------
-  # 2a. Build Windows binary (only when a release was just created)
-  # -------------------------------------------------------------------------
-  build-windows:
-    needs: release-please
-    if: needs.release-please.outputs.release_created == 'true'
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.release-please.outputs.tag_name }}
-
-      - name: Configure
-        run: cmake -B build -G "Visual Studio 17 2022" -A x64
-
-      - name: Build
-        run: cmake --build build --config Release --parallel
-
-      - name: Upload Windows binary to release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ needs.release-please.outputs.tag_name }}
-          files: build/Release/studdup.exe
+      # release-please-action does not expose the created release's numeric id,
+      # and tauri-action needs it to upload assets to an existing release — so
+      # resolve it from the tag via the GitHub CLI (only when a release was made).
+      - name: Resolve release id from tag
+        id: relid
+        if: steps.rp.outputs.release_created == 'true'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          id=$(gh api "repos/${{ github.repository }}/releases/tags/${{ steps.rp.outputs.tag_name }}" -q .id)
+          echo "id=$id" >> "$GITHUB_OUTPUT"
 
   # -------------------------------------------------------------------------
-  # 2b. Build Linux binary (only when a release was just created)
+  # 2. Build the Tauri app on each OS and upload its bundles to the release.
+  #    The app crate lives in `studdup/` (tauri.conf.json), embeds the React
+  #    frontend from `ui/dist`, and its `beforeBuildCommand` builds that UI —
+  #    so the UI deps must be installed first. tauri-action installs the Tauri
+  #    CLI, runs `tauri build`, and uploads the bundles to the release
+  #    identified by `release_id`.
+  #
+  #    Bundles are pinned per OS (rather than the config's `targets: all`) to
+  #    the reliable formats, so a flaky bundler (e.g. rpm) can't sink the whole
+  #    release: Windows NSIS installer, Linux .deb + .AppImage, macOS .dmg.
   # -------------------------------------------------------------------------
-  build-linux:
+  build:
     needs: release-please
     if: needs.release-please.outputs.release_created == 'true'
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            args: --bundles nsis
+          - platform: ubuntu-latest
+            args: --bundles deb,appimage
+          - platform: macos-latest
+            args: --bundles dmg
+    runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ needs.release-please.outputs.tag_name }}
 
-      - name: Install GLFW / OpenGL dependencies
+      - name: Install Tauri system dependencies (Linux)
+        if: matrix.platform == 'ubuntu-latest'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            libgl1-mesa-dev \
-            libxinerama-dev \
-            libxcursor-dev \
-            libxi-dev \
-            libxrandr-dev \
-            libxext-dev
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
 
-      - name: Configure
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DGLFW_BUILD_WAYLAND=OFF
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
 
-      - name: Build
-        run: cmake --build build --parallel
+      - name: Cache cargo build
+        uses: Swatinem/rust-cache@v2
 
-      - name: Upload Linux binary to release
-        uses: softprops/action-gh-release@v2
+      - name: Install Node
+        uses: actions/setup-node@v4
         with:
-          tag_name: ${{ needs.release-please.outputs.tag_name }}
-          files: build/studdup
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      # The Tauri app's beforeBuildCommand runs `npm --prefix ../ui run build`,
+      # which needs the UI dependencies present.
+      - name: Install UI dependencies
+        run: npm ci
+        working-directory: ui
+
+      - name: Build Tauri app and upload bundles to the release
+        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # The Tauri app crate (holds tauri.conf.json); the frontend it embeds
+          # lives in `ui/` and is built by the config's beforeBuildCommand.
+          projectPath: studdup
+          # Upload to the release release-please just created, instead of
+          # creating a new one.
+          releaseId: ${{ needs.release-please.outputs.release_id }}
+          # Per-OS bundle selection (see the job comment).
+          args: ${{ matrix.args }}

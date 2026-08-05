@@ -1,34 +1,33 @@
-build/
-build-debug/
-build-release/
-build-test/
-out/
+# Rust / Cargo
+/target/
+**/target/
+
+# Tauri generated
+studdup/gen/
+
+# Node / Vite
+node_modules/
+ui/dist/
+
+# Local databases (dev DB + the legacy relative-path fallback in paths.rs)
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+
+# Built binaries / bundles — these belong under target/, never committed
+*.exe
+*.dll
+*.so
+*.dylib
+*.pdb
+
+# Design handoff bundle (Claude Design export) — local reference only, not versioned
+design/
+
+# Editors / IDEs / OS
 .vs/
 .vscode/
 .idea/
 .cache/
-_deps/
-
-*.exe
-*.obj
-*.o
-*.lib
-*.a
-*.pdb
-*.ilk
-*.exp
-*.dll
-*.so
-*.dylib
-
-CMakeCache.txt
-CMakeFiles/
-CMakeUserPresets.json
-cmake_install.cmake
-Makefile
-compile_commands.json
-
-data/srs.db
-data/*.db-journal
-data/*.db-wal
-data/*.db-shm
+.DS_Store
