@@ -46,8 +46,12 @@ jobs:
   #    The app crate lives in `studdup/` (tauri.conf.json), embeds the React
   #    frontend from `ui/dist`, and its `beforeBuildCommand` builds that UI —
   #    so the UI deps must be installed first. tauri-action installs the Tauri
-  #    CLI, runs `tauri build`, and uploads the per-OS bundles (Windows NSIS +
-  #    MSI, Linux deb/AppImage/rpm) to the release identified by `release_id`.
+  #    CLI, runs `tauri build`, and uploads the bundles to the release
+  #    identified by `release_id`.
+  #
+  #    Bundles are pinned per OS (rather than the config's `targets: all`) to
+  #    the reliable formats, so a flaky bundler (e.g. rpm) can't sink the whole
+  #    release: Windows NSIS installer, Linux .deb + .AppImage, macOS .dmg.
   # -------------------------------------------------------------------------
   build:
     needs: release-please
@@ -57,7 +61,11 @@ jobs:
       matrix:
         include:
           - platform: windows-latest
+            args: --bundles nsis
           - platform: ubuntu-latest
+            args: --bundles deb,appimage
+          - platform: macos-latest
+            args: --bundles dmg
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
@@ -109,3 +117,5 @@ jobs:
           # Upload to the release release-please just created, instead of
           # creating a new one.
           releaseId: ${{ needs.release-please.outputs.release_id }}
+          # Per-OS bundle selection (see the job comment).
+          args: ${{ matrix.args }}
