@@ -138,8 +138,21 @@ tests (the sensor found none). Gap #1 is the only one blocking a real signed rel
 | Requirement | Previous | New |
 | --- | --- | --- |
 | MOB-01/02, DATA-01/02/03, RWD-01..08, CI-01/03/04/05, DOC-01/02 | Implementing | ✅ Verified (host / inspection per row) |
-| DATA-04 | Implementing | ⚠️ Verified by inspection (no automated test — gap #2) |
+| DATA-04 | Implementing | ✅ Verified — gap #2 closed post-verification (see below) |
 | CI-02 | Implementing | ❌ Needs Fix (F1 — maintainer/CI action) |
+
+---
+
+## Post-Verification Fixes
+
+- **Gap #2 (DATA-04) — CLOSED** in `c356143`. The exit-vs-surface decision was extracted from
+  `fatal_db_error` into a pure `fatal_action(is_mobile: bool) -> FatalAction` and unit-tested on both
+  arms (`mobile_surfaces_the_error_never_exits`, `desktop_exits_on_fatal_db_error`). The "never a blank
+  DB on mobile" invariant is now asserted, not inspected. App-crate lib now carries 4 host tests;
+  `cargo clippy -p studdup -- -D warnings` + `cargo test` green.
+- **Gap #1 (CI-02 / F1)** — still open; maintainer/CI action (commit `gen/android` with the
+  `signingConfigs` block).
+- **Gap #3 (RWD visual)** — accepted under project convention; not changed.
 
 ---
 
