@@ -617,6 +617,82 @@ function ThemePill({
   );
 }
 
+/** A sun icon (shown in the rail toggle when the dark theme is active → tap to go light). */
+function SunIcon({ size = 17 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.7}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      style={{ display: "block", flex: "none" }}
+    >
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2.5M12 19.5V22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M2 12h2.5M19.5 12H22M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8" />
+    </svg>
+  );
+}
+
+/** A moon icon (shown in the rail toggle when the light theme is active → tap to go dark). */
+function MoonIcon({ size = 17 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.7}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      style={{ display: "block", flex: "none" }}
+    >
+      <path d="M20 14.5A8 8 0 0 1 9.5 4a7 7 0 1 0 10.5 10.5Z" />
+    </svg>
+  );
+}
+
+/**
+ * The collapsed-rail theme toggle (RWD-08). The rail has no room for the Claro/Escuro pills, so a
+ * single compact sun/moon button flips light↔dark via `onChooseTheme` — keeping the theme control
+ * reachable when the sidebar is collapsed (tablet, or desktop collapsed via Ctrl/⌘+B), where it
+ * previously vanished. Echoes the ThemePill surface-3 hover treatment; ≥44px touch target (RWD-04).
+ */
+function RailThemeToggle({ theme, onChoose }: { theme: Theme; onChoose: (t: Theme) => void }) {
+  const { hover, bind } = useHover();
+  const next: Theme = theme === "light" ? "dark" : "light";
+  return (
+    <button
+      type="button"
+      onClick={() => onChoose(next)}
+      aria-label={theme === "light" ? "Mudar para o tema escuro" : "Mudar para o tema claro"}
+      title="Alternar tema"
+      {...bind}
+      style={{
+        width: 44,
+        height: 44,
+        borderRadius: 13,
+        border: "none",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        cursor: "pointer",
+        background: hover ? "var(--surface-3)" : "transparent",
+        color: hover ? "var(--text)" : "var(--text-2)",
+        transition: "background var(--transition-fast), color var(--transition-fast)",
+      }}
+    >
+      {theme === "light" ? <MoonIcon size={18} /> : <SunIcon size={18} />}
+    </button>
+  );
+}
+
 function Sidebar({ collapsed, canToggle, route, theme, onNavigate, onToggle, onChooseTheme, onNewCard }: SidebarProps) {
   if (collapsed) {
     return (
@@ -647,6 +723,11 @@ function Sidebar({ collapsed, canToggle, route, theme, onNavigate, onToggle, onC
               onNavigate={onNavigate}
             />
           ))}
+        </div>
+
+        {/* Rail footer: keep the theme control reachable when collapsed (RWD-08). */}
+        <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+          <RailThemeToggle theme={theme} onChoose={onChooseTheme} />
         </div>
       </nav>
     );
