@@ -218,8 +218,11 @@ export function Board({ method }: BoardProps) {
           minHeight: 0,
           display: "grid",
           gridTemplateColumns: boardGridColumns(viewport),
-          gap: 12,
+          // Phone stacks the four sections and the whole board area page-scrolls (each column grows
+          // to its content, RWD-02); tablet/desktop columns scroll internally within a fixed grid.
+          gap: viewport === "phone" ? 16 : 12,
           alignItems: "stretch",
+          overflowY: viewport === "phone" ? "auto" : undefined,
           padding: "0 22px 20px",
         }}
       >
@@ -230,6 +233,7 @@ export function Board({ method }: BoardProps) {
             method={method}
             cards={groups[column]}
             today={today}
+            stacked={viewport === "phone"}
             onOpen={hub.open}
           />
         ))}
@@ -245,10 +249,13 @@ interface BoardColumnProps {
   method: Method;
   cards: CardModel[];
   today: ISODate;
+  /** Phone: the column grows to its content and the board area page-scrolls, instead of scrolling
+   *  internally within a fixed-height grid cell (RWD-02). */
+  stacked?: boolean;
   onOpen: (card: CardModel) => void;
 }
 
-function BoardColumn({ column, method, cards, today, onOpen }: BoardColumnProps) {
+function BoardColumn({ column, method, cards, today, stacked = false, onOpen }: BoardColumnProps) {
   return (
     <section
       aria-label={COLUMN_LABELS[column]}
@@ -256,6 +263,8 @@ function BoardColumn({ column, method, cards, today, onOpen }: BoardColumnProps)
         display: "flex",
         flexDirection: "column",
         minWidth: 0,
+        // Stacked columns size to their content (the page scrolls); non-stacked columns are height-
+        // constrained to their grid cell so their inner list can scroll.
         minHeight: 0,
         borderRadius: 18,
         background: "var(--surface-2)",
@@ -265,9 +274,11 @@ function BoardColumn({ column, method, cards, today, onOpen }: BoardColumnProps)
     >
       <div
         style={{
-          flex: 1,
+          flex: stacked ? "none" : 1,
           minHeight: 0,
-          overflowY: "auto",
+          // Drop the inner scroll on phone so the whole board page-scrolls (RWD-02); keep it on
+          // tablet/desktop so each column scrolls within its fixed grid cell.
+          overflowY: stacked ? "visible" : "auto",
           display: "flex",
           flexDirection: "column",
           gap: 9,
