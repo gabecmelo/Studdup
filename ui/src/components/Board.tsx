@@ -13,6 +13,7 @@
 
 import { useEffect } from "react";
 import type { Card as CardModel, ISODate, Method, Stage } from "../lib/bindings";
+import { useViewport, type Viewport } from "../lib/useViewport";
 import { useBoard } from "../lib/queries";
 import { filterBoardCards } from "../lib/boardFilter";
 import { firstDueCard } from "../lib/dueCards";
@@ -150,6 +151,20 @@ function columnDate(column: Column, today: ISODate): string {
   }
 }
 
+/** The board container's `grid-template-columns` for a viewport (RWD-02, RWD-03): desktop keeps the
+ *  four-wide grid, tablet halves it to two columns, phone collapses to a single stacked column. Pure
+ *  so the responsive reflow is unit-testable without a browser. */
+export function boardGridColumns(viewport: Viewport): string {
+  switch (viewport) {
+    case "phone":
+      return "minmax(0, 1fr)";
+    case "tablet":
+      return "repeat(2, minmax(0, 1fr))";
+    case "desktop":
+      return "repeat(4, minmax(0, 1fr))";
+  }
+}
+
 export interface BoardProps {
   method: Method;
 }
@@ -157,6 +172,7 @@ export interface BoardProps {
 /** The four-column kanban board for the active method (METH-02, KAN-01). */
 export function Board({ method }: BoardProps) {
   const today = todayIso();
+  const viewport = useViewport();
   const query = useBoard(method);
   const boardSearch = useStore((s) => s.boardSearch);
   const boardTechnique = useStore((s) => s.boardTechnique);
@@ -201,7 +217,7 @@ export function Board({ method }: BoardProps) {
           flex: 1,
           minHeight: 0,
           display: "grid",
-          gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+          gridTemplateColumns: boardGridColumns(viewport),
           gap: 12,
           alignItems: "stretch",
           padding: "0 22px 20px",

@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { Card } from "../lib/bindings";
-import { STAGE_OFFSET, addDaysIso, placeAtDue, placeCard, spacedDueDate } from "./Board";
+import {
+  STAGE_OFFSET,
+  addDaysIso,
+  boardGridColumns,
+  placeAtDue,
+  placeCard,
+  spacedDueDate,
+} from "./Board";
 
 // A minimal spaced card fixture; only the fields the placement helpers read matter.
 function card(over: Partial<Card>): Card {
@@ -44,6 +51,20 @@ describe("addDaysIso", () => {
     expect(addDaysIso("2026-12-31", 1)).toBe("2027-01-01");
     // 2024 is a leap year.
     expect(addDaysIso("2024-02-28", 1)).toBe("2024-02-29");
+  });
+});
+
+describe("boardGridColumns (responsive container reflow, RWD-02/RWD-03)", () => {
+  it("keeps the four-wide grid on desktop (no regression, RWD-07)", () => {
+    expect(boardGridColumns("desktop")).toBe("repeat(4, minmax(0, 1fr))");
+  });
+
+  it("uses a two-column grid on tablet (RWD-03)", () => {
+    expect(boardGridColumns("tablet")).toBe("repeat(2, minmax(0, 1fr))");
+  });
+
+  it("collapses to a single stacked column on phone (RWD-02)", () => {
+    expect(boardGridColumns("phone")).toBe("minmax(0, 1fr)");
   });
 });
 
