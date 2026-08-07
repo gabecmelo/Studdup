@@ -2,8 +2,16 @@
 /target/
 **/target/
 
-# Tauri generated
-studdup/gen/
+# Tauri generated desktop capability schemas — regenerated on every build.
+studdup/gen/schemas/
+
+# Android: gen/android is committed for reproducible signed builds (AD-017), but its generated
+# gradle build outputs — and the signing keystore — are never committed.
+studdup/gen/android/app/build/
+studdup/gen/android/.gradle/
+studdup/gen/android/local.properties
+studdup/gen/android/keystore.jks
+studdup/gen/android/keystore.properties
 
 # Node / Vite
 node_modules/

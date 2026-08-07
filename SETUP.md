@@ -86,6 +86,84 @@ workflow builds and attaches the per-OS bundles. Use **merge commits** (not squa
 individual `feat:`/`fix:` commits reach `main` — a squash collapses them into one non-conventional
 subject and release-please sees nothing to release.
 
+## Android release signing (maintainer, one-time)
+
+The CI Android job in [`.github/workflows/release-please.yml`](.github/workflows/release-please.yml)
+builds and signs the APK from a release keystore supplied through GitHub Actions secrets. Wiring it
+up is a one-time maintainer task; the keystore and passwords never touch the repo.
+
+1. Generate the Android project so `gen/android/app/build.gradle.kts` exists to edit. Commit
+   `gen/android` (its gradle build outputs and the keystore are gitignored) so CI builds
+   reproducibly — AD-017:
+
+   ```sh
+   npm --prefix ui ci && npm --prefix ui run build
+   cd studdup
+   cargo tauri android init
+   ```
+
+2. Create a release keystore. Keep the generated `.jks` **out of git** — it is the signing secret:
+
+   ```sh
+   keytool -genkey -v -keystore studdup-release.jks -keyalg RSA -keysize 2048 \
+     -validity 10000 -alias studdup
+   ```
+
+3. Add the release signing config to `studdup/gen/android/app/build.gradle.kts`. Add the imports at
+   the top of the file:
+
+   ```kotlin
+   import java.io.FileInputStream
+   import java.util.Properties
+   ```
+
+   Add a `signingConfigs` block that reads `keystore.properties` (the CI job writes this file from
+   the secrets), immediately before `buildTypes`:
+
+   ```kotlin
+   signingConfigs {
+       create("release") {
+           val props = Properties()
+           val propsFile = rootProject.file("keystore.properties")
+           if (propsFile.exists()) {
+               props.load(FileInputStream(propsFile))
+               storeFile = file(props["storeFile"] as String)
+               storePassword = props["storePassword"] as String
+               keyAlias = props["keyAlias"] as String
+               keyPassword = props["keyPassword"] as String
+           }
+       }
+   }
+   ```
+
+   And apply it to the `release` build type:
+
+   ```kotlin
+   buildTypes {
+       getByName("release") {
+           signingConfig = signingConfigs.getByName("release")
+       }
+   }
+   ```
+
+4. Base64-encode the keystore and register the four repository secrets the workflow reads
+   (Settings → Secrets and variables → Actions):
+
+   ```sh
+   base64 -w0 studdup-release.jks   # paste the output into ANDROID_KEY_BASE64
+   ```
+
+   | Secret | Value |
+   | --- | --- |
+   | `ANDROID_KEY_BASE64` | base64 of the `.jks` keystore |
+   | `ANDROID_KEY_ALIAS` | the `-alias` used above (`studdup`) |
+   | `ANDROID_KEY_PASSWORD` | the key password |
+   | `ANDROID_STORE_PASSWORD` | the keystore (store) password |
+
+   On each tagged release the job decodes the keystore, writes `gen/android/keystore.properties`
+   (`storeFile`, `storePassword`, `keyAlias`, `keyPassword`), builds the APK with `tauri android
+   build --apk`, and uploads the signed `*.apk` to the release.
+
 ## More
 
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — the layer map, the stage-as-offset invariant, the database
