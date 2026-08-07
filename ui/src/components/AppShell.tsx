@@ -30,12 +30,17 @@ import { DEFAULT_ROUTE, ROUTES, RouteView, type RouteKey } from "../routes";
 import { useStore } from "../store";
 import { useCreateCard, useExams } from "../lib/queries";
 import { NovoCardModal } from "./modals/NovoCard";
+import { useViewport } from "../lib/useViewport";
+import { chromeFor } from "./appShell.chrome";
+import { BottomNav } from "./BottomNav";
 
 const COLLAPSE_KEY = "studdup.sidebar.collapsed";
-const AUTO_COLLAPSE_WIDTH = 1024;
 
 const EXPANDED_WIDTH = 250;
 const RAIL_WIDTH = 66;
+
+/** Room reserved at the bottom of the content so the fixed phone tab bar never hides content. */
+const BOTTOM_NAV_CLEARANCE = "calc(58px + env(safe-area-inset-bottom, 20px))";
 
 /** The brand mark keeps one size in both the expanded sidebar and the collapsed rail. */
 const MARK_SIZE = 26;
@@ -65,9 +70,8 @@ function useHover() {
 
 export function AppShell() {
   const [collapsedPref, setCollapsedPref] = useState<boolean>(readCollapsedPref);
-  const [narrow, setNarrow] = useState<boolean>(
-    () => typeof window !== "undefined" && window.innerWidth < AUTO_COLLAPSE_WIDTH,
-  );
+  const viewport = useViewport();
+  const chrome = chromeFor(viewport);
   const [route, setRoute] = useState<RouteKey>(DEFAULT_ROUTE);
   const [theme, setTheme] = useState<Theme>(() => resolveTheme(getStoredPreference()));
   const [showNewCard, setShowNewCard] = useState(false);
@@ -76,7 +80,10 @@ export function AppShell() {
   const createCard = useCreateCard();
   const examsQuery = useExams();
 
-  const collapsed = narrow || collapsedPref;
+  // Tablet forces the collapsed rail; desktop honours the user's Ctrl/⌘+B preference; phone drops
+  // the left rail entirely for the bottom tab bar. Only the desktop sidebar can be toggled.
+  const collapsed = chrome === "rail" || (chrome === "sidebar" && collapsedPref);
+  const canToggle = chrome === "sidebar";
   const isBoard = route === "quadro";
   const isMethodScoped = METHOD_SCOPED.has(route);
 
@@ -91,13 +98,6 @@ export function AppShell() {
   const chooseTheme = useCallback((t: Theme) => {
     setThemePreference(t);
     setTheme(t);
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const onResize = () => setNarrow(window.innerWidth < AUTO_COLLAPSE_WIDTH);
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
   }, []);
 
   useEffect(() => {
@@ -132,16 +132,18 @@ export function AppShell() {
         color: "var(--text)",
       }}
     >
-      <Sidebar
-        collapsed={collapsed}
-        canToggle={!narrow}
-        route={route}
-        theme={theme}
-        onNavigate={setRoute}
-        onToggle={toggleCollapse}
-        onChooseTheme={chooseTheme}
-        onNewCard={() => setShowNewCard(true)}
-      />
+      {chrome !== "bottombar" && (
+        <Sidebar
+          collapsed={collapsed}
+          canToggle={canToggle}
+          route={route}
+          theme={theme}
+          onNavigate={setRoute}
+          onToggle={toggleCollapse}
+          onChooseTheme={chooseTheme}
+          onNewCard={() => setShowNewCard(true)}
+        />
+      )}
 
       <main
         style={{
@@ -151,6 +153,8 @@ export function AppShell() {
           display: "flex",
           flexDirection: "column",
           background: "var(--bg)",
+          // Phone: reserve room so the fixed bottom tab bar never covers content.
+          paddingBottom: chrome === "bottombar" ? BOTTOM_NAV_CLEARANCE : undefined,
         }}
       >
         {isMethodScoped && (
@@ -193,6 +197,14 @@ export function AppShell() {
           <RouteView route={route} onNavigate={setRoute} theme={theme} onChooseTheme={chooseTheme} />
         </section>
       </main>
+
+      {chrome === "bottombar" && (
+        <BottomNav
+          route={route}
+          onNavigate={setRoute}
+          onNewCard={() => setShowNewCard(true)}
+        />
+      )}
 
       {showNewCard && (
         <NovoCardModal
