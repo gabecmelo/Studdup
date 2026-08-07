@@ -61,6 +61,35 @@ npm --prefix ui run build        # ui/dist must exist first
 cargo tauri build                # bundles land in target/release/bundle/
 ```
 
+## Android build (from source)
+
+Studdup ships an Android build from the same crate and UI as the desktop app. To build it locally you
+need, on top of the prerequisites above:
+
+- **Android Studio** (or the standalone command-line tools) with the **Android SDK** and **NDK**
+  installed, and `ANDROID_HOME`/`NDK_HOME` set to point at them.
+- **JDK 17** (Temurin or the one bundled with Android Studio).
+- The Rust Android targets:
+
+  ```sh
+  rustup target add aarch64-linux-android armv7-linux-androideabi \
+    i686-linux-android x86_64-linux-android
+  ```
+
+Then, from the app crate, generate the Android project once and build or run it:
+
+```sh
+npm --prefix ui run build            # ui/dist must exist first
+cd studdup
+cargo tauri android init             # one-time: generates studdup/gen/android
+cargo tauri android dev              # run on a connected device / emulator (hot-reload)
+cargo tauri android build --apk      # produce an APK under gen/android/app/build/outputs
+```
+
+`cargo tauri android dev` needs a running emulator or a device with USB debugging enabled. For
+producing a **signed release** APK (the CI path) and the required GitHub secrets, see
+[Android release signing](#android-release-signing-maintainer-one-time) below.
+
 ## Test
 
 ```sh

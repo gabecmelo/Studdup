@@ -27,6 +27,7 @@ Grab the latest installer for your system from the **[Releases page](https://git
 | **macOS** | `studdup_*.dmg` | Open the `.dmg` and drag **Studdup** into Applications. On first launch, right-click the app → **Open** to get past Gatekeeper (the app is unsigned). |
 | **Linux** | `studdup_*_amd64.AppImage` | `chmod +x studdup_*_amd64.AppImage` then run it. No install needed. |
 | **Linux (Debian/Ubuntu)** | `studdup_*_amd64.deb` | `sudo apt install ./studdup_*_amd64.deb` |
+| **Android** | `studdup_*.apk` | Download the APK to your phone and tap it. Android will ask you to allow installing from this source — enable **install unknown apps** for your browser/files app, then confirm. The app is signed with a self-signed key, so Android flags an unknown publisher; that is expected for a sideloaded build. |
 
 Prefer to build from source? See **[SETUP.md](SETUP.md)**.
 
