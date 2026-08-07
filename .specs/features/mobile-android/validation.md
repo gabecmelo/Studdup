@@ -150,8 +150,13 @@ tests (the sensor found none). Gap #1 is the only one blocking a real signed rel
   arms (`mobile_surfaces_the_error_never_exits`, `desktop_exits_on_fatal_db_error`). The "never a blank
   DB on mobile" invariant is now asserted, not inspected. App-crate lib now carries 4 host tests;
   `cargo clippy -p studdup -- -D warnings` + `cargo test` green.
-- **Gap #1 (CI-02 / F1)** — still open; maintainer/CI action (commit `gen/android` with the
-  `signingConfigs` block).
+- **Gap #1 (CI-02 / F1) — repo side RESOLVED** (`a282dac`): `gen/android` was generated
+  (`cargo tauri android init`, `applicationId com.studdup.app`, `minSdk 24`) and **committed** with a
+  `signingConfigs { create("release") }` in `app/build.gradle.kts` that reads
+  `gen/android/keystore.properties` (guarded by `hasReleaseKeystore`), so CI now signs with the
+  committed config instead of a fresh unsigned init. **Remaining (pure ops, not a repo artifact):** the
+  maintainer generates the keystore (`keytool`) and adds the 4 GitHub secrets — until then CI has no key
+  to sign with. The keystore + `keystore.properties` stay gitignored.
 - **Gap #3 (RWD visual)** — accepted under project convention; not changed.
 
 ---
