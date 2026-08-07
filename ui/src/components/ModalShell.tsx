@@ -6,6 +6,7 @@
 import { useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { useEscapeToClose } from "../lib/useEscapeToClose";
+import { useViewport } from "../lib/useViewport";
 
 export interface ModalShellProps {
   title: string;
@@ -33,6 +34,10 @@ export function ModalShell({
   width = 480,
 }: ModalShellProps) {
   useEscapeToClose(open ? onClose : undefined);
+  // Phone renders every modal as a full-width bottom sheet (RWD-01/RWD-04): edge-to-edge, anchored to
+  // the bottom, with an explicit ≥44px close control and safe-area footer padding. Desktop keeps the
+  // centered floating panel. The overlay z-index (100) already sits above the fixed BottomNav (50).
+  const isPhone = useViewport() === "phone";
   if (!open) return null;
 
   return (
@@ -43,9 +48,9 @@ export function ModalShell({
         position: "fixed",
         inset: 0,
         display: "flex",
-        alignItems: "center",
+        alignItems: isPhone ? "flex-end" : "center",
         justifyContent: "center",
-        padding: 24,
+        padding: isPhone ? 0 : 24,
         background: "oklch(0 0 0 / 0.42)",
         zIndex: 100,
       }}
@@ -58,11 +63,11 @@ export function ModalShell({
         style={{
           display: "flex",
           flexDirection: "column",
-          width: `min(${width}px, 100%)`,
-          maxHeight: "calc(100vh - 48px)",
+          width: isPhone ? "100%" : `min(${width}px, 100%)`,
+          maxHeight: isPhone ? "92vh" : "calc(100vh - 48px)",
           background: "var(--surface)",
           border: `1px solid ${destructive ? "var(--danger)" : "var(--border)"}`,
-          borderRadius: 18,
+          borderRadius: isPhone ? "22px 22px 0 0" : 18,
           boxShadow: "var(--shadow-2)",
           overflow: "hidden",
         }}
@@ -87,6 +92,31 @@ export function ModalShell({
             </span>
           )}
           <span style={{ font: "600 16px/1.3 var(--font-sans)", color: "var(--text)" }}>{title}</span>
+          {isPhone && onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Fechar"
+              title="Fechar"
+              style={{
+                marginLeft: "auto",
+                width: 44,
+                height: 44,
+                flex: "none",
+                borderRadius: 13,
+                border: "none",
+                background: "var(--surface-3)",
+                color: "var(--text-2)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                font: "400 20px/1 var(--font-sans)",
+                cursor: "pointer",
+              }}
+            >
+              ✕
+            </button>
+          )}
         </div>
 
         <div
@@ -110,7 +140,8 @@ export function ModalShell({
               display: "flex",
               justifyContent: "flex-end",
               gap: 8,
-              padding: "14px 20px",
+              // Phone: clear the home-indicator / gesture area under the sheet footer (RWD-01).
+              padding: isPhone ? "14px 20px calc(14px + env(safe-area-inset-bottom, 0px))" : "14px 20px",
               background: destructive ? "var(--danger-soft)" : "var(--surface-2)",
               borderTop: "1px solid var(--border)",
             }}
@@ -167,6 +198,8 @@ export function ModalButton({
 }) {
   const [hover, setHover] = useState(false);
   const active = hover && !disabled;
+  // Touch target: footer actions must be ≥44px tall on phone sheets (RWD-04).
+  const isPhone = useViewport() === "phone";
   return (
     <button
       type="button"
@@ -176,6 +209,7 @@ export function ModalButton({
       onMouseLeave={() => setHover(false)}
       style={{
         ...BUTTON_STYLE[kind],
+        minHeight: isPhone ? 48 : undefined,
         borderRadius: 11,
         border: "none",
         cursor: disabled ? "not-allowed" : "pointer",
