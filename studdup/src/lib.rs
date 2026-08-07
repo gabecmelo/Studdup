@@ -1,10 +1,15 @@
 //! Studdup Tauri app library — the shared entry point for desktop and mobile.
 //!
 //! Both the desktop binary (`main.rs`) and the generated Android project call [`run`], which
-//! builds the Tauri app: registers the plugins and the command handlers, opens and
-//! forward-migrates the platform database, and holds it in managed state. On a fatal DB error the
-//! app exits with a message naming the path rather than opening a blank database (spec edge case /
-//! MIG).
+//! builds the Tauri app: registers the plugins and the command handlers, then — in the setup hook,
+//! where the platform path API is available — resolves the database path per platform, opens and
+//! forward-migrates it, and holds it in managed state. On a fatal DB error the desktop exits with a
+//! message naming the path; mobile surfaces the failure to Tauri instead of `process::exit`, so a
+//! blank database is never opened (spec edge case / MIG / DATA-04).
+
+use std::path::{Path, PathBuf};
+
+use tauri::Manager;
 
 mod commands;
 mod paths;
@@ -14,22 +19,19 @@ mod state;
 /// mobile (Android) entry point, which Tauri wires up via the `mobile_entry_point` attribute.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let db_path = paths::default_db_path();
-    let app_state = match state::init_state(&db_path) {
-        Ok(state) => state,
-        Err(err) => {
-            eprintln!(
-                "Não foi possível abrir seus dados em {}: {err}",
-                db_path.display()
-            );
-            std::process::exit(1);
-        }
-    };
-
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
-        .manage(app_state)
+        .setup(|app| {
+            let db_path = resolve_db_path(app)?;
+            match state::init_state(&db_path) {
+                Ok(state) => {
+                    app.manage(state);
+                    Ok(())
+                }
+                Err(err) => Err(fatal_db_error(&db_path, &err)),
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             commands::create_card,
             commands::edit_card,
@@ -57,4 +59,40 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running studdup");
+}
+
+/// Resolve the SQLite path for the current platform. Desktop keeps the env-based
+/// [`paths::default_db_path`] (DATA-03, unchanged); Android uses the app-private data directory
+/// from Tauri's path API (DATA-01), creating it if needed.
+fn resolve_db_path(app: &tauri::App) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = app;
+        Ok(paths::default_db_path())
+    }
+    #[cfg(target_os = "android")]
+    {
+        let dir = app.path().app_data_dir()?;
+        std::fs::create_dir_all(&dir)?;
+        Ok(paths::mobile_db_path(&dir))
+    }
+}
+
+/// Handle a fatal database open/migration failure. Desktop keeps the historical exit-with-message;
+/// mobile must never `process::exit` (that kills the Android activity abruptly), so it returns the
+/// error to Tauri instead — either way a blank database is never opened (DATA-04).
+fn fatal_db_error(db_path: &Path, err: &state::StateInitError) -> Box<dyn std::error::Error> {
+    let message = format!(
+        "Não foi possível abrir seus dados em {}: {err}",
+        db_path.display()
+    );
+    eprintln!("{message}");
+    #[cfg(not(mobile))]
+    {
+        std::process::exit(1)
+    }
+    #[cfg(mobile)]
+    {
+        message.into()
+    }
 }
