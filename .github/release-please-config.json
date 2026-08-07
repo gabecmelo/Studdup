@@ -4,6 +4,7 @@
   "packages": {
     ".": {
       "package-name": "studdup",
+      "//": "The Android APK version tracks the workspace version through studdup/tauri.conf.json $.version below: the CI Android job regenerates gen/android from that file at build time, so its versionName/versionCode derive from the same source as the desktop bundles (CI-04). Once gen/android is committed, add a gradle/tauri.properties extra-file here too.",
       "extra-files": [
         { "type": "json", "path": "studdup/tauri.conf.json", "jsonpath": "$.version" },
         { "type": "toml", "path": "Cargo.toml", "jsonpath": "$.workspace.package.version" }
