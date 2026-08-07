@@ -77,16 +77,18 @@ export interface ExamsRailProps {
   today: ISODate;
   /** Open an exam's detail (the rail rows are the handoff's contextual navigation into a prova). */
   onOpenExam?: (examId: number) => void;
+  /** Phone layout: the rail stacks full-width above the board and sizes to its content (RWD-02). */
+  fullWidth?: boolean;
 }
 
-export function ExamsRail({ exams, today, onOpenExam }: ExamsRailProps) {
+export function ExamsRail({ exams, today, onOpenExam, fullWidth = false }: ExamsRailProps) {
   const models = exams.map((e) => examRailViewModel(e, today));
 
   return (
     <aside
       aria-label="Trilha de provas"
       style={{
-        width: 264,
+        width: fullWidth ? "100%" : 264,
         flex: "none",
         display: "flex",
         flexDirection: "column",
@@ -97,6 +99,7 @@ export function ExamsRail({ exams, today, onOpenExam }: ExamsRailProps) {
         border: "1px solid var(--border)",
         alignSelf: "stretch",
         minHeight: 0,
+        maxHeight: fullWidth ? 260 : undefined,
         overflowY: "auto",
       }}
     >

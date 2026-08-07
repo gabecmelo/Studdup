@@ -12,6 +12,7 @@ import { useBoard, useExams } from "../lib/queries";
 import { placeCard, todayIso } from "../components/Board";
 import { examColor } from "../components/examColor";
 import { useStore } from "../store";
+import { useViewport } from "../lib/useViewport";
 import type { RouteKey } from ".";
 
 /** A time-of-day greeting (no stored user name, so no trailing name as in the mock). */
@@ -35,6 +36,7 @@ function dueToday(cards: CardModel[], today: string): number {
 
 export function Inicio({ onNavigate }: { onNavigate?: (route: RouteKey) => void }) {
   const today = todayIso();
+  const isPhone = useViewport() === "phone";
   const spaced = useBoard("SpacedRepetition");
   const exam = useBoard("ExamPrep");
   const examsQuery = useExams();
@@ -80,7 +82,7 @@ export function Inicio({ onNavigate }: { onNavigate?: (route: RouteKey) => void 
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0, width: "100%", maxWidth: 1080, margin: "0 auto", padding: "34px 24px 24px" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: isPhone ? "auto" : "100%", minHeight: 0, width: "100%", maxWidth: 1080, margin: "0 auto", padding: isPhone ? "26px 20px 20px" : "34px 24px 24px" }}>
       <div style={{ flex: "none", display: "flex", flexDirection: "column", gap: 5, paddingBottom: 26 }}>
         <span style={{ font: "400 12.5px/1 var(--font-mono)", letterSpacing: ".02em", color: "var(--text-3)" }}>
           {longToday()}
@@ -93,11 +95,12 @@ export function Inicio({ onNavigate }: { onNavigate?: (route: RouteKey) => void 
       {calmo ? (
         <CalmoHero onStudy={() => onNavigate?.("quadro")} />
       ) : (
-        <div style={{ flex: 1, minHeight: 0, display: "flex", gap: 26, alignItems: "stretch" }}>
-          <ParaAgora dueCount={dueCount} onStudy={onStudyNow} />
+        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: isPhone ? "column" : "row", gap: isPhone ? 14 : 26, alignItems: "stretch" }}>
+          <ParaAgora dueCount={dueCount} onStudy={onStudyNow} isPhone={isPhone} />
           <ProvasProximas
             exams={upcoming.map((e) => ({ id: e.id, name: e.name, days: e.days_remaining }))}
             onOpen={onOpenExam}
+            isPhone={isPhone}
           />
         </div>
       )}
@@ -142,10 +145,10 @@ function HoverChip({ onClick }: { onClick: () => void }) {
   );
 }
 
-function ParaAgora({ dueCount, onStudy }: { dueCount: number; onStudy: () => void }) {
+function ParaAgora({ dueCount, onStudy, isPhone }: { dueCount: number; onStudy: () => void; isPhone: boolean }) {
   const nada = dueCount === 0;
   return (
-    <div style={{ flex: 1.25, display: "flex", flexDirection: "column", gap: 22, padding: 32, borderRadius: 22, background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--shadow-2)" }}>
+    <div style={{ flex: isPhone ? "none" : 1.25, display: "flex", flexDirection: "column", gap: 22, padding: isPhone ? 22 : 32, borderRadius: 22, background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--shadow-2)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, font: "600 11px/1 var(--font-sans)", letterSpacing: ".12em", textTransform: "uppercase", color: "var(--text-3)" }}>
         <span style={{ width: 7, height: 7, borderRadius: 999, background: "var(--accent)" }} />
         Para agora
@@ -229,12 +232,14 @@ function CTAButton({ primary, label, onClick }: { primary: boolean; label: strin
 function ProvasProximas({
   exams,
   onOpen,
+  isPhone,
 }: {
   exams: { id: number; name: string; days: number }[];
   onOpen: () => void;
+  isPhone: boolean;
 }) {
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 16, padding: 28, borderRadius: 22, background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+    <div style={{ flex: isPhone ? "none" : 1, display: "flex", flexDirection: "column", gap: 16, padding: isPhone ? 20 : 28, borderRadius: 22, background: "var(--surface-2)", border: "1px solid var(--border)" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, font: "600 11px/1 var(--font-sans)", letterSpacing: ".12em", textTransform: "uppercase", color: "var(--text-3)" }}>
           <span style={{ width: 7, height: 7, borderRadius: 999, background: "var(--revisar)" }} />
@@ -258,7 +263,7 @@ function ProvasProximas({
           </span>
         </div>
       ) : (
-        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ flex: isPhone ? "none" : 1, minHeight: 0, overflowY: isPhone ? "visible" : "auto", display: "flex", flexDirection: "column", gap: 10 }}>
           {exams.map((e) => {
             const urgent = e.days <= 3;
             const color = examColor(e.id);

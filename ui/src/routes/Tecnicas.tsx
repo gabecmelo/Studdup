@@ -5,6 +5,7 @@
 import { useState } from "react";
 import type { Technique } from "../lib/bindings";
 import { TECHNIQUE_LABEL, TechniqueIcon } from "../components/TechniqueChip";
+import { useViewport } from "../lib/useViewport";
 
 interface TecnicaDoc {
   tipo: Technique;
@@ -50,6 +51,7 @@ const TECNICAS: readonly TecnicaDoc[] = [
 
 export function Tecnicas() {
   const [open, setOpen] = useState<Technique | null>(null);
+  const isPhone = useViewport() === "phone";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0, width: "100%", maxWidth: 940, margin: "0 auto", padding: "26px 24px 0" }}>
@@ -70,6 +72,7 @@ export function Tecnicas() {
               key={t.tipo}
               doc={t}
               open={open === t.tipo}
+              isPhone={isPhone}
               onToggle={() => setOpen((cur) => (cur === t.tipo ? null : t.tipo))}
             />
           ))}
@@ -79,7 +82,7 @@ export function Tecnicas() {
   );
 }
 
-function TecnicaCard({ doc, open, onToggle }: { doc: TecnicaDoc; open: boolean; onToggle: () => void }) {
+function TecnicaCard({ doc, open, isPhone, onToggle }: { doc: TecnicaDoc; open: boolean; isPhone: boolean; onToggle: () => void }) {
   const [hover, setHover] = useState(false);
   return (
     <div
@@ -127,18 +130,18 @@ function TecnicaCard({ doc, open, onToggle }: { doc: TecnicaDoc; open: boolean; 
       </button>
 
       {open && (
-        <div style={{ display: "flex", gap: 16, padding: "0 22px 22px 84px", flexWrap: "wrap" }}>
-          <DocPanel dot="var(--revisar)" title="Quando funciona melhor" body={doc.quando} />
-          <DocPanel dot="var(--accent)" title="Como aplicar" body={doc.como} />
+        <div style={{ display: "flex", gap: 16, padding: isPhone ? "0 18px 20px" : "0 22px 22px 84px", flexWrap: "wrap" }}>
+          <DocPanel dot="var(--revisar)" title="Quando funciona melhor" body={doc.quando} isPhone={isPhone} />
+          <DocPanel dot="var(--accent)" title="Como aplicar" body={doc.como} isPhone={isPhone} />
         </div>
       )}
     </div>
   );
 }
 
-function DocPanel({ dot, title, body }: { dot: string; title: string; body: string }) {
+function DocPanel({ dot, title, body, isPhone }: { dot: string; title: string; body: string; isPhone: boolean }) {
   return (
-    <div style={{ flex: 1, minWidth: 240, display: "flex", flexDirection: "column", gap: 8, padding: 16, borderRadius: 14, background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+    <div style={{ flex: 1, minWidth: isPhone ? 0 : 240, display: "flex", flexDirection: "column", gap: 8, padding: 16, borderRadius: 14, background: "var(--surface-2)", border: "1px solid var(--border)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
         <span style={{ width: 7, height: 7, borderRadius: 999, background: dot }} />
         <span style={{ font: "600 11px/1 var(--font-sans)", letterSpacing: ".06em", textTransform: "uppercase", color: "var(--text-2)" }}>

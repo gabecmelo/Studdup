@@ -18,7 +18,8 @@ import { EmptyState } from "../components/EmptyState";
 import { ExamsRail, type ExamRailItem } from "../components/ExamsRail";
 import { ProvaCard } from "../components/ProvaCard";
 import { examColor } from "../components/examColor";
-import { addDaysIso, placeAtDue, todayIso } from "../components/Board";
+import { addDaysIso, boardGridColumns, placeAtDue, todayIso } from "../components/Board";
+import { useViewport } from "../lib/useViewport";
 import { COLUMN_LABELS, COLUMN_ORDER, type Column } from "../components/columns";
 import { useCardHub } from "../components/useCardHub";
 import { NovaProvaModal } from "../components/modals/NovaProva";
@@ -112,6 +113,8 @@ type View = { kind: "board" } | { kind: "lista" } | { kind: "detalhe"; examId: n
 
 export function QuadroProva() {
   const today = todayIso();
+  const viewport = useViewport();
+  const isPhone = viewport === "phone";
   const board = useBoard("ExamPrep");
   const examsQuery = useExams();
   const cursorsQuery = useSessionCursors();
@@ -235,7 +238,7 @@ export function QuadroProva() {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%", minHeight: 0, padding: "0 22px 20px" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%", minHeight: 0, overflowY: isPhone ? "auto" : undefined, padding: isPhone ? "0 16px 20px" : "0 22px 20px" }}>
       {/* Context line + exam management, balanced like the spaced board's header. */}
       <div style={{ flex: "none", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, paddingTop: 2 }}>
         <span style={{ font: "400 12.5px/1.3 var(--font-sans)", color: "var(--text-2)" }}>
@@ -244,22 +247,23 @@ export function QuadroProva() {
         <GerenciarButton onClick={() => setView({ kind: "lista" })} />
       </div>
 
-      <div style={{ display: "flex", gap: 12, flex: 1, minHeight: 0, alignItems: "stretch" }}>
+      <div style={{ display: "flex", flexDirection: isPhone ? "column" : "row", gap: 12, flex: isPhone ? "none" : 1, minHeight: isPhone ? undefined : 0, alignItems: "stretch" }}>
         <ExamsRail
           exams={railItems(exams)}
           today={today}
+          fullWidth={isPhone}
           onOpenExam={(examId) => setView({ kind: "detalhe", examId })}
         />
 
         <div
           style={{
-            flex: 1,
+            flex: isPhone ? "none" : 1,
             minWidth: 0,
-            minHeight: 0,
+            minHeight: isPhone ? undefined : 0,
             display: "grid",
-            gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-            gap: 12,
-            alignItems: "stretch",
+            gridTemplateColumns: boardGridColumns(viewport),
+            gap: isPhone ? 16 : 12,
+            alignItems: isPhone ? "start" : "stretch",
           }}
         >
           {COLUMN_ORDER.map((column) => (
@@ -269,6 +273,7 @@ export function QuadroProva() {
               groups={groupByExam(columns[column], meta)}
               today={today}
               cursors={cursorById}
+              stacked={isPhone}
               onOpen={hub.open}
             />
           ))}
@@ -315,12 +320,15 @@ interface ProvaColumnProps {
   groups: ExamGroup[];
   today: ISODate;
   cursors: Map<number, SessionCursor>;
+  /** Phone: the column sizes to its content and the page scrolls (matches the spaced board). */
+  stacked?: boolean;
   onOpen: (card: CardModel) => void;
 }
 
 /** A Prova board column — the same chrome as the spaced board (radius 18, sticky header, internal
- *  scroll), but its cards are grouped under a coloured exam heading. */
-function ProvaColumn({ column, groups, today, cursors, onOpen }: ProvaColumnProps) {
+ *  scroll), but its cards are grouped under a coloured exam heading. When `stacked` (phone) the
+ *  column grows to its content and the page scrolls instead of scrolling internally. */
+function ProvaColumn({ column, groups, today, cursors, stacked = false, onOpen }: ProvaColumnProps) {
   const count = groups.reduce((n, g) => n + g.cards.length, 0);
   const showUrgent = column === "hoje" || column === "amanha";
 
@@ -340,9 +348,9 @@ function ProvaColumn({ column, groups, today, cursors, onOpen }: ProvaColumnProp
     >
       <div
         style={{
-          flex: 1,
+          flex: stacked ? "none" : 1,
           minHeight: 0,
-          overflowY: "auto",
+          overflowY: stacked ? "visible" : "auto",
           display: "flex",
           flexDirection: "column",
           gap: 14,
