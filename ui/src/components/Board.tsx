@@ -191,6 +191,8 @@ export function Board({ method }: BoardProps) {
 
   const groups = groupByColumn(cards, today);
   const contexto = boardContext(cards.length, today);
+  const isPhone = viewport === "phone";
+  const gutter = isPhone ? 16 : 22;
 
   // The board data used to resolve the intent is the unfiltered board (search/technique filters
   // must not hide the card Início asked to study). Wait until the query has resolved.
@@ -208,22 +210,24 @@ export function Board({ method }: BoardProps) {
   return (
     <>
       {/* Context line (handoff): "Segunda, 9 de agosto · N cards no quadro". */}
-      <div style={{ flex: "none", padding: "0 22px 12px", font: "400 12.5px/1.3 var(--font-sans)", color: "var(--text-2)" }}>
+      <div style={{ flex: "none", padding: `0 ${gutter}px 12px`, font: "400 12.5px/1.3 var(--font-sans)", color: "var(--text-2)" }}>
         {contexto}
       </div>
 
       <div
         style={{
-          flex: 1,
+          // Phone stacks the four sections and the SHELL's section scrolls the whole page (RWD-02),
+          // so the grid sizes to its content — a nested scroller here would trap the board in a
+          // squeezed viewport and clip the last column. Tablet/desktop keep the fixed-height grid
+          // whose columns scroll internally.
+          flex: isPhone ? "none" : 1,
           minHeight: 0,
           display: "grid",
           gridTemplateColumns: boardGridColumns(viewport),
-          // Phone stacks the four sections and the whole board area page-scrolls (each column grows
-          // to its content, RWD-02); tablet/desktop columns scroll internally within a fixed grid.
-          gap: viewport === "phone" ? 16 : 12,
+          gap: isPhone ? 14 : 12,
           alignItems: "stretch",
-          overflowY: viewport === "phone" ? "auto" : undefined,
-          padding: "0 22px 20px",
+          overflowY: isPhone ? "visible" : undefined,
+          padding: `0 ${gutter}px ${isPhone ? 24 : 20}px`,
         }}
       >
         {COLUMN_ORDER.map((column) => (
@@ -287,7 +291,9 @@ function BoardColumn({ column, method, cards, today, stacked = false, onOpen }: 
       >
         <header
           style={{
-            position: "sticky",
+            // Only a scrolling column needs a pinned header; a stacked phone section has no inner
+            // scroll, and `sticky` there just adds a stacking context for no gain.
+            position: stacked ? "static" : "sticky",
             top: 0,
             zIndex: 5,
             display: "flex",
@@ -318,7 +324,9 @@ function BoardColumn({ column, method, cards, today, stacked = false, onOpen }: 
         </header>
 
         {cards.length === 0 ? (
-          <EmptyState title={EMPTY_COLUMN_TEXT[column]} />
+          // Stacked (phone): the placeholder shrinks to a slim strip — four full-size empty boxes
+          // would be four screens of nothing to scroll past.
+          <EmptyState title={EMPTY_COLUMN_TEXT[column]} compact={stacked} />
         ) : (
           cards.map((card) => (
             <BoardCard

@@ -238,13 +238,35 @@ export function QuadroProva() {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%", minHeight: 0, overflowY: isPhone ? "auto" : undefined, padding: isPhone ? "0 16px 20px" : "0 22px 20px" }}>
-      {/* Context line + exam management, balanced like the spaced board's header. */}
-      <div style={{ flex: "none", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, paddingTop: 2 }}>
-        <span style={{ font: "400 12.5px/1.3 var(--font-sans)", color: "var(--text-2)" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 12,
+        // Phone: the shell's section is the page scroller, so this screen sizes to its content
+        // rather than nesting a second scroll area inside a squeezed viewport (RWD-02).
+        height: isPhone ? "auto" : "100%",
+        minHeight: 0,
+        padding: isPhone ? "0 16px 24px" : "0 22px 20px",
+      }}
+    >
+      {/* Context line + exam management, balanced like the spaced board's header. Phone stacks
+          them: the context sentence and the button never share 328px without one being clipped. */}
+      <div
+        style={{
+          flex: "none",
+          display: "flex",
+          flexDirection: isPhone ? "column" : "row",
+          alignItems: isPhone ? "stretch" : "center",
+          justifyContent: "space-between",
+          gap: isPhone ? 10 : 16,
+          paddingTop: 2,
+        }}
+      >
+        <span style={{ font: "400 12.5px/1.35 var(--font-sans)", color: "var(--text-2)" }}>
           {provaContext(exams.length, today)}
         </span>
-        <GerenciarButton onClick={() => setView({ kind: "lista" })} />
+        <GerenciarButton onClick={() => setView({ kind: "lista" })} fullWidth={isPhone} />
       </div>
 
       <div style={{ display: "flex", flexDirection: isPhone ? "column" : "row", gap: 12, flex: isPhone ? "none" : 1, minHeight: isPhone ? undefined : 0, alignItems: "stretch" }}>
@@ -262,7 +284,7 @@ export function QuadroProva() {
             minHeight: isPhone ? undefined : 0,
             display: "grid",
             gridTemplateColumns: boardGridColumns(viewport),
-            gap: isPhone ? 16 : 12,
+            gap: isPhone ? 14 : 12,
             alignItems: isPhone ? "start" : "stretch",
           }}
         >
@@ -288,7 +310,7 @@ export function QuadroProva() {
 }
 
 /** "Gerenciar provas" — a secondary action that opens the exam list; hovers to a stronger border. */
-function GerenciarButton({ onClick }: { onClick: () => void }) {
+function GerenciarButton({ onClick, fullWidth = false }: { onClick: () => void; fullWidth?: boolean }) {
   const [hover, setHover] = useState(false);
   return (
     <button
@@ -299,14 +321,20 @@ function GerenciarButton({ onClick }: { onClick: () => void }) {
       style={{
         display: "flex",
         alignItems: "center",
+        // Phone: full-width and 44px tall, so it reads as the screen's action rather than a chip
+        // fighting the context line for the same row (RWD-04).
+        justifyContent: fullWidth ? "center" : undefined,
+        width: fullWidth ? "100%" : undefined,
+        minHeight: fullWidth ? 44 : undefined,
         gap: 7,
-        padding: "9px 15px",
+        padding: fullWidth ? "0 15px" : "9px 15px",
         borderRadius: "var(--radius-md)",
         border: `1px solid ${hover ? "var(--border-strong)" : "var(--border)"}`,
         background: "var(--surface)",
         color: "var(--text)",
-        font: "600 12.5px/1 var(--font-sans)",
+        font: `600 ${fullWidth ? 13.5 : 12.5}px/1 var(--font-sans)`,
         cursor: "pointer",
+        flex: "none",
         transition: "border-color var(--transition-fast)",
       }}
     >
@@ -390,7 +418,10 @@ function ProvaColumn({ column, groups, today, cursors, stacked = false, onOpen }
         </header>
 
         {groups.length === 0 ? (
-          <EmptyState title={column === "amanha" ? "Nada marcado pra amanhã — respira." : "Sem sessões aqui."} />
+          <EmptyState
+            title={column === "amanha" ? "Nada marcado pra amanhã — respira." : "Sem sessões aqui."}
+            compact={stacked}
+          />
         ) : (
           groups.map((group) => {
             const color = examColor(group.key);
