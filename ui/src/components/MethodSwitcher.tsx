@@ -12,15 +12,19 @@ const OPTIONS: { value: Method; label: string }[] = [
 export interface MethodSwitcherProps {
   value: Method;
   onChange: (method: Method) => void;
+  /** Phone (RWD-05): stretch to the full gutter width with two equal halves, so the long
+   *  "Repetição Espaçada" label is never clipped by whatever shares its row. */
+  fullWidth?: boolean;
 }
 
-export function MethodSwitcher({ value, onChange }: MethodSwitcherProps) {
+export function MethodSwitcher({ value, onChange, fullWidth = false }: MethodSwitcherProps) {
   return (
     <div
       role="tablist"
       aria-label="Método de estudo"
       style={{
-        display: "inline-flex",
+        display: fullWidth ? "flex" : "inline-flex",
+        width: fullWidth ? "100%" : undefined,
         gap: 5,
         padding: 5,
         background: "var(--surface-2)",
@@ -41,11 +45,17 @@ export function MethodSwitcher({ value, onChange }: MethodSwitcherProps) {
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 9,
-              padding: "9px 16px",
+              justifyContent: fullWidth ? "center" : undefined,
+              gap: fullWidth ? 7 : 9,
+              flex: fullWidth ? 1 : "none",
+              minWidth: 0,
+              // 44px tall on phone so each half is a real touch target (RWD-04).
+              minHeight: fullWidth ? 44 : undefined,
+              padding: fullWidth ? "0 10px" : "9px 16px",
               borderRadius: 10,
               border: "none",
               cursor: "pointer",
+              whiteSpace: "nowrap",
               transition: "var(--transition-fast)",
               font: active ? "600 13px/1 var(--font-sans)" : "500 13px/1 var(--font-sans)",
               background: active ? "var(--accent)" : "transparent",

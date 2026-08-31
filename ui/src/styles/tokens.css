@@ -165,7 +165,14 @@
 html,
 body {
   margin: 0;
-  min-height: 100%;
+  height: 100%;
+  /* Touch shells (Android) — the app is a fixed shell that scrolls internally, so the document
+     itself must never pan: no horizontal drift from a stray wide child, no rubber-band/pull-to-
+     refresh at the edges, and no WebView font auto-inflation rescaling our type scale (RWD-01). */
+  overflow-x: hidden;
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
@@ -176,6 +183,16 @@ body {
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+}
+
+/* Touch: kill the grey tap flash and the long-press text selection so controls feel native. Text
+   containers stay selectable — only the interactive chrome opts out. */
+button,
+[role="tab"],
+[role="option"] {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 :focus-visible {

@@ -156,6 +156,35 @@ export function PlusIcon({ size = 16 }: { size?: number }) {
   );
 }
 
+/** The "Mais" glyph — the phone tab bar folds the reference routes behind one overflow tab. */
+export function MoreIcon({ size = 20 }: { size?: number }) {
+  return (
+    <Line size={size}>
+      <circle cx="5" cy="12" r="1.4" />
+      <circle cx="12" cy="12" r="1.4" />
+      <circle cx="19" cy="12" r="1.4" />
+    </Line>
+  );
+}
+
+/** A funnel icon — the phone board's technique filter, where the full label has no room. */
+export function FilterIcon({ size = 18 }: { size?: number }) {
+  return (
+    <Line size={size}>
+      <path d="M4 5.5h16l-6.2 7.2V19l-3.6-2v-4.3Z" />
+    </Line>
+  );
+}
+
+/** A close (×) icon — dismisses the phone "Mais" sheet. */
+export function CloseIcon({ size = 18 }: { size?: number }) {
+  return (
+    <Line size={size}>
+      <path d="M6 6l12 12M18 6 6 18" />
+    </Line>
+  );
+}
+
 /** A search (magnifier) icon for the board search field. */
 export function SearchIcon({ size = 15 }: { size?: number }) {
   return (

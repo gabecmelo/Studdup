@@ -13,6 +13,8 @@ import type { Technique } from "../lib/bindings";
 import { MethodSwitcher } from "./MethodSwitcher";
 import { TECHNIQUE_LABEL } from "./TechniqueChip";
 import {
+  CloseIcon,
+  FilterIcon,
   NavGlyph,
   PlusIcon,
   SearchIcon,
@@ -39,11 +41,14 @@ const COLLAPSE_KEY = "studdup.sidebar.collapsed";
 const EXPANDED_WIDTH = 250;
 const RAIL_WIDTH = 66;
 
-/** Room reserved at the bottom of the content so the fixed phone tab bar never hides content. */
-const BOTTOM_NAV_CLEARANCE = "calc(58px + env(safe-area-inset-bottom, 20px))";
-
 /** The brand mark keeps one size in both the expanded sidebar and the collapsed rail. */
 const MARK_SIZE = 26;
+
+/** Horizontal page gutter on phone. One value, so every screen's edges line up (RWD-01). */
+export const PHONE_GUTTER = 16;
+
+/** Breathing room under the last element of a phone screen, above the tab bar. */
+export const PHONE_BOTTOM_PAD = 24;
 
 function readCollapsedPref(): boolean {
   if (typeof localStorage === "undefined") return false;
@@ -72,9 +77,13 @@ export function AppShell() {
   const [collapsedPref, setCollapsedPref] = useState<boolean>(readCollapsedPref);
   const viewport = useViewport();
   const chrome = chromeFor(viewport);
+  const isPhone = chrome === "bottombar";
   const [route, setRoute] = useState<RouteKey>(DEFAULT_ROUTE);
   const [theme, setTheme] = useState<Theme>(() => resolveTheme(getStoredPreference()));
   const [showNewCard, setShowNewCard] = useState(false);
+  // Phone: search is a top-bar toggle rather than a permanently parked field, because a 172px input
+  // next to a two-option switcher does not fit 360px and stole the row the switcher needs.
+  const [phoneSearchOpen, setPhoneSearchOpen] = useState(false);
   const method = useStore((s) => s.activeMethod);
   const setMethod = useStore((s) => s.setActiveMethod);
   const createCard = useCreateCard();
@@ -85,7 +94,11 @@ export function AppShell() {
   const collapsed = chrome === "rail" || (chrome === "sidebar" && collapsedPref);
   const canToggle = chrome === "sidebar";
   const isBoard = route === "quadro";
-  const isMethodScoped = METHOD_SCOPED.has(route);
+  // Histórico carries its own Método filter (Todos / Espaçada / Prova) and reads the full event log
+  // regardless of the active method, so the promoted switcher is decorative there. On a phone that
+  // costs a whole row AND puts two different "Prova" controls on one screen — so phone scopes the
+  // switcher to the board, where it actually swaps what you're looking at.
+  const isMethodScoped = isPhone ? isBoard : METHOD_SCOPED.has(route);
 
   const toggleCollapse = useCallback(() => {
     setCollapsedPref((prev) => {
@@ -122,6 +135,105 @@ export function AppShell() {
     return () => window.removeEventListener("keydown", onKey);
   }, [toggleCollapse]);
 
+  const routeContent = (
+    <RouteView route={route} onNavigate={setRoute} theme={theme} onChooseTheme={chooseTheme} />
+  );
+
+  // ── Phone (RWD-05) ────────────────────────────────────────────────────────────────────────────
+  // A native app column: [top bar][one scroller][tab bar]. The tab bar is a flow child, so nothing
+  // can hide beneath it; the section is the screen's ONLY scroller, so every route scrolls as one
+  // page instead of nesting scroll areas inside a squeezed viewport.
+  if (isPhone) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          height: "100vh",
+          overflow: "hidden",
+          background: "var(--bg)",
+          color: "var(--text)",
+        }}
+      >
+        <PhoneTopBar
+          route={route}
+          showSearch={isBoard}
+          searchOpen={phoneSearchOpen}
+          onToggleSearch={() => setPhoneSearchOpen((o) => !o)}
+        />
+
+        {isMethodScoped && (
+          <div
+            style={{
+              flex: "none",
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+              padding: `4px ${PHONE_GUTTER}px 12px`,
+            }}
+          >
+            {/* Full-bleed segmented control: two equal halves, so "Repetição Espaçada" is never
+                clipped by a search field sharing its row. */}
+            <MethodSwitcher value={method} onChange={setMethod} fullWidth />
+            {isBoard && phoneSearchOpen && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <SearchField grow autoFocus />
+                <FilterMenu compact />
+              </div>
+            )}
+          </div>
+        )}
+
+        <section
+          style={{
+            flex: 1,
+            minWidth: 0,
+            minHeight: 0,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "stretch",
+            overflowY: "auto",
+            overflowX: "hidden",
+            // Routes own their phone padding (PHONE_GUTTER) so each can set its own rhythm; the
+            // shell adding a second gutter here is what produced the 40px squeeze.
+            padding: 0,
+            WebkitOverflowScrolling: "touch",
+          }}
+        >
+          {routeContent}
+        </section>
+
+        <BottomNav
+          route={route}
+          onNavigate={setRoute}
+          onNewCard={() => setShowNewCard(true)}
+          theme={theme}
+          onChooseTheme={chooseTheme}
+        />
+
+        {showNewCard && (
+          <NovoCardModal
+            activeMethod={method}
+            exams={(examsQuery.data ?? [])
+              .filter((e) => !e.concluded)
+              .map((e) => ({ id: e.id, name: e.name }))}
+            onClose={() => setShowNewCard(false)}
+            onCreate={(card) => {
+              createCard.mutate(card);
+              setShowNewCard(false);
+            }}
+            onCreateExam={() => {
+              setShowNewCard(false);
+              setMethod("ExamPrep");
+              setRoute("quadro");
+            }}
+          />
+        )}
+      </div>
+    );
+  }
+
+  // ── Tablet + desktop ──────────────────────────────────────────────────────────────────────────
   return (
     <div
       style={{
@@ -132,18 +244,16 @@ export function AppShell() {
         color: "var(--text)",
       }}
     >
-      {chrome !== "bottombar" && (
-        <Sidebar
-          collapsed={collapsed}
-          canToggle={canToggle}
-          route={route}
-          theme={theme}
-          onNavigate={setRoute}
-          onToggle={toggleCollapse}
-          onChooseTheme={chooseTheme}
-          onNewCard={() => setShowNewCard(true)}
-        />
-      )}
+      <Sidebar
+        collapsed={collapsed}
+        canToggle={canToggle}
+        route={route}
+        theme={theme}
+        onNavigate={setRoute}
+        onToggle={toggleCollapse}
+        onChooseTheme={chooseTheme}
+        onNewCard={() => setShowNewCard(true)}
+      />
 
       <main
         style={{
@@ -153,8 +263,6 @@ export function AppShell() {
           display: "flex",
           flexDirection: "column",
           background: "var(--bg)",
-          // Phone: reserve room so the fixed bottom tab bar never covers content.
-          paddingBottom: chrome === "bottombar" ? BOTTOM_NAV_CLEARANCE : undefined,
         }}
       >
         {isMethodScoped && (
@@ -194,17 +302,9 @@ export function AppShell() {
             padding: isBoard ? 0 : isMethodScoped ? "0 22px 22px" : "22px 24px",
           }}
         >
-          <RouteView route={route} onNavigate={setRoute} theme={theme} onChooseTheme={chooseTheme} />
+          {routeContent}
         </section>
       </main>
-
-      {chrome === "bottombar" && (
-        <BottomNav
-          route={route}
-          onNavigate={setRoute}
-          onNewCard={() => setShowNewCard(true)}
-        />
-      )}
 
       {showNewCard && (
         <NovoCardModal
@@ -230,8 +330,92 @@ export function AppShell() {
   );
 }
 
+/**
+ * The phone top bar (RWD-05). Gives every screen a title anchored below the status bar — the phone
+ * build previously started content flush against the system clock, with no title and no brand at
+ * all. `env(safe-area-inset-top)` (enabled by `viewport-fit=cover`) keeps it clear of the notch.
+ * Início shows the wordmark instead of a title, since its greeting already names the screen.
+ */
+function PhoneTopBar({
+  route,
+  showSearch,
+  searchOpen,
+  onToggleSearch,
+}: {
+  route: RouteKey;
+  showSearch: boolean;
+  searchOpen: boolean;
+  onToggleSearch: () => void;
+}) {
+  const label = ROUTES.find((r) => r.key === route)?.label ?? "";
+  return (
+    <header
+      style={{
+        flex: "none",
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        minHeight: 52,
+        // `max()` rather than a bare `env()`: the app draws edge-to-edge, and on a device that
+        // reports a 0 inset (no cutout, or a WebView that doesn't surface one) a bare env would put
+        // the title directly under the system clock — which is exactly what the phone build did.
+        padding: `max(22px, env(safe-area-inset-top, 0px)) ${PHONE_GUTTER}px 8px`,
+        background: "var(--bg)",
+      }}
+    >
+      {route === "inicio" ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 9, color: "var(--accent)" }}>
+          <StuddupMark size={24} />
+          <Wordmark style={{ font: "700 18px/1 var(--font-sans)", color: "var(--text)" }} />
+        </div>
+      ) : (
+        <span
+          style={{
+            flex: 1,
+            minWidth: 0,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            font: "600 21px/1.2 var(--font-sans)",
+            letterSpacing: "-.02em",
+            color: "var(--text)",
+          }}
+        >
+          {label}
+        </span>
+      )}
+
+      <span style={{ flex: 1 }} />
+
+      {showSearch && (
+        <button
+          type="button"
+          onClick={onToggleSearch}
+          aria-label={searchOpen ? "Fechar a busca" : "Buscar card"}
+          aria-expanded={searchOpen}
+          style={{
+            flex: "none",
+            width: 44,
+            height: 44,
+            borderRadius: 13,
+            border: "none",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            background: searchOpen ? "var(--accent-soft)" : "var(--surface-2)",
+            color: searchOpen ? "var(--accent-soft-ink)" : "var(--text-2)",
+          }}
+        >
+          {searchOpen ? <CloseIcon size={18} /> : <SearchIcon size={18} />}
+        </button>
+      )}
+    </header>
+  );
+}
+
 /** Board search field — filters the board's cards by title (KAN). Focus/hover strengthen the border. */
-function SearchField() {
+function SearchField({ grow = false, autoFocus = false }: { grow?: boolean; autoFocus?: boolean }) {
   const [focus, setFocus] = useState(false);
   const query = useStore((s) => s.boardSearch);
   const setQuery = useStore((s) => s.setBoardSearch);
@@ -241,16 +425,20 @@ function SearchField() {
         display: "flex",
         alignItems: "center",
         gap: 8,
-        padding: "9px 13px",
+        // Phone: 44px tall and full-width — a touch target, not a desktop chip.
+        padding: grow ? "0 13px" : "9px 13px",
+        height: grow ? 44 : undefined,
         background: "var(--surface)",
         border: `1px solid ${focus ? "var(--accent)" : "var(--border)"}`,
         borderRadius: 11,
-        width: 172,
+        width: grow ? undefined : 172,
+        flex: grow ? 1 : "none",
+        minWidth: 0,
         color: "var(--text-3)",
         transition: "border-color var(--transition-fast)",
       }}
     >
-      <SearchIcon size={14} />
+      <SearchIcon size={grow ? 16 : 14} />
       <input
         type="text"
         value={query}
@@ -259,6 +447,9 @@ function SearchField() {
         onBlur={() => setFocus(false)}
         placeholder="Buscar card…"
         aria-label="Buscar card"
+        // eslint-disable-next-line jsx-a11y/no-autofocus -- the field only exists once the user
+        // taps search on phone, so focusing it is the point of the tap.
+        autoFocus={autoFocus}
         style={{
           flex: 1,
           minWidth: 0,
@@ -266,7 +457,8 @@ function SearchField() {
           outline: "none",
           background: "transparent",
           color: "var(--text)",
-          font: "400 12.5px/1 var(--font-sans)",
+          // 16px on phone: anything smaller makes the WebView zoom the page on focus.
+          font: `400 ${grow ? 16 : 12.5}px/1 var(--font-sans)`,
         }}
       />
       {query && (
@@ -286,8 +478,10 @@ function SearchField() {
 /** The techniques offered in the board filter (+ the "all" reset). */
 const FILTER_TECHNIQUES: readonly Technique[] = ["Pomodoro", "ActiveRecall", "Feynman", "Leitner"];
 
-/** Technique filter dropdown — narrows the board to one technique (KAN). */
-function FilterMenu() {
+/** Technique filter dropdown — narrows the board to one technique (KAN). `compact` is the phone
+ *  variant: a 44px square that shows only the funnel, since the full label does not fit beside the
+ *  search field at 360px. */
+function FilterMenu({ compact = false }: { compact?: boolean }) {
   const { hover, bind } = useHover();
   const [open, setOpen] = useState(false);
   const value = useStore((s) => s.boardTechnique);
@@ -318,8 +512,14 @@ function FilterMenu() {
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-label={compact ? `Filtrar por técnica — ${label}` : undefined}
         style={{
-          padding: "9px 13px",
+          padding: compact ? 0 : "9px 13px",
+          width: compact ? 44 : undefined,
+          height: compact ? 44 : undefined,
+          display: compact ? "flex" : undefined,
+          alignItems: compact ? "center" : undefined,
+          justifyContent: compact ? "center" : undefined,
           background: active ? "var(--accent-soft)" : "var(--surface)",
           border: `1px solid ${active ? "var(--accent)" : hover ? "var(--border-strong)" : "var(--border)"}`,
           borderRadius: 11,
@@ -327,10 +527,11 @@ function FilterMenu() {
           color: active ? "var(--accent-soft-ink)" : hover ? "var(--text)" : "var(--text-2)",
           cursor: "pointer",
           whiteSpace: "nowrap",
+          flex: "none",
           transition: "border-color var(--transition-fast), color var(--transition-fast)",
         }}
       >
-        {label} ▾
+        {compact ? <FilterIcon size={18} /> : `${label} ▾`}
       </button>
       {open && (
         <div
