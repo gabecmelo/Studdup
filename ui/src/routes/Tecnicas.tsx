@@ -5,6 +5,7 @@
 import { useState } from "react";
 import type { Technique } from "../lib/bindings";
 import { TECHNIQUE_LABEL, TechniqueIcon } from "../components/TechniqueChip";
+import { useViewport } from "../lib/useViewport";
 
 interface TecnicaDoc {
   tipo: Technique;
@@ -50,26 +51,45 @@ const TECNICAS: readonly TecnicaDoc[] = [
 
 export function Tecnicas() {
   const [open, setOpen] = useState<Technique | null>(null);
+  const isPhone = useViewport() === "phone";
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0, width: "100%", maxWidth: 940, margin: "0 auto", padding: "26px 24px 0" }}>
-      <div style={{ flex: "none", display: "flex", flexDirection: "column", gap: 6, paddingBottom: 20 }}>
-        <span style={{ font: "600 26px/1.1 var(--font-sans)", letterSpacing: "-.025em", color: "var(--text)" }}>
-          Catálogo de técnicas
-        </span>
-        <span style={{ font: "400 13.5px/1.4 var(--font-sans)", color: "var(--text-2)", maxWidth: 640 }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        // Phone: the shell's section is the page scroller, so this screen sizes to its content
+        // instead of nesting a second scroll area (RWD-02).
+        height: isPhone ? "auto" : "100%",
+        minHeight: 0,
+        width: "100%",
+        maxWidth: 940,
+        margin: "0 auto",
+        padding: isPhone ? "0 16px" : "26px 24px 0",
+      }}
+    >
+      <div style={{ flex: "none", display: "flex", flexDirection: "column", gap: 6, paddingBottom: isPhone ? 14 : 20 }}>
+        {/* The phone top bar already titles this screen — repeating "Catálogo de técnicas" as a
+            26px heading cost two wrapped lines of a short screen, so only the lede stays. */}
+        {!isPhone && (
+          <span style={{ font: "600 26px/1.1 var(--font-sans)", letterSpacing: "-.025em", color: "var(--text)" }}>
+            Catálogo de técnicas
+          </span>
+        )}
+        <span style={{ font: "400 13.5px/1.45 var(--font-sans)", color: "var(--text-2)", maxWidth: 640 }}>
           Quatro formas de estudar um card. Escolha por card — a técnica muda como a sessão funciona,
           não quando ela aparece no quadro.
         </span>
       </div>
 
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: 28 }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ flex: isPhone ? "none" : 1, minHeight: 0, overflowY: isPhone ? "visible" : "auto", paddingBottom: isPhone ? 24 : 28 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: isPhone ? 10 : 14 }}>
           {TECNICAS.map((t) => (
             <TecnicaCard
               key={t.tipo}
               doc={t}
               open={open === t.tipo}
+              isPhone={isPhone}
               onToggle={() => setOpen((cur) => (cur === t.tipo ? null : t.tipo))}
             />
           ))}
@@ -79,7 +99,7 @@ export function Tecnicas() {
   );
 }
 
-function TecnicaCard({ doc, open, onToggle }: { doc: TecnicaDoc; open: boolean; onToggle: () => void }) {
+function TecnicaCard({ doc, open, isPhone, onToggle }: { doc: TecnicaDoc; open: boolean; isPhone: boolean; onToggle: () => void }) {
   const [hover, setHover] = useState(false);
   return (
     <div
@@ -103,8 +123,10 @@ function TecnicaCard({ doc, open, onToggle }: { doc: TecnicaDoc; open: boolean; 
         style={{
           display: "flex",
           alignItems: "center",
-          gap: 16,
-          padding: "20px 22px",
+          // Phone: a 46px tile + 30px chevron + 16px gaps ate 108px of a 328px card and squeezed
+          // the summary into a four-line sliver. Everything steps down one notch here.
+          gap: isPhone ? 12 : 16,
+          padding: isPhone ? "16px 14px" : "20px 22px",
           border: "none",
           background: hover && !open ? "var(--surface-2)" : "transparent",
           cursor: "pointer",
@@ -112,33 +134,35 @@ function TecnicaCard({ doc, open, onToggle }: { doc: TecnicaDoc; open: boolean; 
           transition: "background var(--transition-fast)",
         }}
       >
-        <span style={{ width: 46, height: 46, borderRadius: 13, background: "var(--accent-soft)", color: "var(--accent-soft-ink)", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}>
-          <TechniqueIcon technique={doc.tipo} size={20} />
+        <span style={{ width: isPhone ? 38 : 46, height: isPhone ? 38 : 46, borderRadius: isPhone ? 11 : 13, background: "var(--accent-soft)", color: "var(--accent-soft-ink)", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}>
+          <TechniqueIcon technique={doc.tipo} size={isPhone ? 17 : 20} />
         </span>
         <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
-          <span style={{ font: "600 17px/1.2 var(--font-sans)", letterSpacing: "-.01em", color: "var(--text)" }}>
+          <span style={{ font: `600 ${isPhone ? 15.5 : 17}px/1.2 var(--font-sans)`, letterSpacing: "-.01em", color: "var(--text)" }}>
             {TECHNIQUE_LABEL[doc.tipo]}
           </span>
-          <span style={{ font: "400 13px/1.4 var(--font-sans)", color: "var(--text-2)" }}>{doc.resumo}</span>
+          <span style={{ font: `400 ${isPhone ? 12.5 : 13}px/1.45 var(--font-sans)`, color: "var(--text-2)" }}>{doc.resumo}</span>
         </span>
-        <span style={{ width: 30, height: 30, borderRadius: 9, background: "var(--surface-2)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-3)", font: "500 13px/1 var(--font-sans)", flex: "none" }}>
+        <span style={{ width: isPhone ? 26 : 30, height: isPhone ? 26 : 30, borderRadius: 9, background: "var(--surface-2)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-3)", font: "500 13px/1 var(--font-sans)", flex: "none" }}>
           {open ? "▴" : "▾"}
         </span>
       </button>
 
       {open && (
-        <div style={{ display: "flex", gap: 16, padding: "0 22px 22px 84px", flexWrap: "wrap" }}>
-          <DocPanel dot="var(--revisar)" title="Quando funciona melhor" body={doc.quando} />
-          <DocPanel dot="var(--accent)" title="Como aplicar" body={doc.como} />
+        <div style={{ display: "flex", gap: isPhone ? 10 : 16, padding: isPhone ? "0 14px 16px" : "0 22px 22px 84px", flexWrap: "wrap" }}>
+          <DocPanel dot="var(--revisar)" title="Quando funciona melhor" body={doc.quando} isPhone={isPhone} />
+          <DocPanel dot="var(--accent)" title="Como aplicar" body={doc.como} isPhone={isPhone} />
         </div>
       )}
     </div>
   );
 }
 
-function DocPanel({ dot, title, body }: { dot: string; title: string; body: string }) {
+function DocPanel({ dot, title, body, isPhone }: { dot: string; title: string; body: string; isPhone: boolean }) {
   return (
-    <div style={{ flex: 1, minWidth: 240, display: "flex", flexDirection: "column", gap: 8, padding: 16, borderRadius: 14, background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+    // Phone: `minWidth: 100%` forces each panel onto its own row. With `minWidth: 0` the two
+    // panels shared one wrapped row at ~150px each, which is where the shredded text came from.
+    <div style={{ flex: 1, minWidth: isPhone ? "100%" : 240, display: "flex", flexDirection: "column", gap: 8, padding: isPhone ? 14 : 16, borderRadius: 14, background: "var(--surface-2)", border: "1px solid var(--border)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
         <span style={{ width: 7, height: 7, borderRadius: 999, background: dot }} />
         <span style={{ font: "600 11px/1 var(--font-sans)", letterSpacing: ".06em", textTransform: "uppercase", color: "var(--text-2)" }}>

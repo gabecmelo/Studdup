@@ -12,6 +12,7 @@ import { useBoard, useExams } from "../lib/queries";
 import { placeCard, todayIso } from "../components/Board";
 import { examColor } from "../components/examColor";
 import { useStore } from "../store";
+import { useViewport } from "../lib/useViewport";
 import type { RouteKey } from ".";
 
 /** A time-of-day greeting (no stored user name, so no trailing name as in the mock). */
@@ -35,6 +36,7 @@ function dueToday(cards: CardModel[], today: string): number {
 
 export function Inicio({ onNavigate }: { onNavigate?: (route: RouteKey) => void }) {
   const today = todayIso();
+  const isPhone = useViewport() === "phone";
   const spaced = useBoard("SpacedRepetition");
   const exam = useBoard("ExamPrep");
   const examsQuery = useExams();
@@ -80,24 +82,28 @@ export function Inicio({ onNavigate }: { onNavigate?: (route: RouteKey) => void 
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0, width: "100%", maxWidth: 1080, margin: "0 auto", padding: "34px 24px 24px" }}>
-      <div style={{ flex: "none", display: "flex", flexDirection: "column", gap: 5, paddingBottom: 26 }}>
-        <span style={{ font: "400 12.5px/1 var(--font-mono)", letterSpacing: ".02em", color: "var(--text-3)" }}>
+    // Phone: `1 0 auto` fills the shell's scroller when the content is short — which is what lets
+    // the calm ✓ hero sit centred in the screen instead of clinging to the top — and still grows
+    // past it when there is real work to show.
+    <div style={{ display: "flex", flexDirection: "column", flex: isPhone ? "1 0 auto" : undefined, height: isPhone ? "auto" : "100%", minHeight: 0, width: "100%", maxWidth: 1080, margin: "0 auto", padding: isPhone ? "4px 16px 24px" : "34px 24px 24px" }}>
+      <div style={{ flex: "none", display: "flex", flexDirection: "column", gap: isPhone ? 3 : 5, paddingBottom: isPhone ? 18 : 26 }}>
+        <span style={{ font: `400 ${isPhone ? 12 : 12.5}px/1 var(--font-mono)`, letterSpacing: ".02em", color: "var(--text-3)" }}>
           {longToday()}
         </span>
-        <span style={{ font: "600 30px/1.1 var(--font-sans)", letterSpacing: "-.025em", color: "var(--text)" }}>
+        <span style={{ font: `600 ${isPhone ? 26 : 30}px/1.1 var(--font-sans)`, letterSpacing: "-.025em", color: "var(--text)" }}>
           {greeting(new Date().getHours())}
         </span>
       </div>
 
       {calmo ? (
-        <CalmoHero onStudy={() => onNavigate?.("quadro")} />
+        <CalmoHero onStudy={() => onNavigate?.("quadro")} isPhone={isPhone} />
       ) : (
-        <div style={{ flex: 1, minHeight: 0, display: "flex", gap: 26, alignItems: "stretch" }}>
-          <ParaAgora dueCount={dueCount} onStudy={onStudyNow} />
+        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: isPhone ? "column" : "row", gap: isPhone ? 14 : 26, alignItems: "stretch" }}>
+          <ParaAgora dueCount={dueCount} onStudy={onStudyNow} isPhone={isPhone} />
           <ProvasProximas
             exams={upcoming.map((e) => ({ id: e.id, name: e.name, days: e.days_remaining }))}
             onOpen={onOpenExam}
+            isPhone={isPhone}
           />
         </div>
       )}
@@ -105,47 +111,64 @@ export function Inicio({ onNavigate }: { onNavigate?: (route: RouteKey) => void 
   );
 }
 
-function CalmoHero({ onStudy }: { onStudy: () => void }) {
+function CalmoHero({ onStudy, isPhone }: { onStudy: () => void; isPhone: boolean }) {
+  // Phone: the ring and the headline shrink a step so the whole calm state — mark, title, copy and
+  // the escape-hatch button — lands in one screen without scrolling.
+  const ring = isPhone ? 108 : 132;
   return (
-    <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 22, textAlign: "center", paddingBottom: 40 }}>
-      <div style={{ position: "relative", width: 132, height: 132, flex: "none", display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: isPhone ? 18 : 22, textAlign: "center", paddingTop: isPhone ? 24 : 0, paddingBottom: isPhone ? 8 : 40 }}>
+      <div style={{ position: "relative", width: ring, height: ring, flex: "none", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ position: "absolute", inset: 0, borderRadius: 999, background: "var(--accent-soft)", opacity: 0.5 }} />
-        <div style={{ position: "absolute", inset: 18, borderRadius: 999, background: "var(--accent-soft)" }} />
-        <div style={{ position: "relative", width: 60, height: 60, borderRadius: 999, background: "var(--accent)", color: "var(--accent-ink)", display: "flex", alignItems: "center", justifyContent: "center", font: "600 26px/1 var(--font-sans)", boxShadow: "var(--shadow-accent)" }}>
+        <div style={{ position: "absolute", inset: isPhone ? 15 : 18, borderRadius: 999, background: "var(--accent-soft)" }} />
+        <div style={{ position: "relative", width: isPhone ? 52 : 60, height: isPhone ? 52 : 60, borderRadius: 999, background: "var(--accent)", color: "var(--accent-ink)", display: "flex", alignItems: "center", justifyContent: "center", font: `600 ${isPhone ? 23 : 26}px/1 var(--font-sans)`, boxShadow: "var(--shadow-accent)" }}>
           ✓
         </div>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 11, maxWidth: 440 }}>
-        <span style={{ font: "600 27px/1.15 var(--font-sans)", letterSpacing: "-.025em", color: "var(--text)" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: isPhone ? 9 : 11, maxWidth: 440 }}>
+        <span style={{ font: `600 ${isPhone ? 23 : 27}px/1.15 var(--font-sans)`, letterSpacing: "-.025em", color: "var(--text)" }}>
           Tudo em dia por hoje
         </span>
-        <span style={{ font: "400 14.5px/1.6 var(--font-sans)", color: "var(--text-2)" }}>
+        <span style={{ font: `400 ${isPhone ? 14 : 14.5}px/1.6 var(--font-sans)`, color: "var(--text-2)" }}>
           Nada vence hoje e nenhuma prova está no horizonte próximo. O Studdup avisa você quando algo
           pedir atenção — até lá, pode descansar tranquilo.
         </span>
       </div>
-      <HoverChip onClick={onStudy} />
+      <HoverChip onClick={onStudy} isPhone={isPhone} />
     </div>
   );
 }
 
-function HoverChip({ onClick }: { onClick: () => void }) {
+function HoverChip({ onClick, isPhone }: { onClick: () => void; isPhone: boolean }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      style={{ display: "flex", alignItems: "center", gap: 9, padding: "10px 18px", borderRadius: 12, background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--shadow-1)", cursor: "pointer" }}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 9,
+        // Phone: full-width and 48px tall — a real touch target, not a desktop chip.
+        width: isPhone ? "100%" : undefined,
+        minHeight: isPhone ? 48 : undefined,
+        padding: isPhone ? "0 18px" : "10px 18px",
+        borderRadius: isPhone ? 14 : 12,
+        background: "var(--surface)",
+        border: "1px solid var(--border)",
+        boxShadow: "var(--shadow-1)",
+        cursor: "pointer",
+      }}
     >
-      <span style={{ font: "600 13px/1 var(--font-sans)", color: "var(--text-2)" }}>Estudar algo mesmo assim</span>
+      <span style={{ font: `600 ${isPhone ? 14 : 13}px/1 var(--font-sans)`, color: "var(--text-2)" }}>Estudar algo mesmo assim</span>
       <span style={{ font: "600 13px/1 var(--font-sans)", color: "var(--text-3)" }}>→</span>
     </button>
   );
 }
 
-function ParaAgora({ dueCount, onStudy }: { dueCount: number; onStudy: () => void }) {
+function ParaAgora({ dueCount, onStudy, isPhone }: { dueCount: number; onStudy: () => void; isPhone: boolean }) {
   const nada = dueCount === 0;
   return (
-    <div style={{ flex: 1.25, display: "flex", flexDirection: "column", gap: 22, padding: 32, borderRadius: 22, background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--shadow-2)" }}>
+    <div style={{ flex: isPhone ? "none" : 1.25, display: "flex", flexDirection: "column", gap: isPhone ? 18 : 22, padding: isPhone ? 20 : 32, borderRadius: isPhone ? 20 : 22, background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--shadow-2)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, font: "600 11px/1 var(--font-sans)", letterSpacing: ".12em", textTransform: "uppercase", color: "var(--text-3)" }}>
         <span style={{ width: 7, height: 7, borderRadius: 999, background: "var(--accent)" }} />
         Para agora
@@ -168,11 +191,14 @@ function ParaAgora({ dueCount, onStudy }: { dueCount: number; onStudy: () => voi
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
-            <span style={{ font: "700 76px/0.9 var(--font-sans)", letterSpacing: "-.04em", color: "var(--accent)" }}>
+          {/* Phone: the count and its label share a baseline row only if both fit — at 76px/20px on
+              a 360px screen "cards vencem hoje" wrapped into a ragged two-line stub, so the phone
+              steps the numeral down and lets the label wrap under a narrower column. */}
+          <div style={{ display: "flex", alignItems: "baseline", gap: isPhone ? 11 : 14, flexWrap: "wrap" }}>
+            <span style={{ font: `700 ${isPhone ? 58 : 76}px/0.9 var(--font-sans)`, letterSpacing: "-.04em", color: "var(--accent)" }}>
               {dueCount}
             </span>
-            <span style={{ font: "600 20px/1.15 var(--font-sans)", color: "var(--text)", paddingBottom: 6 }}>
+            <span style={{ font: `600 ${isPhone ? 17 : 20}px/1.2 var(--font-sans)`, color: "var(--text)", paddingBottom: isPhone ? 4 : 6 }}>
               {dueCount === 1 ? "card vence hoje" : "cards vencem hoje"}
             </span>
           </div>
@@ -229,12 +255,14 @@ function CTAButton({ primary, label, onClick }: { primary: boolean; label: strin
 function ProvasProximas({
   exams,
   onOpen,
+  isPhone,
 }: {
   exams: { id: number; name: string; days: number }[];
   onOpen: () => void;
+  isPhone: boolean;
 }) {
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 16, padding: 28, borderRadius: 22, background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+    <div style={{ flex: isPhone ? "none" : 1, display: "flex", flexDirection: "column", gap: 16, padding: isPhone ? 20 : 28, borderRadius: 22, background: "var(--surface-2)", border: "1px solid var(--border)" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, font: "600 11px/1 var(--font-sans)", letterSpacing: ".12em", textTransform: "uppercase", color: "var(--text-3)" }}>
           <span style={{ width: 7, height: 7, borderRadius: 999, background: "var(--revisar)" }} />
@@ -258,7 +286,7 @@ function ProvasProximas({
           </span>
         </div>
       ) : (
-        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ flex: isPhone ? "none" : 1, minHeight: 0, overflowY: isPhone ? "visible" : "auto", display: "flex", flexDirection: "column", gap: 10 }}>
           {exams.map((e) => {
             const urgent = e.days <= 3;
             const color = examColor(e.id);

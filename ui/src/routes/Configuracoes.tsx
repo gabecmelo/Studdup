@@ -14,6 +14,7 @@ import {
   isEstInRange,
 } from "../lib/sessionEstimate";
 import { TECHNIQUE_LABEL, TECHNIQUE_SUMMARY } from "../components/TechniqueChip";
+import { useViewport } from "../lib/useViewport";
 import type { Theme } from "../styles/theme";
 
 /** The techniques that carry a configurable default estimate (all four; "none" has no estimate). */
@@ -41,6 +42,7 @@ export function Configuracoes({
     Leitner: builtinDefault("Leitner"),
   }));
   const [savedKey, setSavedKey] = useState<Technique | null>(null);
+  const isPhone = useViewport() === "phone";
 
   // Load any stored global defaults on mount.
   useEffect(() => {
@@ -74,7 +76,17 @@ export function Configuracoes({
   }
 
   return (
-    <div style={{ width: "100%", maxWidth: 800, display: "flex", flexDirection: "column", gap: 24 }}>
+    <div
+      style={{
+        width: "100%",
+        maxWidth: 800,
+        display: "flex",
+        flexDirection: "column",
+        gap: isPhone ? 22 : 24,
+        // Phone: this screen owns its gutter (the shell's section has none there).
+        padding: isPhone ? "6px 16px 24px" : 0,
+      }}
+    >
       <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <span style={sectionTitle}>Padrões de técnica</span>
@@ -93,8 +105,11 @@ export function Configuracoes({
                 key={technique}
                 style={{
                   display: "flex",
-                  alignItems: "center",
-                  gap: 14,
+                  // Phone: name/summary on top, then the control row. Side by side, the four-column
+                  // row left the summary ~90px wide and broke it into one word per line.
+                  flexDirection: isPhone ? "column" : "row",
+                  alignItems: isPhone ? "stretch" : "center",
+                  gap: isPhone ? 12 : 14,
                   padding: 16,
                   background: "var(--surface)",
                   border: "1px solid var(--border)",
@@ -102,52 +117,66 @@ export function Configuracoes({
                 }}
               >
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ font: "600 13.5px/1.2 var(--font-sans)", color: "var(--text)" }}>
+                  <div style={{ font: `600 ${isPhone ? 15 : 13.5}px/1.25 var(--font-sans)`, color: "var(--text)" }}>
                     {TECHNIQUE_LABEL[technique]}
                   </div>
-                  <div style={{ font: "400 11.5px/1.3 var(--font-sans)", color: "var(--text-3)" }}>
+                  <div style={{ font: `400 ${isPhone ? 12.5 : 11.5}px/1.4 var(--font-sans)`, color: "var(--text-3)" }}>
                     {TECHNIQUE_SUMMARY[technique]}
                   </div>
                 </div>
-                <input
-                  type="number"
-                  min={EST_MIN}
-                  max={EST_MAX}
-                  value={value}
-                  aria-label={`Duração padrão de ${TECHNIQUE_LABEL[technique]} em minutos`}
-                  aria-invalid={invalid}
-                  onChange={(e) =>
-                    setValues((v) => ({ ...v, [technique]: Number(e.target.value) }))
-                  }
-                  style={{
-                    width: 84,
-                    padding: "9px 11px",
-                    borderRadius: 10,
-                    background: "var(--bg)",
-                    border: `1.5px solid ${invalid ? "var(--danger)" : "var(--border-strong)"}`,
-                    color: "var(--text)",
-                    font: "500 14px/1.3 var(--font-sans)",
-                    outline: "none",
-                    boxSizing: "border-box",
-                  }}
-                />
-                <span style={{ font: "500 12px/1 var(--font-sans)", color: "var(--text-3)" }}>min</span>
-                <button
-                  type="button"
-                  onClick={() => save(technique)}
-                  disabled={invalid}
-                  style={{
-                    padding: "9px 15px",
-                    borderRadius: 10,
-                    border: "none",
-                    cursor: invalid ? "not-allowed" : "pointer",
-                    font: "600 12.5px/1 var(--font-sans)",
-                    background: invalid ? "var(--surface-3)" : "var(--accent)",
-                    color: invalid ? "var(--text-3)" : "var(--accent-ink)",
-                  }}
-                >
-                  {savedKey === technique ? "Salvo ✓" : "Salvar"}
-                </button>
+                <div style={{ display: "flex", alignItems: "center", gap: isPhone ? 10 : 14 }}>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={EST_MIN}
+                    max={EST_MAX}
+                    value={value}
+                    aria-label={`Duração padrão de ${TECHNIQUE_LABEL[technique]} em minutos`}
+                    aria-invalid={invalid}
+                    onChange={(e) =>
+                      setValues((v) => ({ ...v, [technique]: Number(e.target.value) }))
+                    }
+                    style={{
+                      width: 84,
+                      flex: "none",
+                      height: isPhone ? 46 : undefined,
+                      padding: "9px 11px",
+                      borderRadius: 10,
+                      background: "var(--bg)",
+                      border: `1.5px solid ${invalid ? "var(--danger)" : "var(--border-strong)"}`,
+                      color: "var(--text)",
+                      // 16px on phone — below that the WebView zooms the page on focus.
+                      font: `500 ${isPhone ? 16 : 14}px/1.3 var(--font-sans)`,
+                      outline: "none",
+                      boxSizing: "border-box",
+                    }}
+                  />
+                  {/* `marginRight: auto` on phone keeps "min" glued to its input and pushes Salvar
+                      to the far edge of the card. */}
+                  <span style={{ font: `500 ${isPhone ? 13 : 12}px/1 var(--font-sans)`, color: "var(--text-3)", flex: "none", marginRight: isPhone ? "auto" : undefined }}>
+                    min
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => save(technique)}
+                    disabled={invalid}
+                    style={{
+                      // Phone: 46px tall (RWD-04) but sized to its label — a full-width purple bar
+                      // on all four rows would read as the screen's primary action four times over.
+                      flex: "none",
+                      height: isPhone ? 46 : undefined,
+                      padding: isPhone ? "0 24px" : "9px 15px",
+                      borderRadius: 10,
+                      border: "none",
+                      cursor: invalid ? "not-allowed" : "pointer",
+                      font: `600 ${isPhone ? 14 : 12.5}px/1 var(--font-sans)`,
+                      background: invalid ? "var(--surface-3)" : "var(--accent)",
+                      color: invalid ? "var(--text-3)" : "var(--accent-ink)",
+                    }}
+                  >
+                    {savedKey === technique ? "Salvo ✓" : "Salvar"}
+                  </button>
+                </div>
               </div>
             );
           })}
@@ -161,7 +190,8 @@ export function Configuracoes({
           role="group"
           aria-label="Tema"
           style={{
-            alignSelf: "flex-start",
+            // Phone: full-width halves, matching the method switcher's segmented rhythm.
+            alignSelf: isPhone ? "stretch" : "flex-start",
             display: "flex",
             gap: 4,
             padding: 4,
@@ -178,7 +208,9 @@ export function Configuracoes({
                 onClick={() => onChooseTheme(t)}
                 aria-pressed={active}
                 style={{
-                  padding: "9px 18px",
+                  flex: isPhone ? 1 : "none",
+                  height: isPhone ? 44 : undefined,
+                  padding: isPhone ? "0 18px" : "9px 18px",
                   borderRadius: 9,
                   border: "none",
                   cursor: "pointer",

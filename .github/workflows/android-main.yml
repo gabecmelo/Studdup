@@ -1,0 +1,111 @@
+# Release APK for every merge into main (CI-01/CI-02).
+#
+# A merged PR is a push to main, so that is the trigger. The signed APK is
+# published to a rolling prerelease tagged `main-latest`, which gives a stable
+# download URL that always points at the newest build of main:
+#
+#   https://github.com/<owner>/<repo>/releases/tag/main-latest
+#
+# The tag is `main-latest`, not `main`, on purpose: a tag named `main` alongside
+# the branch `main` makes every `git`/`gh` ref lookup ambiguous.
+#
+# Relationship to release-please.yml: that workflow owns VERSIONED releases
+# (v0.4.0 …) and attaches its own APK to them when the Release PR is merged.
+# This one is the always-current build of main in between those versions, so it
+# skips release-please's own release commits — otherwise a single merge would
+# publish the same build twice, once here and once as the version.
+
+name: APK da main
+
+on:
+  push:
+    branches: [main]
+
+# Serialize: two merges landing close together must not race to recreate the
+# same release, and only the newer APK is worth publishing anyway.
+concurrency:
+  group: android-main
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  meta:
+    name: Resolve the build identity
+    runs-on: ubuntu-latest
+    # `chore(main): release …` is the commit release-please pushes when its
+    # Release PR merges; release-please.yml already ships that build as a
+    # versioned release.
+    if: "${{ !startsWith(github.event.head_commit.message, 'chore(main): release') }}"
+    outputs:
+      artifact: ${{ steps.id.outputs.artifact }}
+      apk: ${{ steps.id.outputs.apk }}
+      sha: ${{ steps.id.outputs.sha }}
+    steps:
+      - id: id
+        run: |
+          sha=$(printf '%s' "${{ github.sha }}" | cut -c1-7)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "artifact=studdup-main-$sha" >> "$GITHUB_OUTPUT"
+          echo "apk=studdup-main-$sha.apk" >> "$GITHUB_OUTPUT"
+
+  apk:
+    name: APK
+    needs: meta
+    uses: ./.github/workflows/android-apk.yml
+    secrets: inherit
+    with:
+      artifact-name: ${{ needs.meta.outputs.artifact }}
+      apk-filename: ${{ needs.meta.outputs.apk }}
+
+  publish:
+    name: Publish the rolling main release
+    needs: [meta, apk]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download the APK
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.meta.outputs.artifact }}
+          path: dist
+
+      # Delete-then-recreate rather than edit-in-place: `gh release edit` cannot
+      # move an existing tag to a new commit, so an edited release would keep
+      # claiming the commit it was first cut from.
+      - name: Publish to the rolling `main-latest` prerelease
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          apk="dist/${{ needs.meta.outputs.apk }}"
+          test -f "$apk"
+
+          notes=$(cat <<NOTES
+          Build automático do último merge na \`main\` — **não é uma versão publicada**.
+          Para versões estáveis, veja as releases \`v*\`.
+
+          | | |
+          |---|---|
+          | Commit | [\`${{ needs.meta.outputs.sha }}\`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}) |
+          | Data | $(date -u '+%Y-%m-%d %H:%M UTC') |
+          | Arquitetura | arm64 (aarch64) |
+
+          APK assinado — instale habilitando "fontes desconhecidas" no Android.
+          NOTES
+          )
+
+          gh release delete main-latest --yes --cleanup-tag || true
+          gh release create main-latest "$apk" \
+            --prerelease \
+            --target "${{ github.sha }}" \
+            --title "Build da main (${{ needs.meta.outputs.sha }})" \
+            --notes "$notes"
+
+          {
+            echo "### APK da main publicado"
+            echo
+            echo "<${{ github.server_url }}/${{ github.repository }}/releases/tag/main-latest>"
+          } >> "$GITHUB_STEP_SUMMARY"

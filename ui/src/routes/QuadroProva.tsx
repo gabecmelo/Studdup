@@ -18,7 +18,8 @@ import { EmptyState } from "../components/EmptyState";
 import { ExamsRail, type ExamRailItem } from "../components/ExamsRail";
 import { ProvaCard } from "../components/ProvaCard";
 import { examColor } from "../components/examColor";
-import { addDaysIso, placeAtDue, todayIso } from "../components/Board";
+import { addDaysIso, boardGridColumns, placeAtDue, todayIso } from "../components/Board";
+import { useViewport } from "../lib/useViewport";
 import { COLUMN_LABELS, COLUMN_ORDER, type Column } from "../components/columns";
 import { useCardHub } from "../components/useCardHub";
 import { NovaProvaModal } from "../components/modals/NovaProva";
@@ -112,6 +113,8 @@ type View = { kind: "board" } | { kind: "lista" } | { kind: "detalhe"; examId: n
 
 export function QuadroProva() {
   const today = todayIso();
+  const viewport = useViewport();
+  const isPhone = viewport === "phone";
   const board = useBoard("ExamPrep");
   const examsQuery = useExams();
   const cursorsQuery = useSessionCursors();
@@ -235,31 +238,54 @@ export function QuadroProva() {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%", minHeight: 0, padding: "0 22px 20px" }}>
-      {/* Context line + exam management, balanced like the spaced board's header. */}
-      <div style={{ flex: "none", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, paddingTop: 2 }}>
-        <span style={{ font: "400 12.5px/1.3 var(--font-sans)", color: "var(--text-2)" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 12,
+        // Phone: the shell's section is the page scroller, so this screen sizes to its content
+        // rather than nesting a second scroll area inside a squeezed viewport (RWD-02).
+        height: isPhone ? "auto" : "100%",
+        minHeight: 0,
+        padding: isPhone ? "0 16px 24px" : "0 22px 20px",
+      }}
+    >
+      {/* Context line + exam management, balanced like the spaced board's header. Phone stacks
+          them: the context sentence and the button never share 328px without one being clipped. */}
+      <div
+        style={{
+          flex: "none",
+          display: "flex",
+          flexDirection: isPhone ? "column" : "row",
+          alignItems: isPhone ? "stretch" : "center",
+          justifyContent: "space-between",
+          gap: isPhone ? 10 : 16,
+          paddingTop: 2,
+        }}
+      >
+        <span style={{ font: "400 12.5px/1.35 var(--font-sans)", color: "var(--text-2)" }}>
           {provaContext(exams.length, today)}
         </span>
-        <GerenciarButton onClick={() => setView({ kind: "lista" })} />
+        <GerenciarButton onClick={() => setView({ kind: "lista" })} fullWidth={isPhone} />
       </div>
 
-      <div style={{ display: "flex", gap: 12, flex: 1, minHeight: 0, alignItems: "stretch" }}>
+      <div style={{ display: "flex", flexDirection: isPhone ? "column" : "row", gap: 12, flex: isPhone ? "none" : 1, minHeight: isPhone ? undefined : 0, alignItems: "stretch" }}>
         <ExamsRail
           exams={railItems(exams)}
           today={today}
+          fullWidth={isPhone}
           onOpenExam={(examId) => setView({ kind: "detalhe", examId })}
         />
 
         <div
           style={{
-            flex: 1,
+            flex: isPhone ? "none" : 1,
             minWidth: 0,
-            minHeight: 0,
+            minHeight: isPhone ? undefined : 0,
             display: "grid",
-            gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-            gap: 12,
-            alignItems: "stretch",
+            gridTemplateColumns: boardGridColumns(viewport),
+            gap: isPhone ? 14 : 12,
+            alignItems: isPhone ? "start" : "stretch",
           }}
         >
           {COLUMN_ORDER.map((column) => (
@@ -269,6 +295,7 @@ export function QuadroProva() {
               groups={groupByExam(columns[column], meta)}
               today={today}
               cursors={cursorById}
+              stacked={isPhone}
               onOpen={hub.open}
             />
           ))}
@@ -283,7 +310,7 @@ export function QuadroProva() {
 }
 
 /** "Gerenciar provas" — a secondary action that opens the exam list; hovers to a stronger border. */
-function GerenciarButton({ onClick }: { onClick: () => void }) {
+function GerenciarButton({ onClick, fullWidth = false }: { onClick: () => void; fullWidth?: boolean }) {
   const [hover, setHover] = useState(false);
   return (
     <button
@@ -294,14 +321,20 @@ function GerenciarButton({ onClick }: { onClick: () => void }) {
       style={{
         display: "flex",
         alignItems: "center",
+        // Phone: full-width and 44px tall, so it reads as the screen's action rather than a chip
+        // fighting the context line for the same row (RWD-04).
+        justifyContent: fullWidth ? "center" : undefined,
+        width: fullWidth ? "100%" : undefined,
+        minHeight: fullWidth ? 44 : undefined,
         gap: 7,
-        padding: "9px 15px",
+        padding: fullWidth ? "0 15px" : "9px 15px",
         borderRadius: "var(--radius-md)",
         border: `1px solid ${hover ? "var(--border-strong)" : "var(--border)"}`,
         background: "var(--surface)",
         color: "var(--text)",
-        font: "600 12.5px/1 var(--font-sans)",
+        font: `600 ${fullWidth ? 13.5 : 12.5}px/1 var(--font-sans)`,
         cursor: "pointer",
+        flex: "none",
         transition: "border-color var(--transition-fast)",
       }}
     >
@@ -315,12 +348,15 @@ interface ProvaColumnProps {
   groups: ExamGroup[];
   today: ISODate;
   cursors: Map<number, SessionCursor>;
+  /** Phone: the column sizes to its content and the page scrolls (matches the spaced board). */
+  stacked?: boolean;
   onOpen: (card: CardModel) => void;
 }
 
 /** A Prova board column — the same chrome as the spaced board (radius 18, sticky header, internal
- *  scroll), but its cards are grouped under a coloured exam heading. */
-function ProvaColumn({ column, groups, today, cursors, onOpen }: ProvaColumnProps) {
+ *  scroll), but its cards are grouped under a coloured exam heading. When `stacked` (phone) the
+ *  column grows to its content and the page scrolls instead of scrolling internally. */
+function ProvaColumn({ column, groups, today, cursors, stacked = false, onOpen }: ProvaColumnProps) {
   const count = groups.reduce((n, g) => n + g.cards.length, 0);
   const showUrgent = column === "hoje" || column === "amanha";
 
@@ -340,9 +376,9 @@ function ProvaColumn({ column, groups, today, cursors, onOpen }: ProvaColumnProp
     >
       <div
         style={{
-          flex: 1,
+          flex: stacked ? "none" : 1,
           minHeight: 0,
-          overflowY: "auto",
+          overflowY: stacked ? "visible" : "auto",
           display: "flex",
           flexDirection: "column",
           gap: 14,
@@ -382,7 +418,10 @@ function ProvaColumn({ column, groups, today, cursors, onOpen }: ProvaColumnProp
         </header>
 
         {groups.length === 0 ? (
-          <EmptyState title={column === "amanha" ? "Nada marcado pra amanhã — respira." : "Sem sessões aqui."} />
+          <EmptyState
+            title={column === "amanha" ? "Nada marcado pra amanhã — respira." : "Sem sessões aqui."}
+            compact={stacked}
+          />
         ) : (
           groups.map((group) => {
             const color = examColor(group.key);

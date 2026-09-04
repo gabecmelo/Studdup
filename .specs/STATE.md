@@ -283,3 +283,37 @@ even mark a card done — without doing the work, which contradicts that. AD-004
 kanban and the postpone-equals-reschedule semantics (now only via the Adiar flow); only the
 direct-manipulation drag is dropped. The `@dnd-kit` dependency and the pure `lib/dnd` resolver are removed as
 dead code.
+
+---
+
+### AD-017 — Studdup targets Android too; one Tauri app, local-first, three responsive breakpoints
+
+**Date:** 2026-08-06 · **Status:** Active (extends AD-002 stack, AD-004 board, AD-009 shell)
+
+Studdup ships an **Android** build from the **same** Tauri app — same `studdup-core` (Rust) and same React
+UI — not a separate mobile project. It stays **local-first**: each device keeps its own SQLite file; there is
+no backend and no cross-device sync in this cycle (cloud sync is the intended future *paid* tier, Obsidian
+model). iOS is deferred (needs Mac + paid Apple account). Distribution is a **self-signed APK attached to
+GitHub Releases** (sideload); Play Store deferred. The single bundle identifier is **`com.studdup.app`**
+(renamed from `com.studdup.desktop`; also the Android `applicationId`).
+
+**Structure & data-path consequences (locked):**
+- The `studdup` crate becomes **lib + bin**: a `run()` fn annotated with the Tauri mobile entry point, called
+  by both `main.rs` (desktop) and the generated Android project. `studdup/gen/android` is committed.
+- DB open + migration moves into the Tauri `setup` hook so the path can be **platform-resolved**: **desktop
+  keeps the env-based `paths::default_db_path()`** (`%APPDATA%/studdup` etc. — existing users' data and the
+  MIG-01 legacy copy are untouched); **Android uses Tauri's `app_data_dir`** (no `HOME`/`APPDATA` there). The
+  fatal-on-DB-failure invariant (never open a blank DB) is preserved on mobile without `process::exit`.
+
+**Responsive model (locked):** the UI uses inline styles driven by a JS viewport hook (the existing
+`window.innerWidth` pattern), so responsiveness is **JS-branched**, not CSS media queries. Three breakpoints:
+- **Phone `< 640px`** — navigation is a **bottom tab bar** (Novo Card emphasized); the 4-column board becomes
+  **stacked full-width sections** (Hoje → Amanhã → Próximos → Concluídos), page scrolls vertically.
+- **Tablet `640–1023px`** — the existing collapsed **icon rail** (AD-009) + a **2-column** board.
+- **Desktop `≥ 1024px`** — unchanged: sidebar + 4-column grid. No desktop regression.
+
+**Why:** Tauri v2 makes mobile a target of the one app, so a shared core/UI is strictly less work and less
+drift than a second codebase; `rusqlite` already uses `features=["bundled"]`, which is exactly what
+cross-compiles SQLite to the Android NDK. Local-first now keeps scope honest and reserves sync as the
+monetization lever. The board must reflow (4 columns are unusable at phone width) but AD-004's derived-column
+model and AD-016's no-drag both carry over unchanged — only the *arrangement* is breakpoint-dependent.

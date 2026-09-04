@@ -2,7 +2,14 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- `viewport-fit=cover` lets the app draw edge-to-edge on Android and makes the
+         `env(safe-area-inset-*)` values real, so the shell can pad around the status bar and the
+         gesture pill instead of running under them (RWD-01). -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#111014" />
     <title>studdup</title>
   </head>
   <body>

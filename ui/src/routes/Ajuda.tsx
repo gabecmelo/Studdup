@@ -4,6 +4,7 @@
 // honest; "Catálogo de técnicas" jumps to that screen.
 
 import type { RouteKey } from ".";
+import { useViewport } from "../lib/useViewport";
 
 interface Hotkey {
   keys: string[];
@@ -20,18 +21,36 @@ const HOTKEYS: readonly Hotkey[] = [
 ];
 
 export function Ajuda({ onNavigate }: { onNavigate?: (route: RouteKey) => void }) {
+  const isPhone = useViewport() === "phone";
   return (
-    <div style={{ height: "100%", minHeight: 0, overflowY: "auto", width: "100%", padding: "30px 24px 40px" }}>
-      <div style={{ maxWidth: 900, margin: "0 auto", display: "flex", flexDirection: "column", gap: 26 }}>
+    <div
+      style={{
+        // Phone: the shell's section scrolls the page; this screen sizes to its content.
+        height: isPhone ? "auto" : "100%",
+        minHeight: 0,
+        overflowY: isPhone ? "visible" : "auto",
+        width: "100%",
+        padding: isPhone ? "0 16px 24px" : "30px 24px 40px",
+      }}
+    >
+      <div style={{ maxWidth: 900, margin: "0 auto", display: "flex", flexDirection: "column", gap: isPhone ? 22 : 26 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <span style={{ font: "600 27px/1.1 var(--font-sans)", letterSpacing: "-.025em", color: "var(--text)" }}>
-            Ajuda
-          </span>
-          <span style={{ font: "400 13.5px/1.4 var(--font-sans)", color: "var(--text-2)" }}>
-            Como o Studdup pensa, e os atalhos pra andar rápido.
+          {/* Titled by the phone top bar — see AppShell's PhoneTopBar. */}
+          {!isPhone && (
+            <span style={{ font: "600 27px/1.1 var(--font-sans)", letterSpacing: "-.025em", color: "var(--text)" }}>
+              Ajuda
+            </span>
+          )}
+          <span style={{ font: "400 13.5px/1.45 var(--font-sans)", color: "var(--text-2)" }}>
+            {isPhone
+              ? "Como o Studdup pensa: o que decide quando um card volta, e o que decide como você estuda."
+              : "Como o Studdup pensa, e os atalhos pra andar rápido."}
           </span>
         </div>
 
+        {/* Keyboard shortcuts are desktop-only content — a phone has no Ctrl key, and listing four
+            unreachable bindings was the first thing the phone user scrolled past (RWD-01). */}
+        {!isPhone && (
         <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <span style={sectionLabel}>Atalhos de teclado</span>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 10 }}>
@@ -68,15 +87,17 @@ export function Ajuda({ onNavigate }: { onNavigate?: (route: RouteKey) => void }
             ))}
           </div>
         </section>
+        )}
 
         <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <span style={sectionLabel}>Os dois conceitos centrais</span>
-          <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: isPhone ? 10 : 14, flexWrap: "wrap" }}>
             <ConceptCard
               badge="M"
               badgeBg="var(--accent-soft)"
               badgeInk="var(--accent-soft-ink)"
               title="Método"
+              isPhone={isPhone}
             >
               O método decide <B>quando</B> um card volta pra você. <B>Repetição Espaçada</B> agenda
               revisões em intervalos que crescem (Dia 0, 1, 2, 5, 15, 30). <B>Prova</B> distribui as
@@ -87,6 +108,7 @@ export function Ajuda({ onNavigate }: { onNavigate?: (route: RouteKey) => void }
               badgeBg="var(--revisar-soft)"
               badgeInk="var(--revisar-ink)"
               title="Técnica"
+              isPhone={isPhone}
             >
               A técnica decide <B>como</B> você estuda numa sessão: Pomodoro, Active Recall, Feynman ou
               Leitner. Ela pode mudar a qualquer momento e não afeta o agendamento — só o ritual de
@@ -108,8 +130,9 @@ export function Ajuda({ onNavigate }: { onNavigate?: (route: RouteKey) => void }
             ✿
           </span>
           <span style={{ flex: 1, font: "400 12.5px/1.5 var(--font-sans)", color: "var(--text-2)" }}>
-            Tudo fica salvo neste computador, offline. Nenhum dado sai da sua máquina — nem login, nem
-            nuvem.
+            {isPhone
+              ? "Tudo fica salvo neste aparelho, offline. Nenhum dado sai do seu celular — nem login, nem nuvem."
+              : "Tudo fica salvo neste computador, offline. Nenhum dado sai da sua máquina — nem login, nem nuvem."}
           </span>
         </div>
       </div>
@@ -126,23 +149,27 @@ function ConceptCard({
   badgeBg,
   badgeInk,
   title,
+  isPhone,
   children,
 }: {
   badge: string;
   badgeBg: string;
   badgeInk: string;
   title: string;
+  isPhone: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <div style={{ flex: 1, minWidth: 280, display: "flex", flexDirection: "column", gap: 11, padding: 22, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 18 }}>
+    // `minWidth: 100%` on phone keeps the two cards stacked; the 280px desktop floor would have
+    // overflowed a 328px content column once the gap is counted.
+    <div style={{ flex: 1, minWidth: isPhone ? "100%" : 280, display: "flex", flexDirection: "column", gap: 11, padding: isPhone ? 18 : 22, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 18 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
-        <span style={{ width: 40, height: 40, borderRadius: 12, background: badgeBg, color: badgeInk, display: "flex", alignItems: "center", justifyContent: "center", font: "600 18px/1 var(--font-sans)" }}>
+        <span style={{ width: isPhone ? 36 : 40, height: isPhone ? 36 : 40, flex: "none", borderRadius: 12, background: badgeBg, color: badgeInk, display: "flex", alignItems: "center", justifyContent: "center", font: `600 ${isPhone ? 16 : 18}px/1 var(--font-sans)` }}>
           {badge}
         </span>
-        <span style={{ font: "600 17px/1.2 var(--font-sans)", color: "var(--text)" }}>{title}</span>
+        <span style={{ font: `600 ${isPhone ? 16 : 17}px/1.2 var(--font-sans)`, color: "var(--text)" }}>{title}</span>
       </div>
-      <p style={{ margin: 0, font: "400 13.5px/1.6 var(--font-sans)", color: "var(--text-2)" }}>{children}</p>
+      <p style={{ margin: 0, font: `400 ${isPhone ? 13 : 13.5}px/1.6 var(--font-sans)`, color: "var(--text-2)" }}>{children}</p>
     </div>
   );
 }
