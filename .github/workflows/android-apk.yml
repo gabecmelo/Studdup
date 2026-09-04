@@ -1,0 +1,178 @@
+# Reusable Android APK build (CI-01/CI-02).
+#
+# Called by:
+#   - android-staging.yml — manual, any branch, produces a downloadable artifact;
+#   - android-main.yml    — every merge to main, publishes the rolling build.
+#
+# It is a `workflow_call` workflow rather than copy-pasted steps because the
+# Android toolchain setup (JDK 17 + SDK + NDK + the Rust Android targets + the
+# embedded UI + the release keystore) is ~80 lines that must stay identical
+# across every APK we ship — a staging APK built differently from the release
+# one would not be testing the release one.
+#
+# Signing: the APK is signed from a keystore supplied through repository
+# secrets, wired into gen/android/keystore.properties for the signingConfigs
+# block committed in gen/android/app/build.gradle.kts (see SETUP.md "Android
+# release signing"). No plaintext key ever lives in the repo. The job FAILS
+# when the secrets are absent instead of shipping an unsigned APK, because an
+# unsigned APK cannot be installed at all — Android rejects it as "pacote
+# inválido", which looks like a broken app rather than a missing secret.
+
+name: Android APK (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      artifact-name:
+        description: Name of the uploaded artifact holding the APK.
+        type: string
+        required: true
+      apk-filename:
+        description: Filename the built APK is renamed to (must end in .apk).
+        type: string
+        required: true
+      build-args:
+        description: >-
+          Extra arguments for `tauri android build`. Defaults to arm64 only:
+          it covers essentially every current Android phone and builds roughly
+          4x faster than the default four-architecture APK.
+        type: string
+        required: false
+        default: --target aarch64
+      ref:
+        description: Git ref to build. Defaults to the ref that triggered the caller.
+        type: string
+        required: false
+        default: ''
+      retention-days:
+        description: How long to keep the uploaded artifact.
+        type: number
+        required: false
+        default: 30
+    outputs:
+      apk-filename:
+        description: The APK filename inside the artifact.
+        value: ${{ inputs.apk-filename }}
+
+jobs:
+  build:
+    name: Build the signed APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # An empty `ref` makes checkout use the caller's triggering ref, which
+          # is what workflow_dispatch's branch picker sets.
+          ref: ${{ inputs.ref }}
+
+      # Fail before spending ~10 minutes on a toolchain we cannot sign with.
+      - name: Check that the signing secrets are present
+        env:
+          ANDROID_KEY_BASE64: ${{ secrets.ANDROID_KEY_BASE64 }}
+        run: |
+          if [ -z "$ANDROID_KEY_BASE64" ]; then
+            echo "::error::Missing the Android signing secrets. An unsigned APK cannot be installed."
+            echo "::error::Set ANDROID_KEY_BASE64, ANDROID_KEY_ALIAS, ANDROID_STORE_PASSWORD and"
+            echo "::error::ANDROID_KEY_PASSWORD — see SETUP.md, 'Android release signing'."
+            exit 1
+          fi
+
+      - name: Install JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up the Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install the Android NDK
+        # Pinned to the NDK Tauri builds against; bump alongside the Tauri toolchain
+        # (and keep it in step with release-please.yml).
+        run: |
+          sdkmanager "ndk;27.0.11902837"
+          echo "NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.0.11902837" >> "$GITHUB_ENV"
+
+      - name: Install the Rust toolchain with the Android targets
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+
+      - name: Cache cargo build
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      # The app crate embeds ui/dist at compile time and tauri.conf.json has no
+      # beforeBuildCommand, so the frontend must be built explicitly first.
+      - name: Build the UI (embedded by the Tauri app)
+        run: |
+          npm ci
+          npm run build
+        working-directory: ui
+
+      - name: Install the Tauri CLI
+        run: npm install -g @tauri-apps/cli@^2
+
+      # gen/android is committed (it carries the signingConfigs block); this is
+      # only a safety net for a checkout that predates that commit.
+      - name: Generate the Android project if it isn't committed
+        working-directory: studdup
+        run: |
+          if [ ! -d gen/android ]; then
+            tauri android init
+          fi
+
+      - name: Wire the release keystore from secrets
+        working-directory: studdup
+        env:
+          ANDROID_KEY_BASE64: ${{ secrets.ANDROID_KEY_BASE64 }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+        run: |
+          keystore="$(pwd)/gen/android/keystore.jks"
+          echo "$ANDROID_KEY_BASE64" | base64 -d > "$keystore"
+          cat > gen/android/keystore.properties <<PROPS
+          storeFile=$keystore
+          storePassword=$ANDROID_STORE_PASSWORD
+          keyAlias=$ANDROID_KEY_ALIAS
+          keyPassword=$ANDROID_KEY_PASSWORD
+          PROPS
+
+      - name: Build the signed APK
+        working-directory: studdup
+        run: tauri android build --apk ${{ inputs.build-args }}
+
+      # Locating the artefact is a verification step, not just bookkeeping: a
+      # keystore that failed to apply leaves an `-unsigned.apk` behind and the
+      # build still exits 0, so an unsigned-only outcome must be an error here
+      # rather than a download that refuses to install.
+      - name: Collect and name the APK
+        id: collect
+        run: |
+          mkdir -p dist
+          signed=$(find studdup/gen/android -path '*/release/*.apk' ! -name '*-unsigned.apk' | head -n1)
+          if [ -z "$signed" ]; then
+            echo "::error::No signed APK was produced. Found instead:"
+            find studdup/gen/android -name '*.apk' -print || true
+            echo "::error::This usually means the keystore secrets are wrong, or gen/android/app/"
+            echo "::error::build.gradle.kts is missing its release signingConfigs block."
+            exit 1
+          fi
+          cp "$signed" "dist/${{ inputs.apk-filename }}"
+          ls -lh dist
+          echo "path=dist/${{ inputs.apk-filename }}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload the APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: ${{ steps.collect.outputs.path }}
+          if-no-files-found: error
+          retention-days: ${{ inputs.retention-days }}

@@ -1,0 +1,86 @@
+# Staging APK, built on demand from any branch (CI-01).
+#
+# Run it from Actions → "APK de staging" → Run workflow, and pick the branch in
+# the ref dropdown: workflow_dispatch checks out whatever ref you select, so the
+# branch picker IS the input. The signed APK lands as an artifact on the run,
+# ready to download and sideload.
+#
+# This exists so a branch can be tested on a real phone before it is merged —
+# the release APK only appears after a merge, which is too late to catch a
+# layout or a permission problem that only shows up on device.
+
+name: APK de staging
+
+on:
+  workflow_dispatch:
+    inputs:
+      arch:
+        description: Arquiteturas do APK
+        type: choice
+        required: false
+        default: "arm64 (rápido, cobre celulares atuais)"
+        options:
+          - "arm64 (rápido, cobre celulares atuais)"
+          - "universal (inclui emulador x86 e aparelhos antigos)"
+
+# One staging build per branch: a second run supersedes the first instead of
+# queueing behind it.
+concurrency:
+  group: android-staging-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Artifact names cannot contain "/", and branch names routinely do
+  # (feat/mobile-android), so the ref is slugged before it is used as a name.
+  meta:
+    name: Resolve the artifact name
+    runs-on: ubuntu-latest
+    outputs:
+      artifact: ${{ steps.slug.outputs.artifact }}
+      apk: ${{ steps.slug.outputs.apk }}
+      build-args: ${{ steps.slug.outputs.build_args }}
+    steps:
+      - id: slug
+        run: |
+          branch=$(printf '%s' "${{ github.ref_name }}" | tr '/' '-' | tr -cd '[:alnum:]._-')
+          sha=$(printf '%s' "${{ github.sha }}" | cut -c1-7)
+          echo "artifact=studdup-staging-$branch-$sha" >> "$GITHUB_OUTPUT"
+          echo "apk=studdup-staging-$branch-$sha.apk" >> "$GITHUB_OUTPUT"
+          case "${{ inputs.arch }}" in
+            universal*) echo "build_args=" >> "$GITHUB_OUTPUT" ;;
+            *)          echo "build_args=--target aarch64" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+  apk:
+    name: APK
+    needs: meta
+    uses: ./.github/workflows/android-apk.yml
+    secrets: inherit
+    with:
+      artifact-name: ${{ needs.meta.outputs.artifact }}
+      apk-filename: ${{ needs.meta.outputs.apk }}
+      build-args: ${{ needs.meta.outputs.build-args }}
+      # Staging builds are throwaway; a shorter window keeps the artifact
+      # storage from filling up with per-branch APKs.
+      retention-days: 14
+
+  # The run's own summary page is where someone lands after clicking a CI link,
+  # so the download instruction belongs there rather than in a comment.
+  summary:
+    name: Summary
+    needs: [meta, apk]
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          {
+            echo "### APK de staging pronto"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Branch | \`${{ github.ref_name }}\` |"
+            echo "| Commit | \`${{ github.sha }}\` |"
+            echo "| Arquitetura | ${{ inputs.arch }} |"
+            echo
+            echo "Baixe em **Artifacts**, no rodapé desta página: \`${{ needs.meta.outputs.artifact }}\`."
+            echo "O GitHub entrega artifacts como .zip — descompacte antes de instalar o .apk."
+          } >> "$GITHUB_STEP_SUMMARY"
