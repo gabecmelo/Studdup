@@ -115,11 +115,29 @@ workflow builds and attaches the per-OS bundles. Use **merge commits** (not squa
 individual `feat:`/`fix:` commits reach `main` — a squash collapses them into one non-conventional
 subject and release-please sees nothing to release.
 
+## Android APKs from CI
+
+Three workflows build a signed APK, all sharing the same toolchain through the reusable
+[`android-apk.yml`](.github/workflows/android-apk.yml) so a staging APK is built exactly like the
+release one:
+
+| Workflow | Trigger | Where the APK lands |
+| --- | --- | --- |
+| [`android-staging.yml`](.github/workflows/android-staging.yml) | Manual — Actions → *APK de staging* → **Run workflow**, pick the branch | Artifact on the run (14 days) |
+| [`android-main.yml`](.github/workflows/android-main.yml) | Every merge into `main` | Rolling `main-latest` prerelease |
+| [`release-please.yml`](.github/workflows/release-please.yml) | Merging the Release PR | The versioned `v*` release |
+
+`android-main.yml` skips release-please's own `chore(main): release` commit, so a released version
+is published once (as the version) rather than twice.
+
+All three need the signing secrets below; without them the build fails early rather than producing
+an unsigned APK, which Android refuses to install ("pacote inválido").
+
 ## Android release signing (maintainer, one-time)
 
-The CI Android job in [`.github/workflows/release-please.yml`](.github/workflows/release-please.yml)
-builds and signs the APK from a release keystore supplied through GitHub Actions secrets. Wiring it
-up is a one-time maintainer task; the keystore and passwords never touch the repo.
+The CI Android jobs build and sign the APK from a release keystore supplied through GitHub Actions
+secrets. Wiring it up is a one-time maintainer task; the keystore and passwords never touch the
+repo.
 
 1. Generate the Android project so `gen/android/app/build.gradle.kts` exists to edit. Commit
    `gen/android` (its gradle build outputs and the keystore are gitignored) so CI builds
